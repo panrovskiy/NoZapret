@@ -1,0 +1,389 @@
+<resources>
+    <string name="app_name">NoZapret</string>
+    <string name="nav_home">Главная</string>
+    <string name="nav_settings">Настройки</string>
+    <string name="nav_logs">Логи</string>
+    <string name="warning_no_sites_title">Сайты не выбраны</string>
+    <string name="warning_no_sites_text">Пожалуйста, выберите хотя бы один пресет или добавьте свои домены в настройках перед запуском.</string>
+    <string name="btn_go_to_settings">В настройки</string>
+    <string name="btn_dismiss">Ок</string>
+    <string name="tab_general">Общие</string>
+    <string name="tab_tests">Тесты</string>
+    <string name="tab_changelog">Изменения</string>
+    <string name="section_bypass_mode">Режим обхода</string>
+    <string name="label_bypass_list">Список обхода</string>
+    <string name="section_strategies">Стратегии</string>
+    <string name="label_strategy">Стратегия обхода</string>
+    <string name="label_applied">Применено</string>
+    <string name="label_custom_arguments">Свои аргументы</string>
+    <string name="placeholder_custom_args">-a2 -o1 -s4 …</string>
+    <string name="supporting_custom_args">Введите флаги byedpi напрямую</string>
+    <string name="btn_paste">Вставить</string>
+    <string name="btn_clear">Очистить</string>
+    <string name="btn_import_file">Импорт .txt</string>
+    <string name="msg_pasted">Вставлено из буфера обмена</string>
+    <string name="msg_imported">Импортировано из файла</string>
+    <string name="error_file_read">Не удалось прочитать файл</string>
+    <string name="section_presets">Пресеты</string>
+    <string name="preset_custom">Свой список</string>
+    <string name="no_custom_sites">Список пуст</string>
+    <string name="custom_sites_count">Добавлено сайтов: %1$d</string>
+    <string name="label_custom_domains">Свои домены</string>
+    <string name="placeholder_custom_domains">site1.com, site2.com …</string>
+    <string name="supporting_custom_domains">Разделите пробелом, запятой или точкой с запятой</string>
+    <string name="section_advanced">Дополнительно</string>
+    <string name="section_backup_restore">Резервное копирование</string>
+    <string name="btn_export_config">Экспорт настроек</string>
+    <string name="btn_import_config">Импорт настроек</string>
+    <string name="msg_config_exported">Настройки успешно экспортированы</string>
+    <string name="msg_config_imported">Настройки импортированы. Перезапуск…</string>
+    <string name="error_export_failed">Ошибка экспорта: %1$s</string>
+    <string name="error_import_failed">Ошибка импорта: %1$s</string>
+    <string name="section_troubleshooting">Устранение неполадок</string>
+    <string name="label_dns_server">DNS Сервер</string>
+    <string name="dns_google">Google (8.8.8.8)</string>
+    <string name="dns_cloudflare">Cloudflare (1.1.1.1)</string>
+    <string name="dns_quad9">Quad9 (9.9.9.9)</string>
+    <string name="dns_adguard">AdGuard (94.140.14.14)</string>
+    <string name="dns_custom">Свой вариант</string>
+    <string name="label_auto_connect">Автозапуск при открытии</string>
+    <string name="supporting_auto_connect">Автоматически запускать обход при открытии приложения</string>
+    <string name="label_enable_ipv6">Включить IPv6</string>
+    <string name="supporting_enable_ipv6">Включить поддержку IPv6 в VPN туннеле</string>
+    <string name="label_run_mode">Режим работы</string>
+    <string name="run_mode_vpn">Режим VPN (TUN)</string>
+    <string name="run_mode_proxy">Режим прокси (SOCKS5)</string>
+    <string name="label_exclude_self">Исключить NoZapret из VPN</string>
+    <string name="supporting_exclude_self">Предотвращает петли прокси</string>
+    <string name="label_global_mode">Глобальный режим</string>
+    <string name="supporting_global_mode">Применять десинхронизацию ко ВСЕМУ трафику (игнорировать список)</string>
+    <string name="label_proxy_host">Хост прокси</string>
+    <string name="label_proxy_port">Порт прокси</string>
+    <string name="label_allowed_apps">Исключения приложений из VPN</string>
+    <string name="supporting_allowed_apps">Выбранные приложения НЕ будут использовать VPN (Обход VPN)</string>
+    <string name="btn_select_apps">Выбрать приложения</string>
+    <string name="title_select_apps">Выбор приложений</string>
+    <string name="search_apps">Поиск приложений…</string>
+    <string name="error_invalid_chars">Обнаружены недопустимые символы</string>
+    <string name="label_chars">Символов: %1$d</string>
+    <string name="title_verification">Проверка</string>
+    <string name="testing_sites_count">Тестирование %1$d сайтов на стратегию.</string>
+    <string name="testing_strategies_count">Проверено %1$d/%2$d стратегий</string>
+    <string name="test_progress_short">%1$d/%2$d OK (проверено %3$d/%2$d)</string>
+    <string name="testing_starting_hint">Пожалуйста, подождите, идет подготовка к тестированию…</string>
+    <string name="btn_start">Запустить</string>
+    <string name="btn_stop">Стоп</string>
+    <string name="btn_test_all">Тест всех</string>
+    <string name="btn_reset">Сброс</string>
+    <string name="btn_filter">Фильтр по пресету</string>
+    <string name="filter_all_sites">Все сайты</string>
+    <string name="no_args_set">Аргументы не заданы</string>
+    <string name="test_success_count">Успешно: %1$d/%2$d</string>
+    <string name="no_results_yet">Нет результатов. Запустите тест.</string>
+    <string name="title_native_logs">Логи прокси</string>
+    <string name="btn_copy_logs">Копировать логи</string>
+    <string name="btn_share_logs">Поделиться логами</string>
+    <string name="msg_logs_copied">Логи скопированы в буфер обмена</string>
+    <string name="logs_fetching">Получение логов…</string>
+    <string name="logs_empty">Логи прокси не найдены.</string>
+    <string name="home_active_config">Текущая конфигурация</string>
+    <string name="home_list">Список: %1$s</string>
+    <string name="home_strategy">Стратегия: %1$s</string>
+    <string name="home_presets">Пресеты: %1$s</string>
+    <string name="status_vpn_started">VPN Запущен</string>
+    <string name="status_vpn_stopped">VPN Остановлен</string>
+    <string name="error_vpn_while_testing">Нельзя запустить VPN во время тестирования стратегий. Сначала остановите тесты.</string>
+    <string name="status_connected">ПОДКЛЮЧЕНО</string>
+    <string name="status_disconnected">ОТКЛЮЧЕНО</string>
+    <string name="label_uptime">Время работы: %1$s</string>
+    <string name="notification_title">NoZapret активен</string>
+    <string name="notification_text">Обход DPI запущен в фоновом режиме</string>
+    <string name="notification_channel_name">VPN Сервис</string>
+    <string name="notification_testing_title">Тестирование: %1$s</string>
+    <string name="notification_testing_text">Проверено %1$d/%2$d сайтов. Успешно: %3$d</string>
+    <string name="notification_testing_channel_name">Тестирование стратегий</string>
+    <string name="notification_testing_complete_title">Тест завершен: %1$s</string>
+    <string name="notification_testing_complete_text">Итог: %1$d/%2$d успешно</string>
+    <string name="btn_stop_vpn">Остановить VPN</string>
+    <string name="btn_apply_and_run">Применить и запустить</string>
+    <string name="btn_use_in_custom">В свои настройки</string>
+    <string name="msg_strategy_applied">Стратегия %1$s успешно применена</string>
+    <string name="msg_strategy_copied">Параметры стратегии скопированы в Свой вариант</string>
+    <string name="label_strategy_arguments">Аргументы стратегии</string>
+    <string name="home_hint_connected">Обход ограничений DPI активен…</string>
+    <string name="home_hint_disconnected">Нажмите, чтобы запустить</string>
+    <string name="card_regional_bypass">Региональный обход</string>
+    <string name="card_optimized_desc">Оптимизировано для современных DPI фильтров.</string>
+
+    <string name="section_appearance">Внешний вид</string>
+    <string name="label_language">Язык</string>
+    <string name="lang_system">Системный</string>
+    <string name="lang_en">English</string>
+    <string name="lang_ru">Русский</string>
+    <string name="lang_uk">Українська</string>
+    <string name="lang_kk">Қазақша</string>
+    <string name="label_theme">Тема оформления</string>
+    <string name="theme_system">Системная</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Темная</string>
+    <string name="theme_custom">Своя</string>
+    <string name="label_custom_color">Основной цвет</string>
+    <string name="label_theme_base">База темы</string>
+    <string name="msg_color_copied">Цвет скопирован в буфер обмена</string>
+
+    <!-- Site Tester -->
+    <string name="tester_title">Тест доступности</string>
+    <string name="tester_placeholder">Введите домен (например, google.com)</string>
+    <string name="tester_strategy_none">Нет (Напрямую)</string>
+    <string name="tester_btn_test">Тест</string>
+    <string name="tester_status_passed">Доступен</string>
+    <string name="tester_status_blocked">Заблокирован</string>
+    <string name="tester_latency">Задержка: %1$d мс</string>
+    <string name="tester_protocol">Протокол: %1$s</string>
+    <string name="tester_cipher">Шифр: %1$s</string>
+    <string name="tester_testing">Тестирование…</string>
+    <string name="error_invalid_url">Некорректный домен</string>
+
+    <!-- Bypass Lists -->
+    <string name="list_russia_default">Россия По умолчанию</string>
+    <string name="list_russia_youtube">Россия YouTube</string>
+    <string name="list_russia_youtube_2">Россия YouTube 2</string>
+    <string name="list_russia_youtube_3">Россия YouTube 3</string>
+    <string name="list_aggressive">Агрессивный</string>
+
+    <!-- Strategies -->
+    <string name="strategy_auto">Авто (Рекомендуется)</string>
+    <string name="strategy_auto_desc">Автоматическое определение лучших методов обхода.</string>
+    <string name="strategy_youtube_fix">YouTube Fix</string>
+    <string name="strategy_youtube_fix_desc">Оптимизированная стратегия для YouTube в России.</string>
+    <string name="strategy_modern_ultra">Modern Ultra</string>
+    <string name="strategy_modern_ultra_desc">Агрессивная комбинация фрагментации TLS и многоэтапной десинхронизации.</string>
+    <string name="strategy_youtube_google_fix">YouTube/Google Fix</string>
+    <string name="strategy_youtube_google_fix_desc">Оптимизировано для GGC: Split на SNI + фейковая рандомизированная нагрузка.</string>
+    <string name="strategy_discord_udp_fix">Discord/UDP Fix</string>
+    <string name="strategy_discord_udp_fix_desc">Продвинутая десинхронизация UDP/QUIC с многопакетными фейковыми последовательностями.</string>
+    <string name="strategy_ru_youtube_alt">RU YouTube (Alt)</string>
+    <string name="strategy_ru_youtube_alt_desc">Альтернативный обход YouTube с фейковым SNI и особым TTL.</string>
+    <string name="strategy_discord_fix">Discord Fix</string>
+    <string name="strategy_discord_fix_desc">Оптимизировано для Discord (UDP/QUIC десинхронизация, Disorder).</string>
+    <string name="strategy_ru_discord_alt">RU Discord (Alt)</string>
+    <string name="strategy_ru_discord_alt_desc">Альтернативный обход Discord с фейковым SNI и авто-режимами.</string>
+    <string name="strategy_disorder_fake">Disorder &amp; Fake</string>
+    <string name="strategy_disorder_fake_desc">Использует перемешивание пакетов и фейк-пакеты (Обычно для РФ).</string>
+    <string name="strategy_tls_split">TLS Record Split</string>
+    <string name="strategy_tls_split_desc">Разделение записей TLS для обхода фильтров SNI.</string>
+    <string name="strategy_oob_split">OOB &amp; Split</string>
+    <string name="strategy_oob_split_desc">Использует Out-Of-Band данные и фрагментацию.</string>
+    <string name="strategy_modern_mixed">Modern Mixed</string>
+    <string name="strategy_modern_mixed_desc">Комплексная стратегия, сочетающая несколько методов.</string>
+    <string name="strategy_aggressive_mixed">Aggressive Mixed</string>
+    <string name="strategy_aggressive_mixed_desc">Сочетает множество методов для наиболее строгих сетей.</string>
+    <string name="strategy_advanced_fake">Advanced Fake</string>
+    <string name="strategy_advanced_fake_desc">Сложная стратегия с фейк-пакетами, TTL и перемешиванием.</string>
+    <string name="strategy_advanced_tls">Advanced TLS</string>
+    <string name="strategy_advanced_tls_desc">Всестороннее разделение записей TLS и перемешивание.</string>
+    <string name="strategy_http_desync">HTTP Desync</string>
+    <string name="strategy_http_desync_desc">Модифицирует заголовки HTTP и использует разделение.</string>
+    <string name="strategy_udp_quic_fix">UDP/QUIC Fix</string>
+    <string name="strategy_udp_quic_fix_desc">Стратегии обхода специально для трафика UDP и QUIC.</string>
+    <string name="strategy_sni_spoofing">SNI Spoofing</string>
+    <string name="strategy_sni_spoofing_desc">Меняет SNI в фейк-пакетах для обхода фильтров.</string>
+    <string name="strategy_tls_minor">TLS Minor Version</string>
+    <string name="strategy_tls_minor_desc">Меняет минорную версию TLS для обхода некоторых фильтров.</string>
+    <string name="strategy_fake_tls_mod">Fake TLS Mod</string>
+    <string name="strategy_fake_tls_mod_desc">Использует рандомизированный фейковый TLS Client Hello.</string>
+    <string name="strategy_experimental">Экспериментальная (Multi-Group)</string>
+    <string name="strategy_experimental_desc">Продвинутая многоэтапная стратегия с несколькими методами десинхронизации.</string>
+    <string name="strategy_ru_youtube_alt_new">RU YouTube Alt (Новая)</string>
+    <string name="strategy_ru_youtube_alt_new_desc">Новая альтернативная стратегия для YouTube (Split + Desync).</string>
+    <string name="strategy_ru_discord_alt_new">RU Discord Alt (Новая)</string>
+    <string name="strategy_ru_discord_alt_new_desc">Новая альтернативная стратегия для Discord (Disorder + UDP Fake).</string>
+    <string name="strategy_kyber_aware">Kyber-Aware</string>
+    <string name="strategy_kyber_aware_desc">Оптимизировано для современных TLS (Kyber) и фрагментации.</string>
+    <string name="strategy_extreme_ru">Extreme RU</string>
+    <string name="strategy_extreme_ru_desc">Самая агрессивная стратегия для регионов с жесткими ограничениями.</string>
+    <string name="strategy_simple_split">Простой Split</string>
+    <string name="strategy_simple_split_desc">Базовое разделение TCP на 2-м байте.</string>
+    <string name="strategy_simple_fake">Простой Fake</string>
+    <string name="strategy_simple_fake_desc">Базовый фейк-пакет с TTL по умолчанию.</string>
+    <string name="strategy_oob_data">OOB Данные</string>
+    <string name="strategy_oob_data_desc">Использование Out-Of-Band данных для десинхронизации.</string>
+    <string name="strategy_host_mix">Host Mix</string>
+    <string name="strategy_host_mix_desc">Изменение регистра заголовка HTTP Host.</string>
+    <string name="strategy_tls_record_frag">Фрагментация TLS записей</string>
+    <string name="strategy_tls_record_frag_desc">Разбиение записей TLS на мелкие части.</string>
+    <string name="strategy_custom">Свой вариант</string>
+    <string name="strategy_custom_desc">Использовать аргументы из общих настроек.</string>
+
+    <!-- Presets -->
+    <string name="preset_youtube">YouTube</string>
+    <string name="preset_telegram">Telegram</string>
+    <string name="preset_discord">Discord</string>
+    <string name="preset_whatsapp">WhatsApp</string>
+    <string name="preset_cloudflare">Cloudflare</string>
+    <string name="preset_google">Google</string>
+    <string name="preset_socials">Соцсети</string>
+    <string name="preset_media">Медиа</string>
+    <string name="preset_steam">Steam</string>
+    <string name="preset_character_ai">Character AI</string>
+
+    <!-- Battery Optimization -->
+    <string name="battery_optimization_title">Работа в фоне</string>
+    <string name="battery_optimization_desc">Нажмите, чтобы отключить оптимизацию батареи. Это предотвратит внезапное отключение VPN системой.</string>
+
+    <string name="credits_text">v%1$s • от panrov</string>
+    <string name="changelog_title">Что нового</string>
+    <string name="changelog_title_full">История обновлений</string>
+    <string name="btn_history">История</string>
+    <string name="btn_back">Назад</string>
+
+    <!-- Diagnostics -->
+    <string name="btn_run_diagnostics">Запустить диагностику</string>
+    <string name="btn_check_updates">Проверить обновления</string>
+    <string name="update_dialog_title">Доступно обновление</string>
+    <string name="update_dialog_version">Доступна версия %1$s</string>
+    <string name="btn_update_now">Обновить сейчас</string>
+    <string name="update_downloading">Загрузка обновления…</string>
+    <string name="msg_latest_version">У вас установлена последняя версия</string>
+    <string name="error_update_check">Не удалось проверить обновления: %1$s</string>
+    <string name="error_download_failed">Ошибка загрузки: %1$s</string>
+    <string name="diag_title">Диагностика системы</string>
+    <string name="diag_checking">Проверка: %1$s</string>
+    <string name="diag_passed">Пройдено</string>
+    <string name="diag_failed">Ошибка</string>
+    <string name="diag_warning">Предупреждение</string>
+    <string name="diag_info">Инфо</string>
+    <string name="diag_vpn_conflict">Найдено сторонних VPN: %1$s. Они могут конфликтовать с NoZapret. Убедитесь, что они отключены.</string>
+    <string name="diag_battery_optimization">Оптимизация батареи включена. Это может привести к отключению VPN в фоновом режиме.</string>
+    <string name="diag_battery_passed">Оптимизация батареи отключена.</string>
+    <string name="diag_network_connected">Сеть подключена (%1$s)</string>
+    <string name="diag_network_disconnected">Сеть отключена</string>
+    <string name="diag_dns_server">DNS сервер: %1$s</string>
+    <string name="diag_ipv6_detected">Обнаружен IPv6. Некоторые методы обхода могут работать некорректно без настройки IPv6.</string>
+    <string name="diag_ipv6_not_detected">IPv6 не обнаружен.</string>
+    <string name="diag_byedpi_load_success">Библиотека byedpi загружена успешно.</string>
+    <string name="diag_byedpi_load_failed">Не удалось загрузить библиотеку byedpi.</string>
+    <string name="diag_proxy_running">Локальный прокси запущен и доступен.</string>
+    <string name="diag_proxy_not_running">Локальный прокси НЕДОСТУПЕН. VPN может быть зависшим.</string>
+    <string name="diag_mtproto_passed">Telegram (MTProto) доступен.</string>
+    <string name="diag_mtproto_failed">Telegram (MTProto) НЕДОСТУПЕН.</string>
+    <string name="diag_tcp_timestamps_enabled">TCP Timestamps включены. Это может мешать некоторым методам обхода DPI в некоторых сетях.</string>
+    <string name="diag_tcp_timestamps_disabled">TCP Timestamps выключены.</string>
+    <string name="diag_finish">Диагностика завершена</string>
+    <string name="diag_action_fix">Исправить</string>
+    <string name="diag_sol_battery">Отключить оптимизацию батареи</string>
+    <string name="diag_sol_ipv6">Отключить IPv6 в настройках системы</string>
+    <string name="diag_sol_restart">Перезапустить VPN</string>
+
+    <string name="label_change_strategy">Сменить стратегию</string>
+    <string name="title_select_strategy">Выбор стратегии</string>
+    <string name="btn_cancel">Отмена</string>
+    <string name="btn_save">Сохранить</string>
+    <string name="label_latest">НОВОЕ</string>
+    <string name="placeholder_sites_per_line">Сайты (по одному на строку)</string>
+    <string name="msg_no_results_preset">Нет результатов для %1$s.\nВключите его в Основных настройках и запустите тесты.</string>
+    <string name="apps_selected_count">Выбрано: %1$d прил.</string>
+
+    <string name="changelog_content" translatable="false">
+        <b>v2.3.0</b> (21 августа 2026 г.)\n
+        <i>Обновление стабильности и связи</i>\n\n
+        • <b>Исправление стабильности</b>: Устранена проблема, из-за которой VPN отключался через несколько секунд на некоторых стратегиях.\n
+        • <b>Центрированная кнопка</b>: Главный экран переработан для лучшего визуального баланса.\n
+        • <b>Режимы приложения</b>: Добавлен «Режим прокси» для запуска движка обхода без системного VPN.\n
+        • <b>Ярлыки на главном экране</b>: Удерживайте иконку приложения, чтобы мгновенно запустить или остановить сервис.\n
+        • <b>Улучшенный тест сайтов</b>: Добавлены подробные результаты проверки TLS и HTTP с надежной обработкой таймаутов.\n
+        • <b>Доработанный интерфейс</b>: Меню выбора стратегий теперь прокручивается и поддерживает большие списки.\n
+    </string>
+    <string name="changelog_history" translatable="false">
+        <b>v2.2.0</b> (14 июля 2026 г.)\n
+        <i>Обновление «Связь и качество жизни»</i>\n\n
+        • <b>Новые стратегии YouTube</b>: Добавлены обновленные рабочие стратегии для YouTube.\n
+        • <b>Проверка обновлений</b>: Добавлена современная система обновлений внутри приложения.\n
+        • <b>Таймер сессии</b>: Отслеживайте время активной работы прямо на главном экране.\n
+        • <b>Резервное копирование</b>: Легко экспортируйте и импортируйте всю конфигурацию (стратегии, приложения, темы).\n
+        • <b>Переключатель IPv6</b>: Новая расширенная настройка для включения или выключения поддержки IPv6 в VPN-туннеле.\n
+        • <b>Экспорт логов</b>: Быстро копируйте или делитесь логами для устранения неполадок.\n
+        • <b>Ярлык приложения</b>: Нажмите и удерживайте иконку приложения, чтобы мгновенно запустить или остановить обход.\n
+        <hr/>
+        <b>v2.1.0</b> (7 июля 2026 г.)\n
+        <i>Обновление управления стратегиями</i>\n\n
+        • <b>Закрепленные стратегии</b>: Закрепите ваши любимые стратегии на вкладке «Тестирование» для быстрого доступа.\n
+        • <b>Быстрое переключение</b>: Измените текущую стратегию прямо с главного экрана.\n
+        • <b>Исправления стабильности</b>: Общие исправления ошибок и улучшения производительности.\n\n
+        <hr/>
+        <b>v2.0.0</b> (23 июня 2026)\n
+        <i>Обновление «Максимальная оптимизация»</i>\n\n
+        • <b>Поддержка платформ</b>: Полная поддержка Android 17 (API 37). Минимальные требования повышены до Android 11 (API 30).\n
+        • <b>Основные улучшения</b>: Исправлена ошибка, из-за которой кнопка «Подключиться» иногда не запускала соединение.\n
+        • <b>Выбор языка</b>: Добавлена кнопка выбора языка в настройках для быстрого переключения (EN, RU, UK, KK).\n
+        • <b>Обновление библиотек</b>: Все внутренние библиотеки и зависимости обновлены до последних стабильных версий.\n
+        • <b>Экстремальное уменьшение размера</b>: Размер APK минимизирован с помощью R8 Full Mode и фильтрации ABI (только ARM).\n
+        • <b>Управление ресурсами</b>: Оптимизирована фильтрация локалей для сохранения всех поддерживаемых языков при удалении лишних ресурсов.\n
+        • <b>Очистка байт-коду</b>: Все вызовы Log.d, Log.i и Log.v теперь полностью удаляются на уровне байт-коду в релизных сборках.\n
+        • <b>Удаление метаданных</b>: Очищены ненужные метаданные Kotlin и атрибуты ProGuard.\n\n
+        <hr/>
+        <b>v1.4.1</b> (14 июня 2026)\n
+        <i>Протоколы и очистка</i>\n\n
+        • <b>Проверка HTTP</b>: Добавлена полная поддержка HTTP в систему проверки стратегий.\n
+        • <b>Удаление Roblox</b>: Полностью удален пресет «Roblox» и связанные с ним домены из-за его разблокировки в России.\n
+        • <b>Оптимизация кода</b>: Удалены неиспользуемые вспомогательные функции и компоненты интерфейса для повышения стабильности.\n\n
+        <hr/>
+        <b>v1.4.0</b> (1 июня 2026)\n
+        <i>Производительность и движок</i>\n\n
+        • <b>Тестирование TLS</b>: Добавлена проверка TLS-рукопожатия для поиска наиболее эффективных параметров обхода.\n
+        • <b>Мгновенный запуск</b>: Параллельная загрузка настроек и вынос обработки JSON в фоновые потоки обеспечивают моментальное открытие приложения.\n
+        • <b>Интерактивная диагностика</b>: Новая проверка системы на утечки IPv6, оптимизацию батареи и помехи со стороны TCP timestamps.\n
+        • <b>Визуальный стиль</b>: Интегрована библиотека SimpleIcons для использования высококачественных брендовых иконок (YouTube, Discord и др.).\n
+        • <b>Активность экрана</b>: Экран больше не гаснет автоматически во время проведения диагностики и тестирования стратегий.\n
+        • <b>Стабильность движка</b>: Жизненный цикл VPN переведен на Coroutines, внедрены сокет-вотчдоги для предотвращения зависаний интерфейса.\n\n
+        <hr/>
+        <b>v1.3.1</b> (29 мая 2026)\n
+        <i>Стабильность и рефакторинг</i>\n\n
+        • Переработана архитектура управления состоянием UI для повышения стабильности\n
+        • Оптимизирована логика конфигурации обхода DPI для предотвращения разрывов соединения\n
+        • Исправлены ошибки в коде интерфейса и улучшена работа с ресурсами\n
+        • Модернизирована система обработки цветов с использованием расширений KTX\n\n
+        <hr/>
+        <b>v1.3.0</b> (29 мая 2026)\n
+        <i>Плавность и качество жизни</i>\n\n
+        • Анимации в панели навигации оптимизированы, теперь они плавные и приятные.\n
+        • Добавлены строки IP и порта в раздел «Текущая конфигурация» на главной вкладке.\n
+        • Добавлено уведомление при тестировании стратегий.\n
+        • Исправлена ошибка заполнения поля в тесте стратегий (ранее оно заполнялось некорректно).\n
+        • Добавлен глобальный режим для одновременного обхода всех сайтов, а также добавлена опция «Исключить приложения из настроек VPN».\n\n
+        <hr/>
+        <b>v1.2.1</b> (29 мая 2026)\n
+        <i>Сервисное обновление</i>\n\n
+        • Добавлен современный дизайн навигационной панели чтобы соответствовать новому стилю\n
+        • Исправлены ошибки плитки быстрых настроек на устройствах с Android 14+\n
+        • Добавлена плавная анимация элементов в списке тестирования стратегий\n
+        • Усилена безопасность внутренних трансляций для соответствия Android 13+\n
+        • Оптимизировано управление жизненным циклом VPN и синхронизация состояний\n\n
+        <hr/>
+        <b>v1.2.0</b> (29 мая 2026)\n
+        <i>Стабильность и Roblox</i>\n\n
+        • Расширен пресет Roblox: добавлены инфраструктурные домены и IP-диапазоны\n
+        • Исправлен вылет при быстром переключении VPN из панели уведомлений\n
+        • Введена задержка 0.3с на нажатие плитки для предотвращения конфликтов\n
+        • Объединены настройки и тестирование в одну общую вкладку\n
+        • Оптимизирован просмотр логов: моноширинный шрифт и пакетное обновление UI\n
+        • В диалог изменений добавлена кнопка «История»\n\n
+        <hr/>
+        <b>v1.1.0</b> (29 мая 2026)\n
+        <i>Обновление Material Design</i>\n\n
+        • Полностью переработан интерфейс в стиле Material 3\n
+        • Обновлен главный экран: анимация статуса и обзор конфигурации\n
+        • Новая структура настроек с логической группировкой\n
+        • Встроенный просмотр списка изменений и информации об авторе\n
+        • Добавлен переключатель в быстрые настройки (шторку)\n
+        • Улучшено управление жизненным циклом VPN и скорость запуска\n
+        • Полная локализация всех новых элементов интерфейса\n\n
+        <hr/>
+        <b>v1.0.0</b> (29 мая 2026)\n
+        <i>Начальная версия</i>\n\n
+        • Базовая функциональность обхода DPI\n
+        • Поддержка нескольких стратегий обхода\n
+        • Управление списком сайтов\n
+        • Логирование соединения в реальном времени
+    </string>
+</resources>

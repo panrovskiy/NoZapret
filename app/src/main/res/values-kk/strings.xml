@@ -1,0 +1,389 @@
+<resources>
+    <string name="app_name">NoZapret</string>
+    <string name="nav_home">Басты бет</string>
+    <string name="nav_settings">Баптаулар</string>
+    <string name="nav_logs">Журналдар</string>
+    <string name="warning_no_sites_title">Сайттар таңдалмады</string>
+    <string name="warning_no_sites_text">Іске қосу алдында кем дегенде бір пресетті таңдаңыз немесе баптауларда өз домендеріңізді қосыңыз.</string>
+    <string name="btn_go_to_settings">Баптауларға өту</string>
+    <string name="btn_dismiss">Ок</string>
+    <string name="tab_general">Жалпы</string>
+    <string name="tab_tests">Тесттер</string>
+    <string name="tab_changelog">Өзгерістер</string>
+    <string name="section_bypass_mode">Айналып өту режимі</string>
+    <string name="label_bypass_list">Айналып өту тізімі</string>
+    <string name="section_strategies">Стратегиялар</string>
+    <string name="label_strategy">Айналып өту стратегиясы</string>
+    <string name="label_applied">Қолданылды</string>
+    <string name="label_custom_arguments">Пайдаланушы аргументтері</string>
+    <string name="placeholder_custom_args">-a2 -o1 -s4 …</string>
+    <string name="supporting_custom_args">byedpi жалаушаларын тікелей енгізіңіз</string>
+    <string name="btn_paste">Қою</string>
+    <string name="btn_clear">Тазалау</string>
+    <string name="btn_import_file">.txt импорттау</string>
+    <string name="msg_pasted">Алмасу буферінен қойылды</string>
+    <string name="msg_imported">Файлдан импортталды</string>
+    <string name="error_file_read">Файлды оқу мүмкін болмады</string>
+    <string name="section_presets">Пресеттер</string>
+    <string name="preset_custom">Өз тізімім</string>
+    <string name="no_custom_sites">Тізім бос</string>
+    <string name="custom_sites_count">Қосылған сайттар: %1$d</string>
+    <string name="label_custom_domains">Өз домендеріңіз</string>
+    <string name="placeholder_custom_domains">site1.com, site2.com …</string>
+    <string name="supporting_custom_domains">Бос орын, үтір немесе нүктелі үтірмен ажыратыңыз</string>
+    <string name="section_advanced">Қосымша</string>
+    <string name="section_backup_restore">Сақтық көшірме жасау</string>
+    <string name="btn_export_config">Баптауларды экспорттау</string>
+    <string name="btn_import_config">Баптауларды импорттау</string>
+    <string name="msg_config_exported">Баптаулар сәтті экспортталды</string>
+    <string name="msg_config_imported">Баптаулар импортталды. Қайта іске қосылуда…</string>
+    <string name="error_export_failed">Экспорттау қатесі: %1$s</string>
+    <string name="error_import_failed">Импорттау қатесі: %1$s</string>
+    <string name="section_troubleshooting">Ақаулықтарды жою</string>
+    <string name="label_dns_server">DNS сервері</string>
+    <string name="dns_google">Google (8.8.8.8)</string>
+    <string name="dns_cloudflare">Cloudflare (1.1.1.1)</string>
+    <string name="dns_quad9">Quad9 (9.9.9.9)</string>
+    <string name="dns_adguard">AdGuard (94.140.14.14)</string>
+    <string name="dns_custom">Өз нұсқам</string>
+    <string name="label_auto_connect">Ашу кезінде автоқосылу</string>
+    <string name="supporting_auto_connect">NoZapret-ті ашқан кезде айналып өтуді автоматты түрде іске қосу</string>
+    <string name="label_enable_ipv6">IPv6 қосу</string>
+    <string name="supporting_enable_ipv6">VPN туннелінде IPv6 қолдауын қосу</string>
+    <string name="label_run_mode">Жұмыс режимі</string>
+    <string name="run_mode_vpn">VPN режимі (TUN)</string>
+    <string name="run_mode_proxy">Прокси режимі (SOCKS5)</string>
+    <string name="label_exclude_self">NoZapret-ті VPN-нен шығару</string>
+    <string name="supporting_exclude_self">Прокси циклдерінің алдын алады</string>
+    <string name="label_global_mode">Глобалды режим</string>
+    <string name="supporting_global_mode">Десинхронизацияны БАРЛЫҚ трафикке қолдану (тізімді елемеу)</string>
+    <string name="label_proxy_host">Прокси хосты</string>
+    <string name="label_proxy_port">Прокси порты</string>
+    <string name="label_allowed_apps">Қолданбаларды VPN-нен шығару</string>
+    <string name="supporting_allowed_apps">Таңдалған қолданбалар VPN-ді пайдаланбайды (VPN айналып өту)</string>
+    <string name="btn_select_apps">Қолданбаларды таңдау</string>
+    <string name="title_select_apps">Қолданбаларды таңдау</string>
+    <string name="search_apps">Қолданбаларды іздеу…</string>
+    <string name="error_invalid_chars">Жарамсыз таңбалар табылды</string>
+    <string name="label_chars">Таңбалар саны: %1$d</string>
+    <string name="title_verification">Тексеру</string>
+    <string name="testing_sites_count">Әр стратегияға %1$d сайтты тексеру.</string>
+    <string name="testing_strategies_count">%1$d/%2$d стратегия тексерілді</string>
+    <string name="test_progress_short">%1$d/%2$d OK (%3$d/%2$d тексерілді)</string>
+    <string name="testing_starting_hint">Күте тұрыңыз, тексеруге дайындық жүріп жатыр…</string>
+    <string name="btn_start">Іске қосу</string>
+    <string name="btn_stop">Тоқтату</string>
+    <string name="btn_test_all">Бәрін тексеру</string>
+    <string name="btn_reset">Қалпына келтіру</string>
+    <string name="btn_filter">Пресет бойынша сүзу</string>
+    <string name="filter_all_sites">Барлық сайттар</string>
+    <string name="no_args_set">Аргументтер орнатылмаған</string>
+    <string name="test_success_count">Сәтті: %1$d/%2$d</string>
+    <string name="no_results_yet">Нәтижелер жоқ. Алдымен тексеруді іске қосыңыз.</string>
+    <string name="title_native_logs">Прокси журналдары</string>
+    <string name="btn_copy_logs">Логтарды көшіру</string>
+    <string name="btn_share_logs">Логтармен бөлісу</string>
+    <string name="msg_logs_copied">Логтар алмасу буферіне көшірілді</string>
+    <string name="logs_fetching">Журналдарды алу…</string>
+    <string name="logs_empty">Прокси журналдары табылмады.</string>
+    <string name="home_active_config">Ағымдағы конфигурация</string>
+    <string name="home_list">Тізім: %1$s</string>
+    <string name="home_strategy">Стратегия: %1$s</string>
+    <string name="home_presets">Пресеттер: %1$s</string>
+    <string name="status_vpn_started">VPN іске қосылды</string>
+    <string name="status_vpn_stopped">VPN тоқтатылды</string>
+    <string name="error_vpn_while_testing">Стратегияларды тексеру кезінде VPN-ді іске қосу мүмкін емес. Алдымен тесттерді тоқтатыңыз.</string>
+    <string name="status_connected">ҚОСЫЛДЫ</string>
+    <string name="status_disconnected">АЖЫРАТЫЛДЫ</string>
+    <string name="label_uptime">Жұмыс уақыты: %1$s</string>
+    <string name="notification_title">NoZapret белсенді</string>
+    <string name="notification_text">DPI айналып өту фондық режимде жұмыс істеп тұр</string>
+    <string name="notification_channel_name">VPN қызметі</string>
+    <string name="notification_testing_title">Тексеру: %1$s</string>
+    <string name="notification_testing_text">%1$d/%2$d сайт тексерілді. Сәтті: %3$d</string>
+    <string name="notification_testing_channel_name">Стратегияларды тексеру</string>
+    <string name="notification_testing_complete_title">Тексеру аяқталды: %1$s</string>
+    <string name="notification_testing_complete_text">Нәтиже: %1$d/%2$d сәтті</string>
+    <string name="btn_stop_vpn">VPN тоқтату</string>
+    <string name="btn_apply_and_run">Қолдану және іске қосу</string>
+    <string name="btn_use_in_custom">Өз баптауларыма</string>
+    <string name="msg_strategy_applied">%1$s стратегиясы сәтті қолданылды</string>
+    <string name="msg_strategy_copied">Стратегия параметрлері Өз нұсқамға көшірілді</string>
+    <string name="label_strategy_arguments">Стратегия аргументтері</string>
+    <string name="home_hint_connected">DPI шектеулерін айналып өту белсенді…</string>
+    <string name="home_hint_disconnected">Іске қосу үшін басыңыз</string>
+    <string name="card_regional_bypass">Аймақтық айналып өту</string>
+    <string name="card_optimized_desc">Заманауи DPI сүзгілері үшін оңтайландырылған.</string>
+
+    <string name="section_appearance">Сыртқы түрі</string>
+    <string name="label_language">Тіл</string>
+    <string name="lang_system">Жүйелік</string>
+    <string name="lang_en">English</string>
+    <string name="lang_ru">Русский</string>
+    <string name="lang_uk">Українська</string>
+    <string name="lang_kk">Қазақша</string>
+    <string name="label_theme">Безендіру тақырыбы</string>
+    <string name="theme_system">Жүйелік</string>
+    <string name="theme_light">Ашық</string>
+    <string name="theme_dark">Қараңғы</string>
+    <string name="theme_custom">Өздігімнен</string>
+    <string name="label_custom_color">Негізгі түс</string>
+    <string name="label_theme_base">Тақырып негізі</string>
+    <string name="msg_color_copied">Түс алмасу буферіне көшірілді</string>
+
+    <!-- Site Tester -->
+    <string name="tester_title">Қолжетімділікті тексеру</string>
+    <string name="tester_placeholder">Доменді енгізіңіз (мысалы, google.com)</string>
+    <string name="tester_strategy_none">Жоқ (Тікелей)</string>
+    <string name="tester_btn_test">Тест</string>
+    <string name="tester_status_passed">Қолжетімді</string>
+    <string name="tester_status_blocked">Блокталған</string>
+    <string name="tester_latency">Кідіріс: %1$d мс</string>
+    <string name="tester_protocol">Хаттама: %1$s</string>
+    <string name="tester_cipher">Шифр: %1$s</string>
+    <string name="tester_testing">Тексеру…</string>
+    <string name="error_invalid_url">Қате домен</string>
+
+    <!-- Bypass Lists -->
+    <string name="list_russia_default">Ресей Әдепкі</string>
+    <string name="list_russia_youtube">Ресей YouTube</string>
+    <string name="list_russia_youtube_2">Ресей YouTube 2</string>
+    <string name="list_russia_youtube_3">Ресей YouTube 3</string>
+    <string name="list_aggressive">Агрессивті</string>
+
+    <!-- Strategies -->
+    <string name="strategy_auto">Авто (Ұсынылады)</string>
+    <string name="strategy_auto_desc">Айналып өтудің ең жақсы әдістерін автоматты түрде анықтау.</string>
+    <string name="strategy_youtube_fix">YouTube Fix</string>
+    <string name="strategy_youtube_fix_desc">Ресейдегі YouTube үшін оңтайландырылған стратегия.</string>
+    <string name="strategy_modern_ultra">Modern Ultra</string>
+    <string name="strategy_modern_ultra_desc">TLS фрагментациясы мен көп сатылы десинхронизацияның агрессивті комбинациясы.</string>
+    <string name="strategy_youtube_google_fix">YouTube/Google Fix</string>
+    <string name="strategy_youtube_google_fix_desc">GGC үшін оңтайландырылған: SNI-дегі Split + фейкті рандомизацияланған жүктеме.</string>
+    <string name="strategy_discord_udp_fix">Discord/UDP Fix</string>
+    <string name="strategy_discord_udp_fix_desc">Көп пакетті фейкті реттіліктері бар кеңейтілген UDP/QUIC десинхронизациясы.</string>
+    <string name="strategy_ru_youtube_alt">RU YouTube (Alt)</string>
+    <string name="strategy_ru_youtube_alt_desc">Жалған SNI және арнайы TTL бар баламалы YouTube айналып өту.</string>
+    <string name="strategy_discord_fix">Discord Fix</string>
+    <string name="strategy_discord_fix_desc">Discord үшін оңтайландырылған (UDP/QUIC десинхронизациясы, Disorder).</string>
+    <string name="strategy_ru_discord_alt">RU Discord (Alt)</string>
+    <string name="strategy_ru_discord_alt_desc">Жалған SNI және авто-режимдері бар баламалы Discord айналып өту.</string>
+    <string name="strategy_disorder_fake">Disorder &amp; Fake</string>
+    <string name="strategy_disorder_fake_desc">Пакеттерді араластыру және жалған пакеттерді қолданады (Әдетте РФ үшін).</string>
+    <string name="strategy_tls_split">TLS Record Split</string>
+    <string name="strategy_tls_split_desc">SNI сүзгілерін айналып өту үшін TLS жазбаларын бөлу.</string>
+    <string name="strategy_oob_split">OOB &amp; Split</string>
+    <string name="strategy_oob_split_desc">Out-Of-Band деректерін және фрагментацияны қолданады.</string>
+    <string name="strategy_modern_mixed">Modern Mixed</string>
+    <string name="strategy_modern_mixed_desc">Бірнеше әдісті біріктіретін кешенді стратегия.</string>
+    <string name="strategy_aggressive_mixed">Aggressive Mixed</string>
+    <string name="strategy_aggressive_mixed_desc">Ең қатаң желілер үшін көптеген әдістерді біріктіреді.</string>
+    <string name="strategy_advanced_fake">Advanced Fake</string>
+    <string name="strategy_advanced_fake_desc">Жалған пакеттері, TTL және араластыруы бар күрделі стратегия.</string>
+    <string name="strategy_advanced_tls">Advanced TLS</string>
+    <string name="strategy_advanced_tls_desc">TLS жазбаларын жан-жақты бөлу және араластыру.</string>
+    <string name="strategy_http_desync">HTTP Desync</string>
+    <string name="strategy_http_desync_desc">HTTP тақырыптарын өзгертеді және бөлуді қолданады.</string>
+    <string name="strategy_udp_quic_fix">UDP/QUIC Fix</string>
+    <string name="strategy_udp_quic_fix_desc">Арнайы UDP және QUIC трафигіне арналған айналып өту стратегиялары.</string>
+    <string name="strategy_sni_spoofing">SNI Spoofing</string>
+    <string name="strategy_sni_spoofing_desc">Сүзгілерді айналып өту үшін жалған пакеттердегі SNI-ді өзгертеді.</string>
+    <string name="strategy_tls_minor">TLS Minor Version</string>
+    <string name="strategy_tls_minor_desc">Кейбір сүзгілерді айналып өту үшін TLS минорлық нұсқасын өзгертеді.</string>
+    <string name="strategy_fake_tls_mod">Fake TLS Mod</string>
+    <string name="strategy_fake_tls_mod_desc">Кездейсоқ жалған TLS Client Hello қолданады.</string>
+    <string name="strategy_experimental">Эксперименталды (Multi-Group)</string>
+    <string name="strategy_experimental_desc">Бірнеше десинхронизация әдістері бар жетілдірілген көп сатылы стратегия.</string>
+    <string name="strategy_ru_youtube_alt_new">RU YouTube Alt (Жаңа)</string>
+    <string name="strategy_ru_youtube_alt_new_desc">YouTube үшін жаңа баламалы стратегия (Split + Desync).</string>
+    <string name="strategy_ru_discord_alt_new">RU Discord Alt (Жаңа)</string>
+    <string name="strategy_ru_discord_alt_new_desc">Discord үшін жаңа баламалы стратегия (Disorder + UDP Fake).</string>
+    <string name="strategy_kyber_aware">Kyber-Aware</string>
+    <string name="strategy_kyber_aware_desc">Заманауи TLS (Kyber) және фрагментация үшін оңтайландырылған.</string>
+    <string name="strategy_extreme_ru">Extreme RU</string>
+    <string name="strategy_extreme_ru_desc">Қатаң шектеулері бар аймақтарға арналған ең агрессивті стратегия.</string>
+    <string name="strategy_simple_split">Қарапайым Split</string>
+    <string name="strategy_simple_split_desc">TCP-ны 2-ші байтта қарапайым бөлу.</string>
+    <string name="strategy_simple_fake">Қарапайым Fake</string>
+    <string name="strategy_simple_fake_desc">Әдепкі TTL бар қарапайым жалған пакет.</string>
+    <string name="strategy_oob_data">OOB деректері</string>
+    <string name="strategy_oob_data_desc">Десинхронизация үшін Out-Of-Band деректерін пайдалану.</string>
+    <string name="strategy_host_mix">Host Mix</string>
+    <string name="strategy_host_mix_desc">HTTP Host тақырыбының регистрін өзгерту.</string>
+    <string name="strategy_tls_record_frag">TLS жазбаларын фрагментациялау</string>
+    <string name="strategy_tls_record_frag_desc">TLS жазбаларын ұсақ бөліктерге бөлу.</string>
+    <string name="strategy_custom">Өз нұсқам</string>
+    <string name="strategy_custom_desc">Жалпы баптаулардағы аргументтерді пайдалану.</string>
+
+    <!-- Presets -->
+    <string name="preset_youtube">YouTube</string>
+    <string name="preset_telegram">Telegram</string>
+    <string name="preset_discord">Discord</string>
+    <string name="preset_whatsapp">WhatsApp</string>
+    <string name="preset_cloudflare">Cloudflare</string>
+    <string name="preset_google">Google</string>
+    <string name="preset_socials">Әлеуметтік желілер</string>
+    <string name="preset_media">Медиа</string>
+    <string name="preset_steam">Steam</string>
+    <string name="preset_character_ai">Character AI</string>
+
+    <!-- Battery Optimization -->
+    <string name="battery_optimization_title">Фонда жұмыс істеу</string>
+    <string name="battery_optimization_desc">Батареяны оңтайландыруды өшіру үшін басыңыз. Бұл VPN-нің жүйе тарапынан кенеттен өшіп қалуын болдырмайды.</string>
+
+    <string name="credits_text">v%1$s • авторы: panrov</string>
+    <string name="changelog_title">Жаңалықтар</string>
+    <string name="changelog_title_full">Өзгерістер тарихы</string>
+    <string name="btn_history">Тарихы</string>
+    <string name="btn_back">Артқа</string>
+
+    <!-- Diagnostics -->
+    <string name="btn_run_diagnostics">Диагностиканы іске қосу</string>
+    <string name="btn_check_updates">Жаңартуларды тексеру</string>
+    <string name="update_dialog_title">Жаңарту қолжетімді</string>
+    <string name="update_dialog_version">%1$s нұсқасы қолжетімді</string>
+    <string name="btn_update_now">Қазір жаңарту</string>
+    <string name="update_downloading">Жаңарту жүктелуде…</string>
+    <string name="msg_latest_version">Сіз соңғы нұсқаны пайдаланып жатырсыз</string>
+    <string name="error_update_check">Жаңартуларды тексеру мүмкін болмады: %1$s</string>
+    <string name="error_download_failed">Жүктеу сәтсіз аяқталды: %1$s</string>
+    <string name="diag_title">Жүйе диагностикасы</string>
+    <string name="diag_checking">Тексеру: %1$s</string>
+    <string name="diag_passed">Сәтті өтті</string>
+    <string name="diag_failed">Қате</string>
+    <string name="diag_warning">Ескерту</string>
+    <string name="diag_info">Ақпарат</string>
+    <string name="diag_vpn_conflict">Бөгде VPN-дер табылды: %1$s. Олар NoZapret-пен қайшылыққа түсуі мүмкін. Олардың өшірілгеніне көз жеткізіңіз.</string>
+    <string name="diag_battery_optimization">Батареяны оңтайландыру қосулы. Бұл VPN-нің фонда ажырап қалуына әкелуі мүмкін.</string>
+    <string name="diag_battery_passed">Батареяны оңтайландыру өшірілген.</string>
+    <string name="diag_network_connected">Желі қосулы (%1$s)</string>
+    <string name="diag_network_disconnected">Желі ажыратылған</string>
+    <string name="diag_dns_server">DNS сервері: %1$s</string>
+    <string name="diag_ipv6_detected">IPv6 табылды. Кейбір айналып өту әдістері IPv6 баптауынсыз дұрыс жұмыс істемеуі мүмкін.</string>
+    <string name="diag_ipv6_not_detected">IPv6 табылмады.</string>
+    <string name="diag_byedpi_load_success">byedpi кітапханасы сәтті жүктелді.</string>
+    <string name="diag_byedpi_load_failed">byedpi кітапханасын жүктеу мүмкін болмады.</string>
+    <string name="diag_proxy_running">Жергілікті прокси іске қосылған және қолжетімді.</string>
+    <string name="diag_proxy_not_running">Жергілікті прокси ҚОЛЖЕТІМСІЗ. VPN қатып қалуы мүмкін.</string>
+    <string name="diag_mtproto_passed">Telegram (MTProto) қолжетімді.</string>
+    <string name="diag_mtproto_failed">Telegram (MTProto) ҚОЛЖЕТІМСІЗ.</string>
+    <string name="diag_tcp_timestamps_enabled">TCP Timestamps қосулы. Бұл кейбір желілерде DPI айналып өту әдістеріне кедергі келтіруі мүмкін.</string>
+    <string name="diag_tcp_timestamps_disabled">TCP Timestamps өшірілген.</string>
+    <string name="diag_finish">Диагностика аяқталды</string>
+    <string name="diag_action_fix">Түзету</string>
+    <string name="diag_sol_battery">Батареяны оңтайландыруды өшіру</string>
+    <string name="diag_sol_ipv6">Жүйе баптауларында IPv6-ны өшіру</string>
+    <string name="diag_sol_restart">VPN-ді қайта іске қосу</string>
+
+    <string name="label_change_strategy">Стратегияны өзгерту</string>
+    <string name="title_select_strategy">Стратегияны таңдау</string>
+    <string name="btn_cancel">Бас тарту</string>
+    <string name="btn_save">Сақтау</string>
+    <string name="label_latest">ЖАҢА</string>
+    <string name="placeholder_sites_per_line">Сайттар (әр жолда біреуден)</string>
+    <string name="msg_no_results_preset">%1$s үшін нәтижелер жоқ.\nОны Негізгі параметрлерде қосып, тесттерді іске қосыңыз.</string>
+    <string name="apps_selected_count">Таңдалды: %1$d қолд.</string>
+
+    <string name="changelog_content" translatable="false">
+        <b>v2.3.0</b> (2026 ж. 21 тамыз)\n
+        <i>Тұрақтылық пен байланыс жаңартуы</i>\n\n
+        • <b>Тұрақтылықты түзету</b>: Кейбір стратегияларда VPN бірнеше секундтан кейін ажырап қалатын мәселе шешілді.\n
+        • <b>Орталықтандырылған түйме</b>: Басты экран жақсырақ визуалды тепе-теңдік үшін қайта жасалды.\n
+        • <b>Қолданба режимдері</b>: Жүйелік VPN-сіз айналып өту жүйесін іске қосу үшін «Прокси режимі» қосылды.\n
+        • <b>Қолданба таңбашалары</b>: Сервисті лезде іске қосу немесе тоқтату үшін қолданба белгішесін басып тұрыңыз.\n
+        • <b>Жақсартылған сайт тестері</b>: Тайм-ауттарды сенімді өңдеуі бар TLS және HTTP тексеруінің егжей-тегжейлі нәтижелері қосылды.\n
+        • <b>Жетілдірілген интерфейс</b>: Стратегияны таңдау мәзірі енді айналдырылады және бекітілген элементтердің үлкен тізімдерін қолдайды.\n
+    </string>
+    <string name="changelog_history" translatable="false">
+        <b>v2.2.0</b> (2026 ж. 14 шілде)\n
+        <i>«Байланыс және өмір сапасы» жаңартуы</i>\n\n
+        • <b>Жаңа YouTube стратегиялары</b>: YouTube үшін жаңартылған жұмыс стратегиялары қосылды.\n
+        • <b>Жаңартуларды тексеру</b>: Қолданба ішіндегі заманауи жаңарту жүйесі қосылды.\n
+        • <b>Сессия таймері</b>: Белсенді жұмыс уақытын тікелей негізгі экранда бақылаңыз.\n
+        • <b>Сақтық көшірме жасау</b>: Барлық конфигурацияны (стратегиялар, қолданбалар, тақырыптар) оңай экспорттаңыз және импорттаңыз.\n
+        • <b>IPv6 ауыстырып-қосқышы</b>: VPN туннелінде IPv6 қолдауын қосу немесе өшіру үшін жаңа кеңейтілген баптау.\n
+        • <b>Логтарды экспорттау</b>: Ақаулықтарды жою үшін логтарды жылдам көшіріңіз немесе бөлісіңіз.\n
+        • <b>Қолданба таңбашасы</b>: Айналып өтуді лезде іске қосу немесе тоқтату үшін қолданба белгішесін басып тұрыңыз.\n
+        <hr/>
+        <b>v2.1.0</b> (7 шілде 2026 ж.)\n
+        <i>Стратегияны басқару жаңартуы</i>\n\n
+        • <b>Бекітілген стратегиялар</b>: Жылдам қол жеткізу үшін сүйікті стратегияларыңызды Тестілеу қойындысына бекітіңіз.\n
+        • <b>Жылдам ауыстыру</b>: Ағымдағы стратегияны негізгі экраннан тікелей өзгертіңіз.\n
+        • <b>Тұрақтылықты түзету</b>: Жалпы қателерді түзету және өнімділікті жақсарту.\n\n
+        <hr/>
+        <b>v2.0.0</b> (23 маусым 2026)\n
+        <i>«Максималды оңтайландыру» жаңартуы</i>\n\n
+        • <b>Платформаларды қолдау</b>: Android 17 (API 37) үшін толық қолдау. Минималды талап енді Android 11 (API 30).\n
+        • <b>Негізгі жақсартулар</b>: «Қосылу» түймесінің кейде қосылымды бастамау мәселесі түзетілді.\n
+        • <b>Тілді таңдау</b>: Жылдам ауыстыру үшін Баптауларға арнайы тіл түймесі қосылды (EN, RU, UK, KK).\n
+        • <b>Кітапханаларды жаңарту</b>: Барлық ішкі кітапханалар мен тәуелділіктер соңғы тұрақты нұсқаларына жаңартылды.\n
+        • <b>Экстремалды өлшемді азайту</b>: APK өлшемі R8 Full Mode және ABI сүзгілеу (тек ARM) арқылы барынша азайтылды.\n
+        • <b>Ресурстарды басқару</b>: Артық ресурстарды жою кезінде барлық қолдау көрсетілетін тілдерді сақтау үшін локальді сүзгілеу оңтайландырылды.\n
+        • <b>Байт-кодты тазарту</b>: Релиздік жинақтарда барлық Log.d, Log.i және Log.v шақырулары байт-код деңгейінде толығымен жойылады.\n
+        • <b>Метадеректерді жою</b>: Қажетсіз Kotlin метадеректері мен ProGuard атрибуттары тазартылды.\n\n
+        <hr/>
+        <b>v1.4.1</b> (14 маусым 2026)\n
+        <i>Хаттамалар және тазарту</i>\n\n
+        • <b>HTTP тексеру</b>: Стратегияларды тексеру жүйесіне толық HTTP қолдауы қосылды.\n
+        • <b>Roblox-ты алып тастау</b>: Ресейде бұғаттаудан босатылуына байланысты «Roblox» пресеті және оған қатысты домендер толығымен жойылды.\n
+        • <b>Кодты оңтайландыру</b>: Тұрақтылықты арттыру үшін пайдаланылмайтын көмекші функциялар мен интерфейс компоненттері жойылды.\n\n
+        <hr/>
+        <b>v1.4.0</b> (1 маусым 2026)\n
+        <i>Өнімділік және қозғалтқыш</i>\n\n
+        • <b>TLS тестілеу</b>: Айналып өтудің ең тиімді параметрлерін табу үшін TLS қол алысуын тексеру қосылды.\n
+        • <b>Лездік іске қосу</b>: Баптауларды параллельді жүктеу және JSON өңдеуді фондық ағындарға шығару қолданбаның лездік ашылуын қамтамасыз етеді.\n
+        • <b>Интерактивті диагностика</b>: IPv6 ағып кетуіне, батареяны оңтайландыруға және TCP timestamps кедергілеріне жүйені жаңаша тексеру.\n
+        • <b>Визуалды стиль</b>: Жоғары сапалы брендтік иконкаларды (YouTube, Discord және т.б.) пайдалану үшін SimpleIcons кітапханасы біріктірілді.\n
+        • <b>Экран белсенділігі</b>: Диагностика және стратегияларды тексеру кезінде экран енді автоматты түрде өшпейді.\n
+        • <b>Қозғалтқыш тұрақтылығы</b>: VPN өмірлік циклі Coroutines-ке ауыстырылды, интерфейстің қатып қалуын болдырмау үшін сокет-вотчдогтар енгізілді.\n\n
+        <hr/>
+        <b>v1.3.1</b> (29 мамыр 2026)\n
+        <i>Тұрақтылық және рефакторинг</i>\n\n
+        • Тұрақтылықты арттыру үшін UI күйін басқару архитектурася қайта қаралды\n
+        • Байланыстың үзілуін болдырмау үшін DPI айналып өту конфигурациясының логикасы оңтайландырылды\n
+        • Интерфейс кодындағы қателер түзетілді және ресурстармен жұмыс жақсартылды\n
+        • KTX кеңейтімдерін пайдалану арқылы түстерді өңдеу жүйесі жаңартылды\n\n
+        <hr/>
+        <b>v1.3.0</b> (29 мамыр 2026)\n
+        <i>Бірқалыптылық және жайлылық</i>\n\n
+        • Навигация панеліндегі анимациялар оңтайландырылды, енді олар бірқалыпты және жағымды.\n
+        • Басты қойындыдағы «Ағымдағы конфигурация» бөліміне IP және порт жолдары қосылды.\n
+        • Стратегияларды тексеру кезінде хабарландыру қосылды.\n
+        • Стратегиялар тестіндегі өрісті толтыру қатесі түзетілді (бұрын ол дұрыс толтырылмаған).\n
+        • Барлық сайттарды бірден айналып өту үшін глобалды режим, сондай-ақ «Қолданбаларды VPN баптауларынан шығару» опциясы қосылды.\n\n
+        <hr/>
+        <b>v1.2.1</b> (29 мамыр 2026)\n
+        <i>Сервистік жаңарту</i>\n\n
+        • Жаңа стильге сәйкес келу үшін заманауи навигация панелі дизайны қосылды\n
+        • Android 14+ құрылғыларындағы жылдам баптаулар плиткасының қателері түзетілді\n
+        • Стратегияларды тестілеу тізіміндегі элементтердің бірқалыпты анимациясы қосылды\n
+        • Android 13+ талаптарына сәйкес ішкі трансляциялардың қауіпсіздігі күшейтілді\n
+        • VPN өмірлік циклін басқару және күйлерді синхрондау оңтайландырылды\n\n
+        <hr/>
+        <b>v1.2.0</b> (29 мамыр 2026)\n
+        <i>Тұрақтылық және Roblox</i>\n\n
+        • Roblox пресеті кеңейтілді: инфрақұрылымдық домендер мен IP-диапазондар қосылды\n
+        • Хабарландырулар панелінен VPN-ді жылдам ауыстыру кезіндегі қате түзетілді\n
+        • Қайшылықтарды болдырмау үшін плитканы басуға 0.3 сек кідіріс енгізілді\n
+        • Баптаулар мен тестілеу бір ортақ қойындыға біріктірілді\n
+        • Журналдарды қарау оңтайландырылды: моноширин шрифті және UI-ды пакеттік жаңарту\n
+        • Өзгерістер диалогына «Тарихы» батырмасы қосылды\n\n
+        <hr/>
+        <b>v1.1.0</b> (29 мамыр 2026)\n
+        <i>Material Design жаңартуы</i>\n\n
+        • Интерфейс Material 3 стилінде толығымен қайта жасалды\n
+        • Басты экран жаңартылды: статус анимациясы және конфигурацияға шолу\n
+        • Логикалық топтастырылған баптаулардың жаңа құрылымы\n
+        • Өзгерістер тізімі мен автор туралы ақпаратты кірістірілген қарау\n
+        • Жылдам баптауларға (шторкаға) ауыстырып-қосқыш қосылды\n
+        • VPN өмірлік циклін басқару және іске қосу жылдамдығы жақсартылды\n
+        • Барлық жаңа интерфейс элементтерінің толық локализациясы\n\n
+        <hr/>
+        <b>v1.0.0</b> (29 мамыр 2026)\n
+        <i>Бастапқы нұсқа</i>\n\n
+        • DPI айналып өтудің негізгі функционалы\n
+        • Бірнеше айналып өту стратегиясын қолдау\n
+        • Сайттар тізімін басқару\n
+        • Байланысты нақты уақыт режимінде журналға жазу
+    </string>
+</resources>

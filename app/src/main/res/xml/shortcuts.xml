@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="start_vpn"
+        android:enabled="true"
+        android:icon="@mipmap/app_icon"
+        android:shortcutShortLabel="@string/btn_start"
+        android:shortcutLongLabel="@string/status_vpn_started">
+        <intent
+            android:action="com.example.nozapret.START_VPN"
+            android:targetPackage="com.example.nozapret"
+            android:targetClass="com.example.nozapret.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="stop_vpn"
+        android:enabled="true"
+        android:icon="@mipmap/app_icon"
+        android:shortcutShortLabel="@string/btn_stop"
+        android:shortcutLongLabel="@string/status_vpn_stopped">
+        <intent
+            android:action="com.example.nozapret.STOP_VPN"
+            android:targetPackage="com.example.nozapret"
+            android:targetClass="com.example.nozapret.MainActivity" />
+    </shortcut>
+</shortcuts>
