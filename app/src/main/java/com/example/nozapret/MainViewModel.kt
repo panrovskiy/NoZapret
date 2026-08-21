@@ -13,6 +13,8 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nozapret.core.Config
@@ -405,11 +407,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun applyLanguage(lang: String) {
-        val locale = if (lang == "System") Locale.getDefault() else Locale.forLanguageTag(lang)
-        Locale.setDefault(locale)
-        val config = getApplication<Application>().resources.configuration
-        config.setLocale(locale)
-        getApplication<Application>().createConfigurationContext(config)
+        val localeList = if (lang == "System") {
+            LocaleListCompat.getEmptyLocaleList()
+        } else {
+            LocaleListCompat.forLanguageTags(lang)
+        }
+        AppCompatDelegate.setApplicationLocales(localeList)
     }
 
     fun updateCustomPrimaryColor(color: Int) {

@@ -1,69 +1,49 @@
-# NoZapret v2.0.0 - Advanced DPI Bypass for Android
+# NoZapret v2.3.0 - Advanced DPI Bypass for Android
 
-NoZapret is a powerful, coroutine-based Android VPN application designed to bypass Deep Packet Inspection (DPI) and restore access to restricted services.
+NoZapret is a powerful, coroutine-based Android application designed to bypass Deep Packet Inspection (DPI) using the `byedpi` engine. It works either as a system-wide VPN or a local SOCKS5 proxy.
 
-## Key Features in v2.0.0
+## Key Features in v2.3.0
 
-### 1. Massive Size Optimization
-- **R8 Full Mode**: Enabled aggressive code shrinking and optimization using R8's most advanced mode.
-- **Resource Stripping**: Minimized APK size by stripping unnecessary localizations (keeping only English and Russian) and removing redundant system resources.
-- **ABI Filtering**: Removed legacy CPU architectures (x86, x86_64) to focus on modern mobile devices, significantly reducing the final binary size.
-- **Bytecode Stripping**: All debug and information log calls (`Log.d`, `Log.i`, `Log.v`) are now completely stripped at the bytecode level in release builds.
-- **Metadata Cleanup**: Removed unnecessary Kotlin metadata and ProGuard attributes to save every possible kilobyte.
+### 1. Stability & Connectivity
+- **Stability Fix**: Resolved a critical issue where the VPN would unexpectedly disconnect after several seconds on specific strategies.
+- **Application Modes**: Added **Proxy Mode** (SOCKS5), allowing you to run the engine without a system-wide TUN interface.
+- **Improved Site Tester**: Enhanced verification engine with detailed TLS/HTTP results and robust timeout handling.
 
-## Key Features in v1.4.1
+### 2. User Interface Enhancements
+- **Redesigned Home Screen**: A more accessible, centered toggle button and a refined layout for better visual balance.
+- **Language Support**: Added official support for English, Russian, Ukrainian, and Kazakh. Includes a fixed language selector that updates the UI immediately.
+- **Scrollable Menus**: Optimized the strategy selection and settings menus for better navigation with large lists.
+- **App Shortcuts**: Support for static shortcuts (long-press app icon) to quickly Start or Stop the service.
 
-### 1. Protocol & Legacy Cleanup
-- **HTTP Strategy Verification**: Added full support for plain HTTP testing in the strategy engine to ensure connectivity for non-TLS services.
-- **Decommissioned Roblox**: Removed the legacy Roblox preset and all associated infrastructure mappings.
-- **Optimized UI & Logic**: Purged redundant traffic statistics logic and unused formatting helpers, reducing the app's footprint.
+### 3. Performance & Size Optimization
+- **Aggressive Stripping**: Release builds are optimized using R8 Full Mode, ABI filtering (ARM only), and bytecode-level log stripping to ensure the smallest possible APK size.
+- **Per-App Language Settings**: Integrated with modern Android locale APIs for seamless language management.
 
-## Key Features in v1.4.0
+## Key Features in v1.4.x
 
-### 2. Modernized VPN Architecture
-- **Coroutine-Powered Lifecycle**: The `DpiVpnService` has been fully migrated to Kotlin Coroutines, ensuring non-blocking operations and efficient resource management.
-- **Thread-Safe State Management**: Utilizes a `vpnLock` Mutex to prevent race conditions during service startup and shutdown.
-- **Clean Resource Release**: Robust native resource cleanup using `cancelAndJoin` and `NonCancellable` blocks, preventing zombie processes (ByeDpi/HevSocks5).
-
-### 3. Interactive System Diagnostics
+### 1. Interactive System Diagnostics
 A comprehensive diagnostic suite to identify and resolve connectivity issues:
-- **Automatic Checks**:
-    - Native library integrity (`libbyedpi.so`).
-    - Battery optimization status.
-    - Network capabilities and VPN conflicts.
-    - IPv6 detection (which can sometimes interfere with bypass strategies).
-    - DNS configuration and Local Proxy (127.0.0.1:1081) reachability.
-    - MTProto reachability for Telegram.
-- **One-Click Fixes**: Interactive "Fix" buttons that guide users to system settings or automatically resolve configuration issues.
+- **Automatic Checks**: Native library integrity, battery optimization, network conflicts, IPv6 detection, and MTProto reachability.
+- **One-Click Fixes**: Interactive "Fix" buttons to guide users through troubleshooting steps.
 
-### 4. Optimized Strategy Testing Engine (TLS)
-Find the most effective bypass strategy for your network environment:
-- **Parallel Testing**: Leverages SOCKS5 testing to evaluate multiple strategies (e.g., `Split`, `Disorder`, `Fake`) without interrupting the main VPN connection.
-- **Defensive Networking**: 
-    - **Concurrency Control**: Implements `Semaphore(2)` to prevent proxy congestion.
-    - **Watchdog Timer**: A 45-second `withTimeout` safeguard prevents native socket hangs.
-- **Detailed Insights**: View TLS handshake results, including ping, protocol version, and cipher suites.
+### 2. Optimized Strategy Testing Engine
+- **Parallel Testing**: Evaluate multiple strategies (e.g., `Split`, `Disorder`, `Fake`) without interrupting your active connection.
+- **TLS Handshake Insights**: View detailed results including ping, protocol version, and cipher suites.
 
-### 5. High-Performance Log Viewer
-- **Real-time Streaming**: Integrated `logcat` viewer for real-time debugging.
-- **UI Batching**: Implements a 1-second/20-line buffer with `SnapshotStateList` to ensure the UI remains responsive even during high-frequency logging.
-
-### 6. Enhanced Customization
-- **Material 3 UI**: Modern design with dynamic theming support.
-- **Custom Presets**: Easily manage bypass lists for YouTube, Telegram, and other services.
-- **Advanced Args**: Full control over `byedpi` parameters for power users.
+### 3. High-Performance Log Viewer
+- **Real-time Streaming**: Integrated `logcat` viewer with batch UI updates to maintain responsiveness during high-frequency logging.
 
 ## Technical Details
 
-- **Language**: 100% Kotlin
-- **Concurrency**: Kotlin Coroutines & Flow
-- **Native Components**: `byedpi` (shared library), `hev-socks5-tunnel`
-- **Data Persistence**: Jetpack DataStore
-- **Minimum SDK**: 26 (Android 8.0)
+- **Core**: 100% Kotlin with Coroutines & Flow.
+- **Native Engine**: `byedpi` (compiled as a shared library) and `hev-socks5-tunnel`.
+- **UI**: Jetpack Compose (Material 3).
+- **Data**: Jetpack DataStore.
+- **Requirements**: Android 11 (API 30) or higher. Supports Android 15+.
 
 ## Troubleshooting
 If you experience issues:
-1. Run the **Diagnostics** tool from the main menu.
+1. Run the **Diagnostics** tool from the settings menu.
 2. Use the **Fix** buttons for any reported Warnings or Failures.
-3. Try different **Strategies** using the built-in Tester.
-4. Check the **Log Viewer** for specific native error messages.
+3. Use the **Site Tester** to verify which strategy works best for your specific ISP.
+4. Check the **Log Viewer** for native engine logs.
