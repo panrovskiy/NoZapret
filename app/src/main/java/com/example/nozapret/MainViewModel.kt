@@ -36,7 +36,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         const val ACTION_STOP_TESTING = "com.example.nozapret.STOP_TESTING"
         const val EXTRA_STRATEGY_NAME = "strategy_name"
-        const val GITHUB_API_URL = "https://api.github.com/repos/panrov/NoZapret/releases/latest"
+        const val GITHUB_API_URL = "https://api.github.com/repos/panrovskiy/NoZapret/releases/latest"
     }
 
     data class UpdateInfo(

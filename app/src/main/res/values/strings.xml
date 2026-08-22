@@ -285,6 +285,10 @@
     <string name="apps_selected_count">Selected: %1$d apps</string>
 
     <string name="changelog_content" translatable="false">
+        <b>v2.3.1-fix2</b> (August 22, 2026)\n
+        • Fixed connectivity issues and binding deadlocks\n
+        • Fixed 404 error when checking for updates\n
+        • Improved VPN service stability and responsiveness\n\n
         <b>v2.3.1</b> (August 22, 2026)\n
         • Fixed concurrent testing bug in \"Test All\"\n
         • Added test results to all strategy pickers\n

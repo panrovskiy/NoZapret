@@ -242,6 +242,9 @@ class DpiVpnService : VpnService() {
                 Log.e("DpiVpnService", "Failed to establish VPN interface")
                 isRunning = false
                 sendStateBroadcast(running = false)
+                withContext(Dispatchers.Main) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                }
                 stopSelf()
                 return
             }

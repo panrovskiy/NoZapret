@@ -11,8 +11,8 @@ android {
         applicationId = "com.example.nozapret"
         minSdk = 30
         targetSdk = 37
-        versionCode = 12
-        versionName = "2.3.1"
+        versionCode = 13
+        versionName = "2.3.1-fix2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

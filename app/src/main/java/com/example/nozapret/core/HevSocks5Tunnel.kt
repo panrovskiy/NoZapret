@@ -22,13 +22,10 @@ class HevSocks5Tunnel {
         loadLibrary()
     }
 
-    private object Lock
 
     fun start(configPath: String, fd: Int): Int {
         return if (isLoaded) {
-            synchronized(Lock) {
-                TProxyStartService(configPath, fd)
-            }
+            TProxyStartService(configPath, fd)
         } else {
             -1
         }

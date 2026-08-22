@@ -22,18 +22,15 @@ class ByeDpiProxy {
         loadLibrary()
     }
 
-    private object Lock
 
     fun start(args: Array<String>): Int {
         Log.d("ByeDpiProxy", "Starting proxy with args: ${args.joinToString(" ")}")
         return if (isLoaded) {
-            synchronized(Lock) {
-                try {
-                    jniStartProxy(args)
-                } catch (e: Exception) {
-                    Log.e("ByeDpiProxy", "Exception in jniStartProxy", e)
-                    -1
-                }
+            try {
+                jniStartProxy(args)
+            } catch (e: Exception) {
+                Log.e("ByeDpiProxy", "Exception in jniStartProxy", e)
+                -1
             }
         } else {
             -1
