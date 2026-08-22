@@ -1,6 +1,14 @@
-# NoZapret v2.3.0 - Advanced DPI Bypass for Android
+# NoZapret v2.3.1 - Advanced DPI Bypass for Android
 
 NoZapret is a powerful, coroutine-based Android application designed to bypass Deep Packet Inspection (DPI) using the `byedpi` engine. It works either as a system-wide VPN or a local SOCKS5 proxy.
+
+## Key Features in v2.3.1
+
+### 1. UX & Stability
+- **Sequential Strategy Tester**: Fixed a bug where "Test All Strategies" would start all tests simultaneously. Tests now run one-by-one for more accurate results.
+- **Improved Results Visibility**: Strategy test results are now visible directly in the strategy selection menus across the entire app.
+- **Bug Fixes**: Resolved UI warnings and infinite loading states in the site tester after a test was completed.
+- **Cleanup**: Removed duplicate bypass presets and refined the configuration logic.
 
 ## Key Features in v2.3.0
 

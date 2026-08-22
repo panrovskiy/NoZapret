@@ -21,6 +21,7 @@ import com.example.nozapret.services.DpiVpnService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Semaphore
+import kotlin.coroutines.coroutineContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -549,198 +550,162 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun testStrategy(strategyName: String): Job {
         return viewModelScope.launch {
-            val existingJob = testJobs[strategyName]
-            
-            // Toggle: if already testing, stop it immediately in UI and cancel background
             if (currentlyTesting.contains(strategyName)) {
                 currentlyTesting.remove(strategyName)
-                existingJob?.cancel()
+                testJobs[strategyName]?.cancel()
                 notificationManager.cancel(strategyName.hashCode())
                 return@launch
             }
 
-            // Only one manual test at a time
             if ((allTestsJob == null) && currentlyTesting.isNotEmpty()) {
                 stopAllTestsInternal()
             }
 
             if (bypassedSites.isEmpty()) return@launch
             
-            createNotificationChannel()
-
-            val context = getApplication<Application>()
-            val sitesToTest = bypassedSites.filter { !it.contains("/") }
-            val totalToTest = sitesToTest.size
-
-            // Update UI immediately to indicate start
-            stats[strategyName] = Triple(0, 0, totalToTest)
-            if (!currentlyTesting.contains(strategyName)) currentlyTesting.add(strategyName)
-            
             val job = viewModelScope.launch(Dispatchers.IO) {
-                try {
-                    // Ensure previous instance is fully stopped and native proxy is killed
-                    existingJob?.cancel()
-                    withContext(NonCancellable) {
-                        com.example.nozapret.core.ByeDpiProxy().forceClose()
-                        existingJob?.join()
-                    }
+                runStrategyTestInternal(strategyName)
+            }
+            testJobs[strategyName] = job
+        }
+    }
 
-                    if (!isActive) return@launch
+    private suspend fun runStrategyTestInternal(strategyName: String) {
+        val context = getApplication<Application>()
+        val sitesToTest = bypassedSites.filter { !it.contains("/") }
+        val totalToTest = sitesToTest.size
+        
+        val testProxy = if (strategyName != "None") com.example.nozapret.core.ByeDpiProxy() else null
 
-                    withContext(Dispatchers.Main.immediate) {
-                        testResults[strategyName] = emptyMap()
-                    }
+        try {
+            // Update UI immediately
+            withContext(Dispatchers.Main) {
+                stats[strategyName] = Triple(0, 0, totalToTest)
+                if (!currentlyTesting.contains(strategyName)) currentlyTesting.add(strategyName)
+                testResults[strategyName] = emptyMap()
+            }
+            
+            updateTestNotification(strategyName, 0, 0, totalToTest)
 
-                    if (!isActive) return@launch
-                    
-                    updateTestNotification(strategyName, 0, 0, totalToTest)
-
-                    // Stop VPN if running to release native proxy singleton
-                    if (DpiVpnService.isRunning) {
-                        val stopIntent = Intent(context, DpiVpnService::class.java).apply {
-                            action = DpiVpnService.ACTION_STOP
-                        }
-                        context.startService(stopIntent)
-                        var waitVpn = 0
-                        while (DpiVpnService.isRunning && waitVpn < 20 && isActive) {
-                            delay(200.milliseconds)
-                            waitVpn++
-                        }
-                        // Immediate force close to ensure socket release
-                        withContext(Dispatchers.IO) {
-                            com.example.nozapret.core.ByeDpiProxy().forceClose()
-                        }
-                        delay(500.milliseconds)
-                    }
-                    
-                    // Final hard cleanup before starting test proxy
-                    withContext(Dispatchers.IO) {
-                        com.example.nozapret.core.ByeDpiProxy().forceClose()
-                    }
+            // Stop VPN if running
+            if (DpiVpnService.isRunning) {
+                val stopIntent = Intent(context, DpiVpnService::class.java).apply {
+                    action = DpiVpnService.ACTION_STOP
+                }
+                context.startService(stopIntent)
+                var waitVpn = 0
+                while (DpiVpnService.isRunning && waitVpn < 25) {
                     delay(200.milliseconds)
+                    waitVpn++
+                }
+                com.example.nozapret.core.ByeDpiProxy().forceClose()
+                delay(500.milliseconds)
+            }
+            
+            com.example.nozapret.core.ByeDpiProxy().forceClose()
+            delay(200.milliseconds)
 
-                    if (!isActive) return@launch
+            val isDirect = strategyName == "None"
+            
+            coroutineScope {
+                val proxyJob = if (!isDirect) {
+                    val strategyArgs = Config.getStrategyArgs(strategyName, customArgs)
+                    val listArgs = Config.BYPASS_LISTS.toMap()["Russia Default"] ?: emptyArray()
+                    val finalArgs = mutableListOf("byedpi", "-i", "127.0.0.1", "-p", "1081", "-x", "1")
+                    finalArgs.addAll(strategyArgs)
+                    finalArgs.addAll(listArgs)
+                    finalArgs.add("-P")
+                    finalArgs.add("protect")
 
-                    val isDirect = strategyName == "None"
-                    val testProxy = if (!isDirect) com.example.nozapret.core.ByeDpiProxy() else null
-                    
-                    val proxyJob = if (!isDirect) {
-                        val strategyArgs = Config.getStrategyArgs(strategyName, customArgs)
-                        val listArgs = Config.BYPASS_LISTS.toMap()["Russia Default"] ?: emptyArray()
-                        
-                        val finalArgs = mutableListOf("byedpi", "-i", "127.0.0.1", "-p", "1081", "-x", "1")
-                        finalArgs.addAll(strategyArgs)
-                        finalArgs.addAll(listArgs)
-                        finalArgs.add("-P")
-                        finalArgs.add("protect")
-
-                        launch(Dispatchers.IO) { 
-                            try {
-                                Log.d("MainViewModel", "Starting test proxy for $strategyName on 1081")
-                                val res = testProxy?.start(finalArgs.toTypedArray()) 
-                                Log.d("MainViewModel", "Test proxy for $strategyName exited with $res")
-                            } catch (e: Exception) {
-                                Log.e("MainViewModel", "Test proxy error", e)
-                            } finally {
-                                withContext(NonCancellable) {
-                                    testProxy?.forceClose()
-                                }
-                            }
+                    launch(Dispatchers.IO) { 
+                        try {
+                            testProxy?.start(finalArgs.toTypedArray()) 
+                        } catch (e: Exception) {
+                            Log.e("MainViewModel", "Test proxy error", e)
+                        } finally {
+                            withContext(NonCancellable) { testProxy?.forceClose() }
                         }
-                    } else null
-                    
-                    try {
-                        if (!isDirect) {
-                            // Wait for proxy to bind or fail
-                            var proxyReady = false
-                            withTimeoutOrNull(5000.milliseconds) {
-                                while (!proxyReady && isActive) {
-                                    try {
-                                        Socket().use { s ->
-                                            s.connect(InetSocketAddress("127.0.0.1", 1081), 500)
-                                            proxyReady = true
-                                        }
-                                    } catch (_: Exception) {
-                                        delay(500.milliseconds)
+                    }
+                } else null
+                
+                try {
+                    if (!isDirect) {
+                        var proxyReady = false
+                        withTimeoutOrNull(5000.milliseconds) {
+                            while (!proxyReady) {
+                                try {
+                                    Socket().use { s ->
+                                        s.connect(InetSocketAddress("127.0.0.1", 1081), 500)
+                                        proxyReady = true
                                     }
+                                } catch (_: Exception) {
+                                    delay(500.milliseconds)
                                 }
                             }
-                            if (!proxyReady && isActive) {
-                                throw Exception("Proxy failed to start")
-                            }
                         }
-                        if (!isActive) throw CancellationException()
+                        if (!proxyReady) {
+                            throw Exception("Proxy failed to start")
+                        }
+                    }
 
-                        val results = mutableMapOf<String, TlsTestResult>()
-                        var successfulBypasses = 0
-                        var testedCount = 0
-                        
-                        if (sitesToTest.isNotEmpty()) {
-                            val semaphore = Semaphore(10)
-                            try {
-                                withTimeout(180000.milliseconds) {
-                                    coroutineScope {
-                                        sitesToTest.forEach { site ->
-                                            if (!isActive) return@forEach
-                                            launch {
-                                                semaphore.acquire()
-                                                try {
-                                                    val result = performCombinedCheck(site, isDirect)
-                                                    
-                                                    val (currentSuccess, currentTested) = synchronized(results) {
-                                                        results[site] = result
-                                                        if (result.success) successfulBypasses++
-                                                        testedCount++
-                                                        Pair(successfulBypasses, testedCount)
-                                                    }
-
-                                                    if (isActive) {
-                                                        val snapResults = synchronized(results) { results.toMap() }
-                                                        updateTestNotification(strategyName, currentSuccess, currentTested, totalToTest)
-
-                                                        withContext(Dispatchers.Main.immediate) {
-                                                            testResults[strategyName] = snapResults
-                                                            stats[strategyName] = Triple(currentSuccess, currentTested, totalToTest)
-                                                        }
-                                                    }
-                                                } finally {
-                                                    semaphore.release()
+                    val results = mutableMapOf<String, TlsTestResult>()
+                    var successfulBypasses = 0
+                    var testedCount = 0
+                    
+                    if (sitesToTest.isNotEmpty()) {
+                        val semaphore = Semaphore(10)
+                        try {
+                            withTimeout(180000.milliseconds) {
+                                coroutineScope {
+                                    sitesToTest.forEach { site ->
+                                        launch {
+                                            semaphore.acquire()
+                                            try {
+                                                val result = performCombinedCheck(site, isDirect)
+                                                val (currentSuccess, currentTested) = synchronized(results) {
+                                                    results[site] = result
+                                                    if (result.success) successfulBypasses++
+                                                    testedCount++
+                                                    Pair(successfulBypasses, testedCount)
                                                 }
+
+                                                val snapResults = synchronized(results) { results.toMap() }
+                                                updateTestNotification(strategyName, currentSuccess, currentTested, totalToTest)
+                                                withContext(Dispatchers.Main.immediate) {
+                                                    testResults[strategyName] = snapResults
+                                                    stats[strategyName] = Triple(currentSuccess, currentTested, totalToTest)
+                                                }
+                                            } finally {
+                                                semaphore.release()
                                             }
                                         }
                                     }
                                 }
-                            } catch (e: Exception) {
-                                Log.e("MainViewModel", "Test for $strategyName interrupted: ${e.message}")
                             }
-                        } else {
-                            withContext(Dispatchers.Main.immediate) {
-                                stats[strategyName] = Triple(0, 0, 0)
-                            }
+                        } catch (e: Exception) {
+                            Log.e("MainViewModel", "Test for $strategyName interrupted: ${e.message}")
                         }
-                    } finally {
-                        withContext(NonCancellable) {
-                            testProxy?.forceClose()
-                            withTimeoutOrNull(2000.milliseconds) {
-                                proxyJob?.cancelAndJoin()
-                            }
-                        }
+                    } else {
+                        withContext(Dispatchers.Main.immediate) { stats[strategyName] = Triple(0, 0, 0) }
                     }
                 } finally {
                     withContext(NonCancellable) {
-                        val finalStats = stats[strategyName] ?: Triple(0, 0, totalToTest)
-                        updateTestNotification(strategyName, finalStats.first, finalStats.second, totalToTest, true)
-                        
-                        withContext(Dispatchers.Main.immediate) {
-                            committedStats[strategyName] = finalStats
-                            currentlyTesting.remove(strategyName)
-                            testJobs.remove(strategyName)
-                            saveTestResults()
-                        }
+                        testProxy?.forceClose()
+                        proxyJob?.cancelAndJoin()
                     }
                 }
             }
-            testJobs[strategyName] = job
+        } finally {
+            withContext(NonCancellable) {
+                val finalStats = stats[strategyName] ?: Triple(0, 0, totalToTest)
+                updateTestNotification(strategyName, finalStats.first, finalStats.second, totalToTest, true)
+                withContext(Dispatchers.Main.immediate) {
+                    committedStats[strategyName] = finalStats
+                    currentlyTesting.remove(strategyName)
+                    testJobs.remove(strategyName)
+                    saveTestResults()
+                }
+            }
         }
     }
 
@@ -826,10 +791,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             allTestsJob = viewModelScope.launch(Dispatchers.IO) {
                 Config.STRATEGIES.forEach { (name, _) ->
                     if (!isActive) return@forEach
-                    val outerJob = testStrategy(name)
-                    outerJob.join() // Wait for testJobs[name] to be set
-                    // Wait for it to finish before starting next in "Test All"
-                    testJobs[name]?.join()
+                    runStrategyTestInternal(name)
                     withContext(Dispatchers.Main) {
                         strategiesTestedCount++
                     }

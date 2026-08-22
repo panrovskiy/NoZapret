@@ -285,6 +285,12 @@
     <string name="apps_selected_count">Selected: %1$d apps</string>
 
     <string name="changelog_content" translatable="false">
+        <b>v2.3.1</b> (August 22, 2026)\n
+        • Fixed concurrent testing bug in \"Test All\"\n
+        • Added test results to all strategy pickers\n
+        • Improved stability and site tester cleanup\n
+        • Fixed UI infinite loading and warnings\n
+        • Optimized configuration presets\n\n
         <b>v2.3.0</b> (August 21, 2026)\n
         <i>The Stability &amp; Connectivity Update</i>\n\n
         • <b>Stability Fix</b>: Resolved an issue where the VPN would disconnect after several seconds on certain strategies.\n

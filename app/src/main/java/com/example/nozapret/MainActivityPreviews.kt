@@ -48,6 +48,8 @@ fun PreviewHomeTabDisconnected() {
             proxyHost = "127.0.0.1",
             proxyPort = "1080",
             globalMode = false,
+            committedStats = emptyMap(),
+            bypassedSitesCount = 0,
             onStrategySelected = {}
         )
     }
@@ -67,6 +69,8 @@ fun PreviewHomeTabConnected() {
             proxyHost = "127.0.0.1",
             proxyPort = "1080",
             globalMode = false,
+            committedStats = emptyMap(),
+            bypassedSitesCount = 0,
             onStrategySelected = {}
         )
     }
@@ -108,6 +112,8 @@ fun PreviewHomeTabGlobal() {
             proxyHost = "127.0.0.1",
             proxyPort = "1080",
             globalMode = true,
+            committedStats = emptyMap(),
+            bypassedSitesCount = 0,
             onStrategySelected = {}
         )
     }
