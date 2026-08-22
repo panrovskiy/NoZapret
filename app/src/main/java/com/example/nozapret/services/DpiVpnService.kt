@@ -55,9 +55,9 @@ class DpiVpnService : VpnService() {
         const val EXTRA_IS_RUNNING = "is_running"
         const val EXTRA_START_TIME = "start_time"
         var isRunning = false
-            private set
+            internal set
         var startTime = 0L
-            private set
+            internal set
         const val CHANNEL_ID = "vpn_channel"
         
         // Mutex to prevent concurrent start/stop and protect native resources
@@ -82,39 +82,36 @@ class DpiVpnService : VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // ALWAYS call startForeground first to satisfy the system requirement
-        // for startForegroundService() and prevent crashes during rapid toggling.
-        // We do this even for ACTION_STOP if the service isn't "isRunning" yet,
-        // because a previous startForegroundService() call might still be pending.
-        if ((intent?.action != ACTION_STOP) || !isRunning) {
-            createNotificationChannel()
-            val notification = createNotification()
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-                } else {
-                    startForeground(1, notification)
-                }
-            } catch (e: Exception) {
-                Log.e("DpiVpnService", "Failed to start foreground", e)
-            }
-        }
-
-        if (intent?.action == ACTION_STOP) {
+        val action = intent?.action
+        
+        if (action == ACTION_STOP) {
             stopVpn("Action Stop")
             return START_NOT_STICKY
+        }
+
+        // Always ensure foreground state for start requests to prevent crashes
+        createNotificationChannel()
+        val notification = createNotification()
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(1, notification)
+            }
+        } catch (e: Exception) {
+            Log.e("DpiVpnService", "Failed to start foreground", e)
         }
 
         serviceScope.launch {
             vpnLock.withLock {
                 if (vpnInterface != null) {
-                    Log.d("DpiVpnService", "VPN already running")
+                    Log.d("DpiVpnService", "VPN already running, updating UI")
+                    isRunning = true
                     sendStateBroadcast(running = true)
                     return@withLock
                 }
 
                 jniSetVpnService(this@DpiVpnService)
-
                 startVpn()
             }
         }
@@ -402,17 +399,15 @@ class DpiVpnService : VpnService() {
     private fun stopVpn(reason: String = "Requested") {
         val stackTrace = Thread.currentThread().stackTrace.joinToString("\n") { it.toString() }
         Log.d("DpiVpnService", "Stopping VPN. Reason: $reason. Caller Stack:\n$stackTrace")
+        
+        // Update state immediately for UI responsiveness
+        isRunning = false
+        sendStateBroadcast(running = false)
+
         serviceScope.launch {
             vpnLock.withLock {
-                Log.d("DpiVpnService", "Stopping VPN. Reason: $reason")
-                if (!isRunning && (vpnInterface == null)) {
-                    Log.d("DpiVpnService", "VPN already stopped or stopping")
-                    return@withLock
-                }
-
-                // 1. Immediately update state and remove notification for responsiveness
-                isRunning = false
-                sendStateBroadcast(running = false)
+                Log.d("DpiVpnService", "Stopping VPN (Lock acquired). Reason: $reason")
+                
                 withContext(Dispatchers.Main) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                 }
@@ -438,6 +433,8 @@ class DpiVpnService : VpnService() {
                     // 3. Stop native components
                     tunnel.stop()
                     proxy.forceClose()
+                    
+                    jniSetVpnService(null)
 
                     // 4. Cancel the main job
                     jobToCancel?.cancelAndJoin()
@@ -461,7 +458,8 @@ class DpiVpnService : VpnService() {
 
     override fun onDestroy() {
         Log.d("DpiVpnService", "Service onDestroy")
-        jniSetVpnService(null)
+        isRunning = false
+        sendStateBroadcast(false)
         try {
             unregisterReceiver(statusReceiver)
         } catch (_: Exception) {}

@@ -210,6 +210,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 loadTestResults()
                 
+                // Sync with actual service state if process is alive
+                isEnabled = DpiVpnService.isRunning
+                vpnStartTime = DpiVpnService.startTime
+
                 if (autoConnect && !isEnabled) {
                     Log.d("MainViewModel", "Auto-connect enabled, checking status")
                 }

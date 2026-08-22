@@ -262,11 +262,6 @@ fun MainScreen(viewModel: MainViewModel) {
 
         val observer = LifecycleEventObserver { _, event: Lifecycle.Event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                val vpnStatePrefs = context.getSharedPreferences("vpn_state", Context.MODE_PRIVATE)
-                viewModel.updateVpnState(
-                    vpnStatePrefs.getBoolean("is_running", false),
-                    vpnStatePrefs.getLong("start_time", 0L)
-                )
                 viewModel.isIgnoringBattery = pm.isIgnoringBatteryOptimizations(context.packageName)
                 context.sendBroadcast(
                     Intent(DpiVpnService.ACTION_QUERY_STATUS).apply {
