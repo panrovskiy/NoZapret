@@ -256,10 +256,6 @@ class DpiVpnService : VpnService() {
                 }
             }
             
-            isRunning = true
-            startTime = System.currentTimeMillis()
-            sendStateBroadcast(running = true)
-            
             vpnJob = serviceScope.launch(Dispatchers.IO) {
                 Log.d("DpiVpnService", "Bypass Service started. Strategy: $strategy")
                 
@@ -307,6 +303,11 @@ class DpiVpnService : VpnService() {
                         if (isRunning) stopVpn("Proxy timeout")
                         return@launch
                     }
+
+                    // VPN is actually established and proxy is ready
+                    startTime = System.currentTimeMillis()
+                    isRunning = true
+                    sendStateBroadcast(running = true)
 
                     if (runMode == "VPN") {
                         val configPath = createTunnelConfig(enableIpv6)
@@ -418,23 +419,23 @@ class DpiVpnService : VpnService() {
                 val jobToCancel = vpnJob
                 vpnJob = null
 
-                // 2. Close the TUN interface immediately.
-                try {
-                    localVpnInterface?.close()
-                } catch (e: Exception) {
-                    Log.e("DpiVpnService", "Error closing vpnInterface", e)
-                }
-
                 if (wakeLock?.isHeld == true) {
                     wakeLock?.release()
                 }
 
                 try {
-                    // 3. Stop native components
+                    // 2. Stop native components FIRST
                     tunnel.stop()
                     proxy.forceClose()
                     
                     jniSetVpnService(null)
+
+                    // 3. Close the TUN interface AFTER native components stopped using it
+                    try {
+                        localVpnInterface?.close()
+                    } catch (e: Exception) {
+                        Log.e("DpiVpnService", "Error closing vpnInterface", e)
+                    }
 
                     // 4. Cancel the main job
                     jobToCancel?.cancelAndJoin()

@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include <jni.h>
 #include <getopt.h>
@@ -30,6 +31,7 @@ static int g_proxy_running = 0;
 static int g_tunnel_running = 0;
 static JavaVM *g_jvm = NULL;
 static jobject g_vpn_service = NULL;
+static pthread_mutex_t g_vpn_service_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Global VM handle
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
@@ -39,7 +41,9 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 
 // Socket protection function
 int android_protect_socket(int fd) {
+    pthread_mutex_lock(&g_vpn_service_mutex);
     if (g_jvm == NULL || g_vpn_service == NULL) {
+        pthread_mutex_unlock(&g_vpn_service_mutex);
         return 0;
     }
 
@@ -51,6 +55,7 @@ int android_protect_socket(int fd) {
     if (res == JNI_EDETACHED) {
         if ((*g_jvm)->AttachCurrentThread(g_jvm, &env, NULL) != 0) {
             LOGE("Failed to attach thread for socket protection");
+            pthread_mutex_unlock(&g_vpn_service_mutex);
             return -1;
         }
         attached = 1;
@@ -60,6 +65,7 @@ int android_protect_socket(int fd) {
     if (!vpn_service_class) {
         LOGE("Failed to get VpnService class");
         if (attached) (*g_jvm)->DetachCurrentThread(g_jvm);
+        pthread_mutex_unlock(&g_vpn_service_mutex);
         return -1;
     }
 
@@ -80,11 +86,13 @@ int android_protect_socket(int fd) {
         (*g_jvm)->DetachCurrentThread(g_jvm);
     }
 
+    pthread_mutex_unlock(&g_vpn_service_mutex);
     return ret;
 }
 
 JNIEXPORT void JNICALL
 Java_com_example_nozapret_services_DpiVpnService_jniSetVpnService(JNIEnv *env, jobject thiz, jobject vpn_service) {
+    pthread_mutex_lock(&g_vpn_service_mutex);
     if (g_vpn_service != NULL) {
         (*env)->DeleteGlobalRef(env, g_vpn_service);
         g_vpn_service = NULL;
@@ -92,6 +100,7 @@ Java_com_example_nozapret_services_DpiVpnService_jniSetVpnService(JNIEnv *env, j
     if (vpn_service != NULL) {
         g_vpn_service = (*env)->NewGlobalRef(env, vpn_service);
     }
+    pthread_mutex_unlock(&g_vpn_service_mutex);
 }
 
 // struct params params; // Removed to avoid redefinition
