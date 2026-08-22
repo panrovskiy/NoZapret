@@ -398,6 +398,8 @@ fun MainScreen(viewModel: MainViewModel) {
                             proxyHost = viewModel.proxyHost,
                             proxyPort = viewModel.proxyPort,
                             globalMode = viewModel.globalMode,
+                            committedStats = viewModel.committedStats,
+                            bypassedSitesCount = viewModel.sitesToTestCount,
                             onStrategySelected = viewModel::applyStrategy
                         )
 

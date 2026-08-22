@@ -9,7 +9,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -549,8 +548,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return tls.copy(httpSuccess = http.first, httpError = http.second)
     }
 
-    fun testStrategy(strategyName: String) {
-        viewModelScope.launch {
+    fun testStrategy(strategyName: String): Job {
+        return viewModelScope.launch {
             val existingJob = testJobs[strategyName]
             
             // Toggle: if already testing, stop it immediately in UI and cancel background
@@ -828,7 +827,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             allTestsJob = viewModelScope.launch(Dispatchers.IO) {
                 Config.STRATEGIES.forEach { (name, _) ->
                     if (!isActive) return@forEach
-                    testStrategy(name)
+                    val outerJob = testStrategy(name)
+                    outerJob.join() // Wait for testJobs[name] to be set
                     // Wait for it to finish before starting next in "Test All"
                     testJobs[name]?.join()
                     withContext(Dispatchers.Main) {
@@ -1173,9 +1173,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } finally {
                 withContext(NonCancellable) {
-                    testProxy?.forceClose()
+                    try {
+                        testProxy?.forceClose()
+                    } catch (e: Exception) {
+                        Log.e("QuickTest", "Error closing proxy", e)
+                    }
                     proxyJob?.cancel()
-                    withTimeoutOrNull(2000.milliseconds) { proxyJob?.join() }
+                    try {
+                        withTimeoutOrNull(2000.milliseconds) { proxyJob?.join() }
+                    } catch (_: Exception) {}
                     withContext(Dispatchers.Main) {
                         isQuickTesting = false
                     }
@@ -1233,6 +1239,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 // 2. VPN Conflict Check
                 addChecking(R.string.diag_checking, "VPN Conflicts")
+                @Suppress("DEPRECATION")
                 val vpnProfiles = connectivityManager.allNetworks.filter {
                     val caps = connectivityManager.getNetworkCapabilities(it)
                     caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true
@@ -1255,7 +1262,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 // 4. DNS Check
                 addChecking(R.string.diag_checking, "DNS")
-                delay(500)
+                delay(500.milliseconds)
                 removeChecking()
                 addLog(R.string.diag_dns_server, DiagType.INFO, dnsServer)
 

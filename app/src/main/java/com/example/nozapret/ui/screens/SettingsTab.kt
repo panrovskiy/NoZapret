@@ -192,6 +192,15 @@ fun SettingsTab(
                                         text = {
                                             Column {
                                                 Text(getLocalizedStrategyName(name), fontWeight = FontWeight.Bold)
+                                                committedStats[name]?.let { (success, tested, total) ->
+                                                    if (tested > 0) {
+                                                        Text(
+                                                            stringResource(R.string.test_progress_short, success, total, tested),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = if (success == tested) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                        )
+                                                    }
+                                                }
                                                 if (isApplied) {
                                                     Text(
                                                         stringResource(R.string.label_applied),
@@ -493,6 +502,15 @@ fun SettingsTab(
                                         text = {
                                             Column {
                                                 Text(stringResource(R.string.tester_strategy_none))
+                                                committedStats["None"]?.let { (success, tested, total) ->
+                                                    if (tested > 0) {
+                                                        Text(
+                                                            stringResource(R.string.test_progress_short, success, total, tested),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = if (success == tested) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                        )
+                                                    }
+                                                }
                                                 if (selectedStrategy == "None") {
                                                     Text(
                                                         stringResource(R.string.label_applied),

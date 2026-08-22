@@ -109,11 +109,6 @@ object Config {
             "torrentgalaxy.to", "yts.mx", "eztv.re", "limetorrents.pro", "zooqle.com",
             "tracker.opentrackr.org", "tracker.coppersurfer.tk", "tracker.leechers-paradise.org"
         ),
-        "YouTube (Specific)" to listOf(
-            "googlevideo.com", "youtube.com", "ytimg.com", "ggpht.com", "youtu.be",
-            "googleapis.com", "googleusercontent.com", "youtubei.googleapis.com",
-            "nhacmp3.com.vn"
-        ),
         "Socials" to listOf(
             "snapchat.com", "snap.com", "linkedin.com", "facebook.com", "fb.com", "fb.me", "fbcdn.net",
             "messenger.com", "meta.com", "instagram.com", "static.cdninstagram.com", "proton.me",

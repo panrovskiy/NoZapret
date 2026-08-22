@@ -37,6 +37,8 @@ fun HomeTab(
     proxyHost: String,
     proxyPort: String,
     globalMode: Boolean,
+    committedStats: Map<String, Triple<Int, Int, Int>>,
+    bypassedSitesCount: Int,
     onStrategySelected: (String) -> Unit,
 ) {
     var showStrategyDialog by remember { mutableStateOf(value = false) }
@@ -73,7 +75,7 @@ fun HomeTab(
                 val displayStrategies = if (pinnedStrategies.isNotEmpty()) {
                     pinnedStrategies
                 } else {
-                    listOf("Auto (Recommended)") + com.example.nozapret.core.Config.STRATEGIES.map { it.first }
+                    com.example.nozapret.core.Config.STRATEGIES.map { it.first }
                 }
                 androidx.compose.foundation.lazy.LazyColumn(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp),
@@ -100,6 +102,15 @@ fun HomeTab(
                                     fontWeight = if (isApplied) FontWeight.Bold else FontWeight.Normal,
                                     textAlign = TextAlign.Center
                                 )
+                                committedStats[strategy]?.let { (success, tested, total) ->
+                                    if (tested > 0) {
+                                        Text(
+                                            stringResource(R.string.test_progress_short, success, total, tested),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (success == tested) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                }
                                 if (isApplied) {
                                     Text(
                                         stringResource(R.string.label_applied),
@@ -166,6 +177,15 @@ fun HomeTab(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                        committedStats[selectedStrategy]?.let { (success, tested, total) ->
+                            if (tested > 0) {
+                                Text(
+                                    stringResource(R.string.test_progress_short, success, total, tested),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                )
+                            }
                         }
                         Text(
                             stringResource(R.string.label_change_strategy),
