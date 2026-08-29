@@ -4,7 +4,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
-
 #include <jni.h>
 #include <getopt.h>
 #include <signal.h>
@@ -30,8 +29,112 @@ extern int server_fd;
 static int g_proxy_running = 0;
 static int g_tunnel_running = 0;
 static JavaVM *g_jvm = NULL;
+
 static jobject g_vpn_service = NULL;
+static jclass g_vpn_service_class = NULL;
+static jmethodID g_protect_method = NULL;
 static pthread_mutex_t g_vpn_service_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Protection Proxy Thread State
+static pthread_t g_proxy_thread;
+static int g_proxy_req_fd = -1; // Pipe for sending FDs to proxy thread
+static int g_caller_req_fd = -1; // Pipe for receiving FDs by proxy thread (read end)
+static int g_proxy_res_fd = -1; // Pipe for sending results back
+static int g_caller_res_fd = -1; // Pipe for receiving results from proxy thread
+static volatile int g_proxy_running_flag = 0;
+static pthread_mutex_t g_proxy_comm_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static void* vpn_protect_proxy_thread(void* arg) {
+    JNIEnv *env;
+    if ((*g_jvm)->AttachCurrentThread(g_jvm, &env, NULL) != 0) {
+        LOGE("Proxy thread failed to attach to JVM");
+        return NULL;
+    }
+
+    LOGI("VPN Protect Proxy Thread started");
+    while (g_proxy_running_flag) {
+        int fd;
+        ssize_t n = read(g_proxy_req_fd, &fd, sizeof(fd));
+        if (n <= 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
+
+        if (fd == -1) break; // Sentinel to stop
+
+        int ret = 0;
+        pthread_mutex_lock(&g_vpn_service_mutex);
+        if (g_vpn_service && g_protect_method) {
+            jboolean success = (*env)->CallBooleanMethod(env, g_vpn_service, g_protect_method, fd);
+            if (!success) {
+                LOGE("Proxy: VpnService.protect(%d) returned FALSE", fd);
+                ret = -1;
+            }
+            if ((*env)->ExceptionCheck(env)) {
+                LOGE("Proxy: VpnService.protect(%d) threw exception", fd);
+                (*env)->ExceptionDescribe(env);
+                (*env)->ExceptionClear(env);
+                ret = -1;
+            }
+        } else {
+            LOGE("Proxy: VpnService or protect method NULL during call for fd %d", fd);
+            ret = -1;
+        }
+        pthread_mutex_unlock(&g_vpn_service_mutex);
+
+        write(g_proxy_res_fd, &ret, sizeof(ret));
+    }
+
+    (*g_jvm)->DetachCurrentThread(g_jvm);
+    LOGI("VPN Protect Proxy Thread stopped");
+    return NULL;
+}
+
+static void stop_protect_proxy() {
+    if (g_proxy_running_flag) {
+        g_proxy_running_flag = 0;
+        int sentinel = -1;
+        if (g_caller_req_fd != -1) {
+            write(g_caller_req_fd, &sentinel, sizeof(sentinel));
+        }
+        pthread_join(g_proxy_thread, NULL);
+
+        if (g_proxy_req_fd != -1) close(g_proxy_req_fd);
+        if (g_caller_req_fd != -1) close(g_caller_req_fd);
+        if (g_proxy_res_fd != -1) close(g_proxy_res_fd);
+        if (g_caller_res_fd != -1) close(g_caller_res_fd);
+
+        g_proxy_req_fd = -1;
+        g_caller_req_fd = -1;
+        g_proxy_res_fd = -1;
+        g_caller_res_fd = -1;
+    }
+}
+
+static void start_protect_proxy() {
+    stop_protect_proxy();
+
+    int fds1[2], fds2[2];
+    if (pipe(fds1) != 0 || pipe(fds2) != 0) {
+        LOGE("Failed to create pipes for protect proxy");
+        return;
+    }
+
+    g_proxy_req_fd = fds1[0]; // Proxy thread reads from here
+    g_caller_req_fd = fds1[1]; // Caller writes to here
+
+    g_caller_res_fd = fds2[0]; // Caller reads from here
+    g_proxy_res_fd = fds2[1]; // Proxy thread writes to here
+
+    g_proxy_running_flag = 1;
+    if (pthread_create(&g_proxy_thread, NULL, vpn_protect_proxy_thread, NULL) != 0) {
+        LOGE("Failed to create protect proxy thread");
+        g_proxy_running_flag = 0;
+        close(fds1[0]); close(fds1[1]);
+        close(fds2[0]); close(fds2[1]);
+        g_proxy_req_fd = g_caller_req_fd = g_proxy_res_fd = g_caller_res_fd = -1;
+    }
+}
 
 // Global VM handle
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
@@ -41,69 +144,75 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 
 // Socket protection function
 int android_protect_socket(int fd) {
-    pthread_mutex_lock(&g_vpn_service_mutex);
-    if (g_jvm == NULL || g_vpn_service == NULL) {
-        pthread_mutex_unlock(&g_vpn_service_mutex);
-        return 0;
-    }
+    if (fd < 0) return -1;
 
-    JNIEnv *env;
-    int attached = 0;
-    int ret = 0;
-
-    int res = (*g_jvm)->GetEnv(g_jvm, (void **)&env, JNI_VERSION_1_6);
-    if (res == JNI_EDETACHED) {
-        if ((*g_jvm)->AttachCurrentThread(g_jvm, &env, NULL) != 0) {
-            LOGE("Failed to attach thread for socket protection");
-            pthread_mutex_unlock(&g_vpn_service_mutex);
-            return -1;
-        }
-        attached = 1;
-    }
-
-    jclass vpn_service_class = (*env)->GetObjectClass(env, g_vpn_service);
-    if (!vpn_service_class) {
-        LOGE("Failed to get VpnService class");
-        if (attached) (*g_jvm)->DetachCurrentThread(g_jvm);
-        pthread_mutex_unlock(&g_vpn_service_mutex);
+    pthread_mutex_lock(&g_proxy_comm_mutex);
+    if (!g_proxy_running_flag || g_caller_req_fd == -1) {
+        LOGE("android_protect_socket(%d) failed: proxy not running", fd);
+        pthread_mutex_unlock(&g_proxy_comm_mutex);
         return -1;
     }
 
-    jmethodID protect_method = (*env)->GetMethodID(env, vpn_service_class, "protect", "(I)Z");
-    (*env)->DeleteLocalRef(env, vpn_service_class);
+    // Send FD to proxy thread
+    if (write(g_caller_req_fd, &fd, sizeof(fd)) != sizeof(fd)) {
+        LOGE("android_protect_socket(%d) failed: write to pipe failed", fd);
+        pthread_mutex_unlock(&g_proxy_comm_mutex);
+        return -1;
+    }
 
-    if (protect_method) {
-        if (!(*env)->CallBooleanMethod(env, g_vpn_service, protect_method, fd)) {
-            LOGE("VpnService.protect(%d) failed", fd);
-            ret = -1;
-        }
+    // Wait for result
+    int result = -1;
+    if (read(g_caller_res_fd, &result, sizeof(result)) != sizeof(result)) {
+        LOGE("android_protect_socket(%d) failed: read from pipe failed", fd);
+    }
+    pthread_mutex_unlock(&g_proxy_comm_mutex);
+
+    if (result != 0) {
+        LOGE("android_protect_socket(%d) result: %d", fd, result);
     } else {
-        LOGE("VpnService.protect method not found");
-        ret = -1;
+        LOGI("android_protect_socket(%d) success", fd);
     }
 
-    if (attached) {
-        (*g_jvm)->DetachCurrentThread(g_jvm);
-    }
+    return result;
+}
 
-    pthread_mutex_unlock(&g_vpn_service_mutex);
-    return ret;
+// Tunnel protection function - for now, we don't protect tunnel sockets
+// because they connect to 127.0.0.1 and protect() might break localhost connections
+// on some devices. Also, the app is already excluded from VPN.
+int android_protect_tunnel_socket(int fd) {
+    return 0;
 }
 
 JNIEXPORT void JNICALL
 Java_com_example_nozapret_services_DpiVpnService_jniSetVpnService(JNIEnv *env, jobject thiz, jobject vpn_service) {
     pthread_mutex_lock(&g_vpn_service_mutex);
+
     if (g_vpn_service != NULL) {
         (*env)->DeleteGlobalRef(env, g_vpn_service);
         g_vpn_service = NULL;
     }
+    if (g_vpn_service_class != NULL) {
+        (*env)->DeleteGlobalRef(env, g_vpn_service_class);
+        g_vpn_service_class = NULL;
+    }
+    g_protect_method = NULL;
+
     if (vpn_service != NULL) {
         g_vpn_service = (*env)->NewGlobalRef(env, vpn_service);
+        jclass local_class = (*env)->GetObjectClass(env, g_vpn_service);
+        if (local_class) {
+            g_vpn_service_class = (jclass)(*env)->NewGlobalRef(env, local_class);
+            g_protect_method = (*env)->GetMethodID(env, g_vpn_service_class, "protect", "(I)Z");
+            (*env)->DeleteLocalRef(env, local_class);
+        }
+
+        start_protect_proxy();
+    } else {
+        stop_protect_proxy();
     }
+
     pthread_mutex_unlock(&g_vpn_service_mutex);
 }
-
-// struct params params; // Removed to avoid redefinition
 
 struct params default_params = {
         .await_int = 10,
@@ -142,6 +251,7 @@ Java_com_example_nozapret_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, jobject th
 
     int argc = (*env)->GetArrayLength(env, args);
     char **argv = calloc(argc + 1, sizeof(char *));
+    int invalid = 0;
 
     if (!argv) {
         LOG(LOG_S, "failed to allocate memory for argv");
@@ -159,12 +269,24 @@ Java_com_example_nozapret_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, jobject th
         const char *arg_str = (*env)->GetStringUTFChars(env, arg, 0);
         if (arg_str) {
             argv[i] = strdup(arg_str);
+            if (!argv[i]) {
+                LOGE("failed to strdup arg %d", i);
+                invalid = 1;
+            }
             (*env)->ReleaseStringUTFChars(env, arg, arg_str);
         } else {
             argv[i] = NULL;
         }
 
         (*env)->DeleteLocalRef(env, arg);
+    }
+
+    if (invalid) {
+        for (int i = 0; i < argc; i++) {
+            if (argv[i]) free(argv[i]);
+        }
+        free(argv);
+        return -1;
     }
     
     LOG(LOG_S, "starting proxy with %d args", argc);
@@ -230,7 +352,6 @@ Java_com_example_nozapret_core_ByeDpiProxy_jniForceClose(JNIEnv *env, jobject th
 }
 
 // HevSocks5Tunnel JNI
-// These functions are expected to be provided by the hev-socks5-tunnel library
 extern int hev_socks5_tunnel_main(const char *config_path, int tunnel_fd);
 extern void hev_socks5_tunnel_quit(void);
 

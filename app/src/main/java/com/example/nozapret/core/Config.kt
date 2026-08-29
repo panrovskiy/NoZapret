@@ -32,23 +32,23 @@ object Config {
         return when (name) {
             "Auto (Recommended)" -> arrayOf(
                 "--split", "2",
-                "--disorder", "1:2",
+                "--disorder", "1",
                 "--oob", "1",
                 "--fake", "-1",
-                "--ttl", "4",
+                "--ttl", "5",
                 "--fake-tls-mod", "rand",
                 "--mod-http", "hcsmix,dcsmix",
-                "--udp-fake", "5",
-                "--auto", "none"
+                "--udp-fake", "3",
+                "--auto", "torst,rst,tls"
             )
             "Modern Ultra" -> arrayOf(
-                "--split", "2", "--disorder", "1:2", "--fake", "-1", "--ttl", "4", "--fake-tls-mod", "rand", "--udp-fake", "3", "--drop-sack"
+                "--split", "1", "--disorder", "1", "--fake", "-1", "--ttl", "3", "--fake-tls-mod", "rand", "--udp-fake", "3", "--drop-sack"
             )
             "YouTube/Google Fix" -> arrayOf(
-                "--split", "1", "--oob", "1", "--fake", "-1", "--ttl", "5", "--fake-tls-mod", "rand", "--mod-http", "hcsmix,dcsmix", "--udp-fake", "3", "--drop-sack", "--auto", "none"
+                "--split", "1", "--disorder", "1", "--oob", "1", "--fake", "-1", "--ttl", "3", "--fake-tls-mod", "rand", "--mod-http", "hcsmix,dcsmix", "--udp-fake", "3", "--drop-sack"
             )
             "Discord/UDP Fix" -> arrayOf(
-                "--disorder", "1:2", "--udp-fake", "5", "--ttl", "4", "--fake", "-1", "--drop-sack"
+                "--split", "1", "--disorder", "1", "--udp-fake", "5", "--ttl", "3", "--fake", "-1", "--drop-sack"
             )
             "YouTube Light (Battery)" -> parseCustomArgs("-H:\"signaler-pa.youtube.com\" -o 1 -r 5+s -r 16+s -An -H:\"youtube.com\" -o 1 -r -8+se -r -4+se -An -H:\"youtu.be\" -o 1 -r -6+se -r -3+se -An -H:\"googlevideo.com\" -o 1 -r -11+se -r -5+se -An -H:\"ytimg.com ggpht.com youtubei.googleapis.com yt3.googleusercontent.com\" -o 1 -r 1+s -An")
             "YouTube TLS Split" -> parseCustomArgs("-H:\"youtube.com youtu.be ytimg.com ggpht.com googleapis.com googleusercontent.com signaler-pa.youtube.com\" --tlsrec 4+s --tlsrec 8+s --tlsrec 12+s --tlsrec 16+s --tlsrec 20+s --disorder 25+s -H:\"googlevideo.com\" --tlsrec 14+s --disorder 25+s")

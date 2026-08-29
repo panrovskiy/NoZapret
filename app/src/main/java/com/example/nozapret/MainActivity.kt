@@ -92,20 +92,24 @@ class MainActivity : AppCompatActivity() {
             .setShortLabel(getString(R.string.btn_start))
             .setLongLabel(getString(R.string.status_vpn_started))
             .setIcon(Icon.createWithResource(this, R.mipmap.app_icon))
-            .setIntent(Intent(this, MainActivity::class.java).apply {
-                action = "com.example.nozapret.START_VPN"
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            })
+            .setIntent(
+                Intent(this, MainActivity::class.java).apply {
+                    action = "com.example.nozapret.START_VPN"
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                },
+            )
             .build()
 
         val stopShortcut = ShortcutInfo.Builder(this, "dynamic_stop_vpn_id")
             .setShortLabel(getString(R.string.btn_stop))
             .setLongLabel(getString(R.string.status_vpn_stopped))
             .setIcon(Icon.createWithResource(this, R.mipmap.app_icon))
-            .setIntent(Intent(this, MainActivity::class.java).apply {
-                action = "com.example.nozapret.STOP_VPN"
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            })
+            .setIntent(
+                Intent(this, MainActivity::class.java).apply {
+                    action = "com.example.nozapret.STOP_VPN"
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                },
+            )
             .build()
 
         try {
@@ -141,17 +145,23 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleIntent(intent: Intent?) {
         val action = intent?.action
-        if (action == "com.example.nozapret.TOGGLE_VPN" || 
-            action == "com.example.nozapret.START_VPN" || 
-            action == "com.example.nozapret.STOP_VPN") {
+        if ((action == "com.example.nozapret.TOGGLE_VPN") || 
+            (action == "com.example.nozapret.START_VPN") || 
+            (action == "com.example.nozapret.STOP_VPN")) {
             Log.d("MainActivity", "Captured shortcut action: $action")
         }
     }
 }
 
-fun startVpnService(context: Context) {
-    val intent = Intent(context, DpiVpnService::class.java)
-    context.startService(intent)
+fun startVpnService(context: Context, viewModel: MainViewModel) {
+    val intent = Intent(context, DpiVpnService::class.java).apply {
+        action = DpiVpnService.ACTION_START
+        putExtra("strategy", viewModel.selectedStrategy)
+        putExtra("args", viewModel.customArgs)
+        putExtra("global", viewModel.globalMode)
+        putExtra("bypassedSites", ArrayList(viewModel.bypassedSites))
+    }
+    context.startForegroundService(intent)
 }
 
 fun stopVpnService(context: Context) {
@@ -169,7 +179,7 @@ fun MainScreen(viewModel: MainViewModel) {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
 
-    val requestPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val requestPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }
 
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -198,8 +208,8 @@ fun MainScreen(viewModel: MainViewModel) {
         if (result.resultCode == Activity.RESULT_OK) {
             toggleJob = scope.launch {
                 viewModel.stopAllTests()
-                delay(1500.milliseconds)
-                startVpnService(context)
+                delay(300.milliseconds)
+                startVpnService(context, viewModel)
             }
         }
     }
@@ -221,8 +231,8 @@ fun MainScreen(viewModel: MainViewModel) {
             } else {
                 toggleJob = scope.launch {
                     viewModel.stopAllTests()
-                    delay(1500.milliseconds) // Give it even more time to release native resources
-                    startVpnService(context)
+                    delay(300.milliseconds) // Give it a bit of time to release native resources
+                    startVpnService(context, viewModel)
                 }
             }
         }
@@ -243,6 +253,7 @@ fun MainScreen(viewModel: MainViewModel) {
                     DpiVpnService.ACTION_VPN_STATE_CHANGED -> {
                         viewModel.updateVpnState(
                             intent.getBooleanExtra(DpiVpnService.EXTRA_IS_RUNNING, false),
+                            intent.getBooleanExtra(DpiVpnService.EXTRA_IS_PAUSED, false),
                             intent.getLongExtra(DpiVpnService.EXTRA_START_TIME, 0L)
                         )
                     }

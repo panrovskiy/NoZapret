@@ -40,4 +40,8 @@ class DataStoreManager(context: Context) {
     fun <T> getSetting(key: Preferences.Key<T>, defaultValue: T): Flow<T> {
         return dataStore.data.map { it[key] ?: defaultValue }
     }
+
+    fun getAllSettings(): Flow<Preferences> {
+        return dataStore.data
+    }
 }

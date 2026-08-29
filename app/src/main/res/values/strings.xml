@@ -104,6 +104,11 @@
     <string name="notification_testing_channel_name">Strategy Testing</string>
     <string name="notification_testing_complete_title">Testing Complete: %1$s</string>
     <string name="notification_testing_complete_text">Final result: %1$d/%2$d successful</string>
+    <string name="notification_connecting">Connecting…</string>
+    <string name="notification_connected">Connected - Bypass active</string>
+    <string name="notification_paused">Paused - Bypass suspended</string>
+    <string name="btn_pause">Pause</string>
+    <string name="btn_resume">Resume</string>
     <string name="btn_stop_vpn">Stop VPN</string>
     <string name="btn_apply_and_run">Apply and Run</string>
     <string name="btn_use_in_custom">Use in Custom</string>
@@ -214,6 +219,13 @@
     <string name="strategy_tls_record_frag_desc">Splits TLS records into smaller chunks.</string>
     <string name="strategy_custom">Custom</string>
     <string name="strategy_custom_desc">Use arguments from General settings.</string>
+    <string name="strategy_torrent_fix">Torrent/P2P Fix</string>
+    <string name="strategy_torrent_fix_desc">Optimized for P2P: UDP fakes and aggressive TCP splitting.</string>
+    <string name="strategy_1">Strategy 1</string>
+    <string name="strategy_2">Strategy 2</string>
+    <string name="strategy_3">Strategy 3</string>
+    <string name="strategy_4">Strategy 4</string>
+    <string name="strategy_5">Strategy 5</string>
 
     <!-- Presets -->
     <string name="preset_youtube">YouTube</string>
@@ -248,6 +260,16 @@
     <string name="error_update_check">Failed to check for updates: %1$s</string>
     <string name="error_download_failed">Download failed: %1$s</string>
     <string name="diag_title">System Diagnostics</string>
+    <string name="diag_item_network">Network</string>
+    <string name="diag_item_vpn">VPN Conflicts</string>
+    <string name="diag_item_battery">Battery</string>
+    <string name="diag_item_dns">DNS</string>
+    <string name="diag_item_ipv6">IPv6</string>
+    <string name="diag_item_engine">Native Engine</string>
+    <string name="diag_item_proxy">Local Proxy</string>
+    <string name="diag_item_tcp">TCP Timestamps</string>
+    <string name="diag_item_mtproto">Telegram (MTProto)</string>
+    <string name="diag_item_udp">UDP Associate</string>
     <string name="diag_checking">Checking: %1$s</string>
     <string name="diag_passed">Passed</string>
     <string name="diag_failed">Failed</string>
@@ -285,6 +307,11 @@
     <string name="apps_selected_count">Selected: %1$d apps</string>
 
     <string name="changelog_content" translatable="false">
+        <b>v2.3.2</b> (August 29, 2026)\n
+        • Added Pause/Resume buttons to the notification\n
+        • Improved notification management (clearable, updated status messages)\n
+        • Resolved UI warnings and fixed localized strings\n
+        • Improved background service stability\n\n
         <b>v2.3.1-fix2</b> (August 22, 2026)\n
         • Fixed connectivity issues and binding deadlocks\n
         • Fixed 404 error when checking for updates\n

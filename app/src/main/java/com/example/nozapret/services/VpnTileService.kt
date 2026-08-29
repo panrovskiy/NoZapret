@@ -87,7 +87,9 @@ class VpnTileService : TileService() {
             // startService is fine here because the service is already running in foreground
             startService(intent)
         } else {
-            val intent = Intent(this, DpiVpnService::class.java)
+            val intent = Intent(this, DpiVpnService::class.java).apply {
+                action = DpiVpnService.ACTION_START
+            }
             ContextCompat.startForegroundService(this, intent)
         }
     }

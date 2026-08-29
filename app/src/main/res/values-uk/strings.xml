@@ -104,6 +104,11 @@
     <string name="notification_testing_channel_name">Тестування стратегій</string>
     <string name="notification_testing_complete_title">Тест завершено: %1$s</string>
     <string name="notification_testing_complete_text">Підсумок: %1$d/%2$d успішно</string>
+    <string name="notification_connecting">Підключення…</string>
+    <string name="notification_connected">Підключено - Обхід активний</string>
+    <string name="notification_paused">Пауза - Обхід призупинено</string>
+    <string name="btn_pause">Пауза</string>
+    <string name="btn_resume">Продовжити</string>
     <string name="btn_stop_vpn">Зупинити VPN</string>
     <string name="btn_apply_and_run">Застосувати та запустити</string>
     <string name="btn_use_in_custom">У свої налаштування</string>
@@ -214,6 +219,13 @@
     <string name="strategy_tls_record_frag_desc">Розбиття записів TLS на дрібні частини.</string>
     <string name="strategy_custom">Свій варіант</string>
     <string name="strategy_custom_desc">Використовувати аргументи із загальних налаштувань.</string>
+    <string name="strategy_torrent_fix">Torrent/P2P Fix</string>
+    <string name="strategy_torrent_fix_desc">Оптимізовано для P2P: UDP фейки та агресивний TCP split.</string>
+    <string name="strategy_1">Стратегія 1</string>
+    <string name="strategy_2">Стратегія 2</string>
+    <string name="strategy_3">Стратегія 3</string>
+    <string name="strategy_4">Стратегія 4</string>
+    <string name="strategy_5">Стратегія 5</string>
 
     <!-- Presets -->
     <string name="preset_youtube">YouTube</string>
@@ -248,6 +260,16 @@
     <string name="error_update_check">Не вдалося перевірити оновлення: %1$s</string>
     <string name="error_download_failed">Помилка завантаження: %1$s</string>
     <string name="diag_title">Діагностика системи</string>
+    <string name="diag_item_network">Мережа</string>
+    <string name="diag_item_vpn">Конфлікти VPN</string>
+    <string name="diag_item_battery">Батарея</string>
+    <string name="diag_item_dns">DNS</string>
+    <string name="diag_item_ipv6">IPv6</string>
+    <string name="diag_item_engine">Ядро обходу</string>
+    <string name="diag_item_proxy">Локальний проксі</string>
+    <string name="diag_item_tcp">TCP Timestamps</string>
+    <string name="diag_item_mtproto">Telegram (MTProto)</string>
+    <string name="diag_item_udp">UDP Associate</string>
     <string name="diag_checking">Перевірка: %1$s</string>
     <string name="diag_passed">Пройдено</string>
     <string name="diag_failed">Помилка</string>
@@ -285,6 +307,11 @@
     <string name="apps_selected_count">Вибрано: %1$d дод.</string>
 
     <string name="changelog_content" translatable="false">
+        <b>v2.3.2</b> (29 серпня 2026 р.)\n
+        • Додано кнопки Пауза/Продовжити у сповіщенні\n
+        • Покращено керування сповіщеннями (можна смахнути, оновлено статуси)\n
+        • Усунуто попередження в інтерфейсі та виправлено локалізації\n
+        • Підвищено стабільність фонової служби\n\n
         <b>v2.3.1-fix2</b> (22 серпня 2026 р.)\n
         • Виправлено проблеми зі зв\'язком та блокування при прив\'язці\n
         • Виправлено помилку 404 при перевірці оновлень\n

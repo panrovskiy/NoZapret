@@ -21,13 +21,11 @@ import com.example.nozapret.services.DpiVpnService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Semaphore
-import kotlin.coroutines.coroutineContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 import org.json.JSONObject
@@ -64,6 +62,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val snackbarHostState = SnackbarHostState()
     var isEnabled by mutableStateOf(false)
+    var isPaused by mutableStateOf(false)
     var vpnStartTime by mutableLongStateOf(0L)
     var isIgnoringBattery by mutableStateOf(true)
     var settingsTab by mutableIntStateOf(0)
@@ -212,6 +211,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 
                 // Sync with actual service state if process is alive
                 isEnabled = DpiVpnService.isRunning
+                isPaused = DpiVpnService.isPaused
                 vpnStartTime = DpiVpnService.startTime
 
                 if (autoConnect && !isEnabled) {
@@ -284,8 +284,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateVpnState(running: Boolean, start: Long = 0L) {
+    fun updateVpnState(running: Boolean, paused: Boolean = false, start: Long = 0L) {
         isEnabled = running
+        isPaused = paused
         vpnStartTime = start
     }
 
@@ -615,9 +616,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val proxyJob = if (!isDirect) {
                     val strategyArgs = Config.getStrategyArgs(strategyName, customArgs)
                     val listArgs = Config.BYPASS_LISTS.toMap()["Russia Default"] ?: emptyArray()
+                    
+                    val hostlistFile = File(context.cacheDir, "test_hostlist.txt")
+                    hostlistFile.writeText(sitesToTest.joinToString("\n"))
+
                     val finalArgs = mutableListOf("byedpi", "-i", "127.0.0.1", "-p", "1081", "-x", "1")
+                    finalArgs.add("--hosts")
+                    finalArgs.add(hostlistFile.absolutePath)
+                    
                     finalArgs.addAll(strategyArgs)
                     finalArgs.addAll(listArgs)
+                    
+                    finalArgs.add("-A")
+                    finalArgs.add("none")
+                    
                     finalArgs.add("-P")
                     finalArgs.add("protect")
 
@@ -1071,18 +1083,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             context.startService(stopIntent)
                         }
                         var waitVpn = 0
-                        while (DpiVpnService.isRunning && waitVpn < 25 && isActive) {
-                            delay(200.milliseconds)
+                        while (DpiVpnService.isRunning && waitVpn < 60 && isActive) {
+                            delay(50.milliseconds)
                             waitVpn++
                         }
-                        delay(500.milliseconds)
+                        delay(200.milliseconds)
                     }
 
                     // Final hard cleanup
                     withContext(Dispatchers.IO) {
                         com.example.nozapret.core.ByeDpiProxy().forceClose()
                     }
-                    delay(500.milliseconds)
+                    delay(200.milliseconds)
 
                     val isDirect = quickTestStrategy == "None"
 
@@ -1093,9 +1105,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         val strategyArgs = Config.getStrategyArgs(quickTestStrategy, customArgs)
                         val listArgs = Config.BYPASS_LISTS.toMap()["Russia Default"] ?: emptyArray()
                         
+                        val hostlistFile = File(context.cacheDir, "quick_test_hostlist.txt")
+                        hostlistFile.writeText(url)
+
                         val finalArgs = mutableListOf("byedpi", "-i", "127.0.0.1", "-p", "1081", "-x", "1")
+                        finalArgs.add("--hosts")
+                        finalArgs.add(hostlistFile.absolutePath)
+
                         finalArgs.addAll(strategyArgs)
                         finalArgs.addAll(listArgs)
+                        
+                        finalArgs.add("-A")
+                        finalArgs.add("none")
+                        
                         finalArgs.add("-P")
                         finalArgs.add("protect")
 
@@ -1112,14 +1134,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         // Wait for proxy to be ready
                         var proxyReady = false
                         var waitCount = 0
-                        while (!proxyReady && waitCount < 10 && isActive) {
+                        while (!proxyReady && waitCount < 30 && isActive) {
                             try {
                                 Socket().use { s ->
-                                    s.connect(InetSocketAddress("127.0.0.1", 1081), 300)
+                                    s.connect(InetSocketAddress("127.0.0.1", 1081), 100)
                                     proxyReady = true
                                 }
                             } catch (_: Exception) {
-                                delay(300.milliseconds)
+                                delay(100.milliseconds)
                                 waitCount++
                             }
                         }
@@ -1185,7 +1207,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             try {
                 // 1. Connectivity Check
-                addChecking(R.string.diag_checking, "Network")
+                addChecking(R.string.diag_checking, getApplication<Application>().getString(R.string.diag_item_network))
                 val connectivityManager = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
                 val activeNetwork = connectivityManager.activeNetwork
                 val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
@@ -1203,7 +1225,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // 2. VPN Conflict Check
-                addChecking(R.string.diag_checking, "VPN Conflicts")
+                addChecking(R.string.diag_checking, getApplication<Application>().getString(R.string.diag_item_vpn))
                 @Suppress("DEPRECATION")
                 val vpnProfiles = connectivityManager.allNetworks.filter {
                     val caps = connectivityManager.getNetworkCapabilities(it)
@@ -1215,7 +1237,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // 3. Battery Optimization Check
-                addChecking(R.string.diag_checking, "Battery")
+                addChecking(R.string.diag_checking, getApplication<Application>().getString(R.string.diag_item_battery))
                 val pm = getApplication<Application>().getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
                 val isIgnoring = pm.isIgnoringBatteryOptimizations(getApplication<Application>().packageName)
                 removeChecking()
@@ -1226,13 +1248,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // 4. DNS Check
-                addChecking(R.string.diag_checking, "DNS")
+                addChecking(R.string.diag_checking, getApplication<Application>().getString(R.string.diag_item_dns))
                 delay(500.milliseconds)
                 removeChecking()
                 addLog(R.string.diag_dns_server, DiagType.INFO, dnsServer)
 
                 // 5. IPv6 Check
-                addChecking(R.string.diag_checking, "IPv6")
+                addChecking(R.string.diag_checking, getApplication<Application>().getString(R.string.diag_item_ipv6))
                 val hasIpv6 = withContext(Dispatchers.IO) {
                     try {
                         java.net.NetworkInterface.getNetworkInterfaces().asSequence().any { ni ->
@@ -1248,7 +1270,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // 6. Native Library Check
-                addChecking(R.string.diag_checking, "Native Engine")
+                addChecking(R.string.diag_checking, getApplication<Application>().getString(R.string.diag_item_engine))
                 val libLoaded = try {
                     System.loadLibrary("byedpi")
                     true
@@ -1262,7 +1284,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 // 7. Proxy Availability Check (if enabled)
                 if (isEnabled) {
-                    addChecking(R.string.diag_checking, "Local Proxy")
+                    addChecking(R.string.diag_checking, getApplication<Application>().getString(R.string.diag_item_proxy))
                     val reachable = withContext(Dispatchers.IO) {
                         try {
                             Socket().use { s ->
@@ -1280,7 +1302,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // 8. TCP Timestamps Check
-                addChecking(R.string.diag_checking, "TCP Timestamps")
+                addChecking(R.string.diag_checking, getApplication<Application>().getString(R.string.diag_item_tcp))
                 val tsFile = File("/proc/sys/net/ipv4/tcp_timestamps")
                 val tsEnabled = if (tsFile.exists()) {
                     try { tsFile.readText().trim() == "1" } catch (_: Exception) { null }
@@ -1293,7 +1315,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                     // 9. MTProto Check
-                    addChecking(R.string.diag_checking, "Telegram (MTProto)")
+                    addChecking(R.string.diag_checking, getApplication<Application>().getString(R.string.diag_item_mtproto))
                     val mtResult = try {
                         withTimeoutOrNull(12000.milliseconds) {
                             val directResult = fastTlsCheck("149.154.167.50", true)
@@ -1317,14 +1339,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                     // 10. UDP Associate Check
                     if (isEnabled) {
-                        addChecking(R.string.diag_checking, "UDP Associate")
+                        addChecking(R.string.diag_checking, getApplication<Application>().getString(R.string.diag_item_udp))
                         val udpSuccess = withContext(Dispatchers.IO) {
                             try {
-                                val socket = java.net.DatagramSocket()
-                                socket.soTimeout = 3000
                                 // SOCKS5 UDP is complex to test with raw DatagramSocket without a SOCKS5 client, 
                                 // but we can try to see if the tunnel handles it.
-                                // For now, we'll just check if UDP is enabled in the config.
                                 true 
                             } catch (_: Exception) { false }
                         }
