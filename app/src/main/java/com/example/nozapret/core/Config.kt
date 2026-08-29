@@ -6,7 +6,7 @@ object Config {
 
     val BYPASS_LISTS = listOf(
         "Russia Default" to emptyArray<String>(),
-        "Aggressive" to arrayOf("--drop-sack", "--mod-http", "hcsmix,dcsmix")
+        "Aggressive" to arrayOf("--drop-sack", "--mod-http", "hcsmix,dcsmix"),
     )
 
     val STRATEGIES = listOf(
@@ -21,11 +21,18 @@ object Config {
         "Simple Fake" to "Basic fake packet with default TTL.",
         "Custom" to "Use arguments from General settings.",
         "Torrent/P2P Fix" to "Optimized for P2P: UDP fakes and aggressive TCP splitting.",
+        "RU Discord (Alt 2)" to "Advanced Discord strategy with randomized UDP fakes and OOB splitting.",
+        "Modern YouTube (Extreme)" to "Aggressive YouTube bypass using multiple desync techniques.",
+        "Universal Web (Safe)" to "Safe general bypass strategy for standard web browsing.",
         "Strategy 1" to "-s1 -q1 -a1 -Y -Ar -a1 -s5 -o2 -At -f-1 -r1+s -a1 -As -s1 -o1+s -s-1 -a1",
         "Strategy 2" to "-d1 -s1+s -d1+s -s3+s -d6+s -s12+s -d14+s -s20+s -d24+s -s30+s -a1",
         "Strategy 3" to "-d1 -s1+s -s3+s -s6+s -s9+s -s12+s -s15+s -s20+s -s30+s -a1",
         "Strategy 4" to "-s1 -q1 -Y -a1 -At,r,s -f-1 -r1+s -a1",
-        "Strategy 5" to "-d1 -s1+s -d3+s -s6+s -d9+s -s12+s -d15+s -s20+s -d25+s -s30+s -d35+s -a1"
+        "Strategy 5" to "-d1 -s1+s -d3+s -s6+s -d9+s -s12+s -d15+s -s20+s -d25+s -s30+s -d35+s -a1",
+        "Strategy 6" to "-d1 -s1+s -d2+s -s4+s -d8+s -s16+s -d32+s -s64+s -a1",
+        "Strategy 7" to "-o1 -q1 -s1 -d1 -f-1 -r1+s -a1",
+        "Strategy 8" to "-d1 -s1+s -d1+s -s2+s -d2+s -s3+s -d3+s -s4+s -d4+s -a1",
+        "Strategy 9" to "-s1 -o1 -q1 -Y -Ar -At -As -f-1 -r1+s -a1"
     )
 
     fun getStrategyArgs(name: String, customArgs: String = ""): Array<String> {
@@ -56,12 +63,19 @@ object Config {
             "Simple Split" -> arrayOf("--split", "2")
             "Simple Fake" -> arrayOf("--fake", "-1", "--fake-sni", "yandex.ru", "--ttl", "4")
             "Torrent/P2P Fix" -> arrayOf("--split", "1", "--udp-fake", "5", "--auto", "none", "--drop-sack")
+            "RU Discord (Alt 2)" -> arrayOf("--disorder", "1", "--oob", "1", "--fake", "-1", "--ttl", "3", "--udp-fake", "10", "--fake-tls-mod", "rand")
+            "Modern YouTube (Extreme)" -> arrayOf("--split", "2", "--disorder", "1", "--oob", "1", "--fake", "-1", "--ttl", "4", "--fake-tls-mod", "rand", "--mod-http", "hcsmix,dcsmix", "--udp-fake", "5", "--drop-sack", "--auto", "torst,rst,tls")
+            "Universal Web (Safe)" -> arrayOf("--split", "2", "--auto", "none")
             "Custom" -> parseCustomArgs(customArgs)
             "Strategy 1" -> parseCustomArgs("-s1 -q1 -a1 -Y -Ar -a1 -s5 -o2 -At -f-1 -r1+s -a1 -As -s1 -o1+s -s-1 -a1")
             "Strategy 2" -> parseCustomArgs("-d1 -s1+s -d1+s -s3+s -d6+s -s12+s -d14+s -s20+s -d24+s -s30+s -a1")
             "Strategy 3" -> parseCustomArgs("-d1 -s1+s -s3+s -s6+s -s9+s -s12+s -s15+s -s20+s -s30+s -a1")
             "Strategy 4" -> parseCustomArgs("-s1 -q1 -Y -a1 -At,r,s -f-1 -r1+s -a1")
             "Strategy 5" -> parseCustomArgs("-d1 -s1+s -d3+s -s6+s -d9+s -s12+s -d15+s -s20+s -d25+s -s30+s -d35+s -a1")
+            "Strategy 6" -> parseCustomArgs("-d1 -s1+s -d2+s -s4+s -d8+s -s16+s -d32+s -s64+s -a1")
+            "Strategy 7" -> parseCustomArgs("-o1 -q1 -s1 -d1 -f-1 -r1+s -a1")
+            "Strategy 8" -> parseCustomArgs("-d1 -s1+s -d1+s -s2+s -d2+s -s3+s -d3+s -s4+s -d4+s -a1")
+            "Strategy 9" -> parseCustomArgs("-s1 -o1 -q1 -Y -Ar -At -As -f-1 -r1+s -a1")
             else -> emptyArray()
         }
     }

@@ -549,6 +549,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun performCombinedCheck(domain: String, direct: Boolean): TlsTestResult {
         val tls = fastTlsCheck(domain, direct)
+        delay(500.milliseconds) // Settle between protocols
         val http = fastHttpCheck(domain, direct)
         return tls.copy(httpSuccess = http.first, httpError = http.second)
     }
@@ -1145,9 +1146,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 waitCount++
                             }
                         }
+
+                        if (proxyReady) {
+                            delay(1000.milliseconds) // Wait for byedpi to initialize groups
+                        }
                     }
 
-                    val result = performCombinedCheck(url, isDirect)
+                    var result = TlsTestResult(false, error = "Test failed")
+                    var attempts = 3
+                    while (attempts > 0 && isActive) {
+                        val check = performCombinedCheck(url, isDirect)
+                        if (check.success || check.httpSuccess) {
+                            result = check
+                            break
+                        }
+                        result = check
+                        attempts--
+                        if (attempts > 0) delay(1000.milliseconds)
+                    }
 
                     withContext(Dispatchers.Main) {
                         quickTestResult = result

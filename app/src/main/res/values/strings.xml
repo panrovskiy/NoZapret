@@ -173,6 +173,8 @@
     <string name="strategy_discord_fix_desc">Optimized for Discord (UDP/QUIC desync, Disorder).</string>
     <string name="strategy_ru_discord_alt">RU Discord (Alt)</string>
     <string name="strategy_ru_discord_alt_desc">Alternative Discord bypass using fake SNI and auto-modes.</string>
+    <string name="strategy_ru_discord_alt_2">RU Discord (Alt 2)</string>
+    <string name="strategy_ru_discord_alt_2_desc">Advanced Discord strategy with randomized UDP fakes and OOB splitting.</string>
     <string name="strategy_disorder_fake">Disorder &amp; Fake</string>
     <string name="strategy_disorder_fake_desc">Uses packet disordering and fake packets (Common for RU).</string>
     <string name="strategy_tls_split">TLS Record Split</string>
@@ -201,12 +203,16 @@
     <string name="strategy_experimental_desc">Advanced multi-stage strategy with multiple desync methods.</string>
     <string name="strategy_ru_youtube_alt_new">RU YouTube Alt (New)</string>
     <string name="strategy_ru_youtube_alt_new_desc">Aggressive YouTube strategy with multi-stage delays and fake payloads.</string>
+    <string name="strategy_modern_youtube_extreme">Modern YouTube (Extreme)</string>
+    <string name="strategy_modern_youtube_extreme_desc">Aggressive YouTube bypass using multiple desync techniques.</string>
     <string name="strategy_ru_discord_alt_new">RU Discord Alt (New)</string>
     <string name="strategy_ru_discord_alt_new_desc">New alternative strategy for Discord (Disorder + UDP Fake).</string>
     <string name="strategy_kyber_aware">Kyber-Aware</string>
     <string name="strategy_kyber_aware_desc">Optimized for modern TLS (Kyber) and fragmentation.</string>
     <string name="strategy_extreme_ru">Extreme RU</string>
     <string name="strategy_extreme_ru_desc">The most aggressive strategy for heavily restricted regions.</string>
+    <string name="strategy_universal_web_safe">Universal Web (Safe)</string>
+    <string name="strategy_universal_web_safe_desc">Safe general bypass strategy for standard web browsing.</string>
     <string name="strategy_simple_split">Simple Split</string>
     <string name="strategy_simple_split_desc">Basic TCP splitting at 2nd byte.</string>
     <string name="strategy_simple_fake">Simple Fake</string>
@@ -226,6 +232,10 @@
     <string name="strategy_3">Strategy 3</string>
     <string name="strategy_4">Strategy 4</string>
     <string name="strategy_5">Strategy 5</string>
+    <string name="strategy_6">Strategy 6</string>
+    <string name="strategy_7">Strategy 7</string>
+    <string name="strategy_8">Strategy 8</string>
+    <string name="strategy_9">Strategy 9</string>
 
     <!-- Presets -->
     <string name="preset_youtube">YouTube</string>

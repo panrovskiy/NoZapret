@@ -173,6 +173,8 @@
     <string name="strategy_discord_fix_desc">Оптимізовано для Discord (UDP/QUIC десинхронізація, Disorder).</string>
     <string name="strategy_ru_discord_alt">RU Discord (Alt)</string>
     <string name="strategy_ru_discord_alt_desc">Альтернативний обхід Discord з фейковим SNI та авто-режимами.</string>
+    <string name="strategy_ru_discord_alt_2">RU Discord (Alt 2)</string>
+    <string name="strategy_ru_discord_alt_2_desc">Просунута стратегія для Discord з рандомізованими UDP фейками.</string>
     <string name="strategy_disorder_fake">Disorder &amp; Fake</string>
     <string name="strategy_disorder_fake_desc">Використовує перемішування пакетів та фейк-пакети (Зазвичай для РФ).</string>
     <string name="strategy_tls_split">TLS Record Split</string>
@@ -201,12 +203,16 @@
     <string name="strategy_experimental_desc">Просунута багатоетапна стратегія з кількома методами десинхронізації.</string>
     <string name="strategy_ru_youtube_alt_new">RU YouTube Alt (Нова)</string>
     <string name="strategy_ru_youtube_alt_new_desc">Нова альтернативна стратегія для YouTube (Split + Desync).</string>
+    <string name="strategy_modern_youtube_extreme">Modern YouTube (Extreme)</string>
+    <string name="strategy_modern_youtube_extreme_desc">Агресивний обхід YouTube з використанням декількох технік десинхронізації.</string>
     <string name="strategy_ru_discord_alt_new">RU Discord Alt (Нова)</string>
     <string name="strategy_ru_discord_alt_new_desc">Нова альтернативна стратегія для Discord (Disorder + UDP Fake).</string>
     <string name="strategy_kyber_aware">Kyber-Aware</string>
     <string name="strategy_kyber_aware_desc">Оптимізовано для сучасних TLS (Kyber) та фрагментації.</string>
     <string name="strategy_extreme_ru">Extreme RU</string>
     <string name="strategy_extreme_ru_desc">Найагресивніша стратегія для регіонів із жорсткими обмеженнями.</string>
+    <string name="strategy_universal_web_safe">Універсальний веб (Безпечно)</string>
+    <string name="strategy_universal_web_safe_desc">Безпечна стратегія обходу для звичайного веб-серфінгу.</string>
     <string name="strategy_simple_split">Простий Split</string>
     <string name="strategy_simple_split_desc">Базовий розподіл TCP на 2-му байті.</string>
     <string name="strategy_simple_fake">Простий Fake</string>
@@ -226,6 +232,10 @@
     <string name="strategy_3">Стратегія 3</string>
     <string name="strategy_4">Стратегія 4</string>
     <string name="strategy_5">Стратегія 5</string>
+    <string name="strategy_6">Стратегія 6</string>
+    <string name="strategy_7">Стратегія 7</string>
+    <string name="strategy_8">Стратегія 8</string>
+    <string name="strategy_9">Стратегія 9</string>
 
     <!-- Presets -->
     <string name="preset_youtube">YouTube</string>

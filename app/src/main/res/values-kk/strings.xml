@@ -173,6 +173,8 @@
     <string name="strategy_discord_fix_desc">Discord үшін оңтайландырылған (UDP/QUIC десинхронизациясы, Disorder).</string>
     <string name="strategy_ru_discord_alt">RU Discord (Alt)</string>
     <string name="strategy_ru_discord_alt_desc">Жалған SNI және авто-режимдері бар баламалы Discord айналып өту.</string>
+    <string name="strategy_ru_discord_alt_2">RU Discord (Alt 2)</string>
+    <string name="strategy_ru_discord_alt_2_desc">Рандомизацияланған UDP фейктері бар Discord үшін жетілдірілген стратегия.</string>
     <string name="strategy_disorder_fake">Disorder &amp; Fake</string>
     <string name="strategy_disorder_fake_desc">Пакеттерді араластыру және жалған пакеттерді қолданады (Әдетте РФ үшін).</string>
     <string name="strategy_tls_split">TLS Record Split</string>
@@ -201,12 +203,16 @@
     <string name="strategy_experimental_desc">Бірнеше десинхронизация әдістері бар жетілдірілген көп сатылы стратегия.</string>
     <string name="strategy_ru_youtube_alt_new">RU YouTube Alt (Жаңа)</string>
     <string name="strategy_ru_youtube_alt_new_desc">YouTube үшін жаңа баламалы стратегия (Split + Desync).</string>
+    <string name="strategy_modern_youtube_extreme">Modern YouTube (Extreme)</string>
+    <string name="strategy_modern_youtube_extreme_desc">Десинхронизацияның бірнеше әдістерін қолданатын YouTube үшін агрессивті айналып өту.</string>
     <string name="strategy_ru_discord_alt_new">RU Discord Alt (Жаңа)</string>
     <string name="strategy_ru_discord_alt_new_desc">Discord үшін жаңа баламалы стратегия (Disorder + UDP Fake).</string>
     <string name="strategy_kyber_aware">Kyber-Aware</string>
     <string name="strategy_kyber_aware_desc">Заманауи TLS (Kyber) және фрагментация үшін оңтайландырылған.</string>
     <string name="strategy_extreme_ru">Extreme RU</string>
     <string name="strategy_extreme_ru_desc">Қатаң шектеулері бар аймақтарға арналған ең агрессивті стратегия.</string>
+    <string name="strategy_universal_web_safe">Әмбебап веб (Қауіпсіз)</string>
+    <string name="strategy_universal_web_safe_desc">Қалыпты веб-серфингке арналған қауіпсіз айналып өту стратегиясы.</string>
     <string name="strategy_simple_split">Қарапайым Split</string>
     <string name="strategy_simple_split_desc">TCP-ны 2-ші байтта қарапайым бөлу.</string>
     <string name="strategy_simple_fake">Қарапайым Fake</string>
@@ -226,6 +232,10 @@
     <string name="strategy_3">Стратегия 3</string>
     <string name="strategy_4">Стратегия 4</string>
     <string name="strategy_5">Стратегия 5</string>
+    <string name="strategy_6">Стратегия 6</string>
+    <string name="strategy_7">Стратегия 7</string>
+    <string name="strategy_8">Стратегия 8</string>
+    <string name="strategy_9">Стратегия 9</string>
 
     <!-- Presets -->
     <string name="preset_youtube">YouTube</string>
