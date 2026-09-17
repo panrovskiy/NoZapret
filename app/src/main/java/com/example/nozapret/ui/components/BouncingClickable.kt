@@ -2,6 +2,7 @@ package com.example.nozapret.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -38,7 +39,7 @@ fun Modifier.bouncingClickable(
         }
         .clickable(
             interactionSource = interactionSource,
-            indication = null, // We handle visual feedback via scale and custom ripples if needed
+            indication = LocalIndication.current,
             enabled = enabled,
             onClick = onClick
         )

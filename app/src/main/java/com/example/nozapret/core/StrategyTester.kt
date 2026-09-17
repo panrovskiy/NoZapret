@@ -13,14 +13,15 @@ import java.io.File
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
 
 class StrategyTester(private val application: Application) {
     private val TAG = "StrategyTester"
     
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
         .build()
 
     private val _isTesting = MutableStateFlow(false)
@@ -33,16 +34,23 @@ class StrategyTester(private val application: Application) {
         bypassedSites: List<String>,
         customArgs: String,
         onResult: (String, MainViewModel.TlsTestResult) -> Unit,
-        onProgress: (Int, Int) -> Unit
+        onProgress: (Int, Int, Int) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         if (strategyName == "None") {
             return@withContext runDirectTest(bypassedSites, onResult, onProgress)
         }
 
-        val sitesToTest = bypassedSites.filter { !it.contains("/") }
-        if (sitesToTest.isEmpty()) return@withContext true
+        val sitesToTest = bypassedSites.filter { it.isNotBlank() && !it.contains("/") }
+        if (sitesToTest.isEmpty()) {
+            Log.w(TAG, "No sites to test for $strategyName")
+            return@withContext true
+        }
 
         _isTesting.value = true
+        val total = sitesToTest.size
+        val testedCount = AtomicInteger(0)
+        val successCount = AtomicInteger(0)
+
         try {
             val strategyArgs = Config.getStrategyArgs(strategyName, customArgs)
             val hostlistFile = File(application.cacheDir, "test_hostlist.txt")
@@ -57,47 +65,68 @@ class StrategyTester(private val application: Application) {
             finalArgs.add("-P")
             finalArgs.add("protect")
 
-            Log.d(TAG, "Starting test proxy for $strategyName")
+            Log.d(TAG, "[TEST] Starting test proxy for $strategyName with args: ${finalArgs.joinToString(" ")}")
+            
+            // Ensure any old proxy is closed
+            proxy.forceClose()
+            delay(200.milliseconds)
+
             val proxyJob = launch {
-                proxy.start(finalArgs.toTypedArray())
+                try {
+                    val res = proxy.start(finalArgs.toTypedArray())
+                    Log.d(TAG, "[TEST] Test proxy for $strategyName exited with code $res")
+                } catch (e: Exception) {
+                    Log.e(TAG, "[TEST] Exception in test proxy for $strategyName", e)
+                }
             }
 
-            // Wait for proxy
+            // Wait for proxy to be ready
             var ready = false
             var wait = 0
-            while (!ready && wait < 40 && isActive) {
+            while (!ready && wait < 60 && isActive) {
                 if (proxy.isRunning()) {
                     try {
                         Socket().use { s ->
-                            s.connect(InetSocketAddress("127.0.0.1", 1081), 200)
+                            s.connect(InetSocketAddress("127.0.0.1", 1081), 400)
                             ready = true
                         }
                     } catch (_: Exception) {}
                 }
-                if (!ready) delay(200.milliseconds)
+                if (!ready) {
+                    if (wait % 4 == 0) Log.d(TAG, "[TEST] Waiting for test proxy ($wait)...")
+                    delay(250.milliseconds)
+                }
                 wait++
             }
 
             if (!ready) {
-                Log.e(TAG, "Proxy failed to start for $strategyName")
+                Log.e(TAG, "[TEST] Proxy failed to start for $strategyName")
+                proxyJob.cancelAndJoin()
                 return@withContext false
             }
 
-            val semaphore = Semaphore(5)
-            val testedCount = mutableListOf<Int>()
-            val successCount = mutableListOf<Int>()
+            Log.d(TAG, "[TEST] Test proxy ready for $strategyName. Starting checks.")
+
+            val semaphore = Semaphore(2) // Low concurrency for better stability on low-end devices
 
             coroutineScope {
                 sitesToTest.forEach { site ->
                     launch {
                         semaphore.acquire()
                         try {
-                            val result = performCombinedCheck(site, false)
-                            onResult(site, result)
-                            synchronized(testedCount) {
-                                testedCount.add(1)
-                                if (result.success) successCount.add(1)
-                                onProgress(successCount.size, testedCount.size)
+                            if (!isActive) return@launch
+                            val result = try {
+                                performCombinedCheck(site, false)
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Check failed for $site: ${e.message}")
+                                MainViewModel.TlsTestResult(false, error = "Check crashed: ${e.message}")
+                            }
+                            
+                            if (isActive) {
+                                onResult(site, result)
+                                val currentTested = testedCount.incrementAndGet()
+                                if (result.success) successCount.incrementAndGet()
+                                onProgress(successCount.get(), currentTested, total)
                             }
                         } finally {
                             semaphore.release()
@@ -106,41 +135,55 @@ class StrategyTester(private val application: Application) {
                 }
             }
 
+            Log.d(TAG, "[TEST] Checks finished for $strategyName. Cleaning up.")
             proxy.stop()
             proxy.forceClose()
             proxyJob.cancelAndJoin()
+            
+            // Wait for port to be released
+            var releaseWait = 0
+            while (proxy.isRunning() && releaseWait < 20) {
+                delay(100.milliseconds)
+                releaseWait++
+            }
+            Log.d(TAG, "[CLEANUP] Test proxy cleanup done. Port 1081 released=${!proxy.isRunning()}")
+            
+            delay(200.milliseconds) // Small pause between strategies
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Test failed for $strategyName", e)
+            Log.e(TAG, "[TEST] Test failed for $strategyName", e)
             false
         } finally {
             _isTesting.value = false
+            Log.d(TAG, "[CLEANUP] Test state reset for $strategyName")
         }
     }
 
     private suspend fun runDirectTest(
         bypassedSites: List<String>,
         onResult: (String, MainViewModel.TlsTestResult) -> Unit,
-        onProgress: (Int, Int) -> Unit
+        onProgress: (Int, Int, Int) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
-        val sitesToTest = bypassedSites.filter { !it.contains("/") }
+        val sitesToTest = bypassedSites.filter { it.isNotBlank() && !it.contains("/") }
         if (sitesToTest.isEmpty()) return@withContext true
 
-        val testedCount = mutableListOf<Int>()
-        val successCount = mutableListOf<Int>()
-        val semaphore = Semaphore(10)
+        val total = sitesToTest.size
+        val testedCount = AtomicInteger(0)
+        val successCount = AtomicInteger(0)
+        val semaphore = Semaphore(5)
 
         coroutineScope {
             sitesToTest.forEach { site ->
                 launch {
                     semaphore.acquire()
                     try {
+                        if (!isActive) return@launch
                         val result = performCombinedCheck(site, true)
-                        onResult(site, result)
-                        synchronized(testedCount) {
-                            testedCount.add(1)
-                            if (result.success) successCount.add(1)
-                            onProgress(successCount.size, testedCount.size)
+                        if (isActive) {
+                            onResult(site, result)
+                            val currentTested = testedCount.incrementAndGet()
+                            if (result.success) successCount.incrementAndGet()
+                            onProgress(successCount.get(), currentTested, total)
                         }
                     } finally {
                         semaphore.release()

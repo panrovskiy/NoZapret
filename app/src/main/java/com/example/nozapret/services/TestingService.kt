@@ -5,13 +5,13 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.nozapret.MainActivity
 import com.example.nozapret.MainViewModel
 import com.example.nozapret.R
-import com.example.nozapret.core.Config
 import com.example.nozapret.core.StrategyTester
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +23,7 @@ class TestingService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
     
     private lateinit var strategyTester: StrategyTester
-    private var testJob: Job? = null
+    private var currentTestJob: Job? = null
 
     companion object {
         const val ACTION_START_TEST = "ACTION_START_TEST"
@@ -45,6 +45,7 @@ class TestingService : Service() {
         private val _statusFlow = MutableStateFlow(TestStatus())
         val statusFlow = _statusFlow.asStateFlow()
         
+        @Volatile
         var isRunning = false
             private set
     }
@@ -72,43 +73,67 @@ class TestingService : Service() {
     }
 
     private fun handleStartTest(strategy: String, customArgs: String, sites: List<String>) {
-        if (isRunning) {
-            if (_statusFlow.value.strategyName == strategy) return
-            handleStopTest()
+        // If already testing the same strategy, ignore
+        if (isRunning && _statusFlow.value.strategyName == strategy && _statusFlow.value.isRunning) {
+            Log.d(TAG, "[TEST] Already testing $strategy, skipping start")
+            return
         }
 
+        // Cancel previous if any
+        Log.d(TAG, "[TEST] Starting test service for $strategy")
+        currentTestJob?.cancel()
+        
         isRunning = true
         _statusFlow.value = TestStatus(strategyName = strategy, total = sites.size, isRunning = true)
         
-        startForeground(2, createNotification(getString(R.string.testing_starting_hint)))
+        val notification = createNotification(getString(R.string.testing_starting_hint))
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(2, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(2, notification)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start foreground service", e)
+        }
 
-        testJob = serviceScope.launch {
-            Log.d(TAG, "Starting test service for $strategy")
-            val success = strategyTester.testStrategy(
-                strategy, sites, customArgs,
-                onResult = { site, result ->
-                    _statusFlow.value = _statusFlow.value.copy(lastSite = site, lastResult = result)
-                },
-                onProgress = { s, t, total ->
-                    _statusFlow.value = _statusFlow.value.copy(success = s, tested = t, total = total)
-                    updateNotification(strategy, s, t, total)
+        currentTestJob = serviceScope.launch {
+            Log.d(TAG, "Starting test task for $strategy")
+            try {
+                strategyTester.testStrategy(
+                    strategy, sites, customArgs,
+                    onResult = { site, result ->
+                        _statusFlow.value = _statusFlow.value.copy(lastSite = site, lastResult = result)
+                    },
+                    onProgress = { s, t, total ->
+                        _statusFlow.value = _statusFlow.value.copy(success = s, tested = t, total = total)
+                        updateNotification(strategy, s, t, total)
+                    }
+                )
+            } catch (e: CancellationException) {
+                Log.d(TAG, "Test task for $strategy cancelled")
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during test task", e)
+            } finally {
+                withContext(NonCancellable) {
+                    Log.d(TAG, "[CLEANUP] Test task for $strategy finished. Cleaning service.")
+                    val finalStatus = _statusFlow.value
+                    if (finalStatus.strategyName == strategy) {
+                        showFinishedNotification(strategy, finalStatus.success, finalStatus.total)
+                        isRunning = false
+                        _statusFlow.value = finalStatus.copy(isRunning = false)
+                        stopForeground(STOP_FOREGROUND_DETACH)
+                        stopSelf()
+                    }
                 }
-            )
-            
-            Log.d(TAG, "Test service for $strategy finished: $success")
-            
-            val finalStatus = _statusFlow.value
-            showFinishedNotification(strategy, finalStatus.success, finalStatus.total)
-            
-            isRunning = false
-            _statusFlow.value = _statusFlow.value.copy(isRunning = false)
-            stopForeground(STOP_FOREGROUND_DETACH)
-            stopSelf()
+            }
         }
     }
 
     private fun handleStopTest() {
-        testJob?.cancel()
+        Log.d(TAG, "[CLEANUP] Stop test requested")
+        currentTestJob?.cancel()
         isRunning = false
         _statusFlow.value = _statusFlow.value.copy(isRunning = false)
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -170,8 +195,11 @@ class TestingService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        testJob?.cancel()
+        Log.d(TAG, "[CLEANUP] TestingService onDestroy")
+        currentTestJob?.cancel()
         serviceJob.cancel()
+        isRunning = false
+        _statusFlow.value = _statusFlow.value.copy(isRunning = false)
         super.onDestroy()
     }
 }

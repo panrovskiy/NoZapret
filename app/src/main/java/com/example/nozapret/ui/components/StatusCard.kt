@@ -14,9 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.nozapret.R
 import com.example.nozapret.ui.theme.MotionConstants
 
 @Composable
@@ -35,30 +37,30 @@ fun StatusCard(
         shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             StatusItem(
                 icon = Icons.Rounded.VpnLock,
-                label = "VPN",
-                value = if (vpnActive) "Active" else "Inactive",
+                label = stringResource(R.string.label_vpn),
+                value = if (vpnActive) stringResource(R.string.status_active) else stringResource(R.string.status_inactive),
                 active = vpnActive
             )
             StatusItem(
                 icon = Icons.Rounded.SettingsInputComponent,
-                label = "Backend",
-                value = if (backendActive) "Running" else "Stopped",
+                label = stringResource(R.string.label_backend),
+                value = if (backendActive) stringResource(R.string.status_running) else stringResource(R.string.status_stopped),
                 active = backendActive
             )
             StatusItem(
                 icon = Icons.Rounded.Wifi,
-                label = "Network",
+                label = stringResource(R.string.label_network),
                 value = networkType,
                 active = true
             )
             StatusItem(
                 icon = Icons.Rounded.Dns,
-                label = "DNS",
+                label = stringResource(R.string.label_dns_short),
                 value = dnsServer,
                 active = true
             )
@@ -84,9 +86,9 @@ private fun StatusItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(24.dp))
-            Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         AnimatedContent(
@@ -99,7 +101,7 @@ private fun StatusItem(
             Text(
                 targetValue,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (active) androidx.compose.ui.text.font.FontWeight.Bold else null,
+                fontWeight = if (active) FontWeight.Bold else null,
                 color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
             )
         }

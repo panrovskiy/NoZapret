@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.example.nozapret.services.DpiVpnService
+import com.example.nozapret.services.TestingService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
@@ -15,16 +16,51 @@ import kotlin.time.Duration.Companion.milliseconds
  * Centralizes starting/stopping and status querying.
  */
 object VpnController {
-    private val TAG = "VpnController"
-    private val controllerScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private const val TAG = "VpnController"
+    private val controllerJob = SupervisorJob()
+    private val controllerScope = CoroutineScope(Dispatchers.Main + controllerJob)
     private val mutex = Mutex()
 
     val stateFlow: StateFlow<DpiVpnService.VpnState> = DpiVpnService.vpnStateFlow
 
+    fun stopTests(context: Context) {
+        Log.d(TAG, "[CLEANUP] Stopping all tests via VpnController")
+        val intent = Intent(context, TestingService::class.java).apply {
+            action = TestingService.ACTION_STOP_TEST
+        }
+        context.startService(intent)
+    }
+
+    suspend fun stopTestsAndWait(context: Context) = withContext(Dispatchers.Main) {
+        if (!TestingService.isRunning) return@withContext
+        
+        Log.d(TAG, "[CLEANUP] Waiting for tests to stop...")
+        stopTests(context)
+        
+        var wait = 0
+        while (TestingService.isRunning && wait < 50) {
+            delay(100.milliseconds)
+            wait++
+        }
+        
+        // Final port check
+        val proxy = ByeDpiProxy()
+        var nativeWait = 0
+        while (proxy.isRunning() && nativeWait < 30) {
+            delay(100.milliseconds)
+            nativeWait++
+        }
+        Log.d(TAG, "[CLEANUP] Tests stopped, proxy released=${!proxy.isRunning()}")
+    }
+
     fun startVpn(context: Context, strategy: String, args: String, global: Boolean, bypassedSites: List<String>) {
         controllerScope.launch {
             mutex.withLock {
-                Log.d(TAG, "Starting VPN: strategy=$strategy")
+                Log.d(TAG, "[VPN] Start requested: strategy=$strategy")
+                
+                // CRITICAL: Stop tests first if any are running
+                stopTestsAndWait(context)
+                
                 val intent = Intent(context, DpiVpnService::class.java).apply {
                     action = DpiVpnService.ACTION_START
                     putExtra("strategy", strategy)
@@ -32,7 +68,11 @@ object VpnController {
                     putExtra("global", global)
                     putStringArrayListExtra("bypassedSites", ArrayList(bypassedSites))
                 }
-                context.startForegroundService(intent)
+                try {
+                    context.startForegroundService(intent)
+                } catch (e: Exception) {
+                    Log.e(TAG, "[VPN] Failed to start VPN service", e)
+                }
             }
         }
     }
@@ -40,7 +80,7 @@ object VpnController {
     fun stopVpn(context: Context) {
         controllerScope.launch {
             mutex.withLock {
-                Log.d(TAG, "Stopping VPN")
+                Log.d(TAG, "[VPN] Stopping VPN")
                 val intent = Intent(context, DpiVpnService::class.java).apply {
                     action = DpiVpnService.ACTION_STOP
                 }
@@ -63,36 +103,39 @@ object VpnController {
         context.startService(intent)
     }
 
-    /**
-     * Safely runs a task that requires the VPN to be stopped (like strategy testing).
-     * @return true if successful
-     */
-    suspend fun runWithVpnStopped(context: Context, block: suspend () -> Unit): Boolean {
-        return mutex.withLock {
-            val wasRunning = DpiVpnService.isRunning
-            if (wasRunning) {
-                stopVpn(context)
-                // Wait for stop
-                var wait = 0
-                while (DpiVpnService.isRunning && wait < 50) {
-                    delay(100.milliseconds)
-                    wait++
-                }
-                if (DpiVpnService.isRunning) {
-                    Log.e(TAG, "Failed to stop VPN for task")
-                    return@withLock false
-                }
+    suspend fun runWithVpnStopped(context: Context, block: suspend () -> Unit): Boolean = withContext(Dispatchers.Main) {
+        val wasRunning = DpiVpnService.isRunning || DpiVpnService.isConnecting || DpiVpnService.isDisconnecting
+        if (wasRunning) {
+            Log.d(TAG, "[VPN] VPN is active, stopping for task...")
+            stopVpn(context)
+            var wait = 0
+            while ((DpiVpnService.isRunning || DpiVpnService.isConnecting || DpiVpnService.isDisconnecting) && wait < 200) {
+                delay(100.milliseconds)
+                wait++
+            }
+            
+            // Extra safety: check native proxy state
+            val proxy = ByeDpiProxy()
+            var nativeWait = 0
+            while (proxy.isRunning() && nativeWait < 50) {
+                delay(100.milliseconds)
+                nativeWait++
             }
 
-            try {
-                block()
-            } finally {
-                if (wasRunning) {
-                    // We don't automatically restart here because we don't know the config,
-                    // but usually the caller should handle it.
-                }
+            if (DpiVpnService.isRunning || DpiVpnService.isConnecting || proxy.isRunning()) {
+                Log.e(TAG, "[VPN] Failed to stop VPN or native proxy for task")
+                return@withContext false
             }
+        }
+
+        return@withContext try {
+            block()
             true
+        } catch (e: Exception) {
+            Log.e(TAG, "[TASK] Task failed", e)
+            false
+        } finally {
+            Log.d(TAG, "[TASK] Task finished")
         }
     }
 }

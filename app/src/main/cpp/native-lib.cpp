@@ -2,12 +2,11 @@
 #include <vector>
 #include <mutex>
 #include <thread>
-#include <condition_variable>
 #include <atomic>
 #include <memory>
-#include <span>
+#include <optional>
 #include <string_view>
-
+#include <poll.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -19,216 +18,146 @@
 #include <errno.h>
 
 #include "android_utils.hpp"
+
+extern "C" {
 #include "byedpi/error.h"
 #include "byedpi_main.h"
-#include "proxy.h"
+#include "hev-main.h"
+}
 
 #define LOG_TAG "NoZapretNative"
 
-extern "C" {
-    extern int server_fd;
-    extern int byedpi_main(int argc, char **argv);
-    extern void byedpi_stop(void);
-    extern struct params params;
-    extern void reset_params(void);
+using namespace android_utils;
 
-    // HevSocks5Tunnel
-    extern int hev_socks5_tunnel_main(const char *config_path, int tunnel_fd);
-    extern void hev_socks5_tunnel_quit(void);
-}
-
+static std::atomic<JavaVM*> g_jvm{nullptr};
 static std::atomic<bool> g_proxy_running{false};
 static std::atomic<bool> g_tunnel_running{false};
-static JavaVM *g_jvm = nullptr;
+static std::mutex g_proxy_mutex;
+static std::mutex g_tunnel_mutex;
 
-static jobject g_vpn_service = nullptr;
-static jclass g_vpn_service_class = nullptr;
-static jmethodID g_protect_method = nullptr;
 static std::mutex g_vpn_service_mutex;
+static std::unique_ptr<GlobalRef> g_vpn_service;
+static jmethodID g_protect_method = nullptr;
 
-// Protection Proxy Thread State
-static std::unique_ptr<std::thread> g_proxy_thread;
-static int g_proxy_req_fd = -1; // Proxy thread reads from here
-static int g_caller_req_fd = -1; // Caller writes to here
-static int g_proxy_res_fd = -1; // Proxy thread writes to here
-static int g_caller_res_fd = -1; // Caller reads from here
-static std::atomic<bool> g_proxy_running_flag{false};
-static std::mutex g_proxy_comm_mutex;
+static JNIEnv* get_jni_env(bool* attached) {
+    JavaVM* jvm = g_jvm.load();
+    if (!jvm) return nullptr;
 
-static void vpn_protect_proxy_worker() {
-    JNIEnv *env;
-    JavaVMAttachArgs args = { JNI_VERSION_1_6, "VpnProtectProxy", nullptr };
-    if (g_jvm->AttachCurrentThread(&env, &args) != 0) {
-        android_utils::log_error(LOG_TAG, "Proxy thread failed to attach to JVM");
-        return;
+    JNIEnv* env = nullptr;
+    if (jvm->GetEnv((void**)&env, JNI_VERSION_1_6) == JNI_OK) {
+        if (attached) *attached = false;
+        return env;
     }
 
-    android_utils::log_info(LOG_TAG, "VPN Protect Proxy Thread started");
-    while (g_proxy_running_flag) {
-        int fd;
-        ssize_t n = read(g_proxy_req_fd, &fd, sizeof(fd));
-        if (n <= 0) {
-            if (errno == EINTR) continue;
-            break;
-        }
-
-        if (fd == -1) break; // Sentinel to stop
-
-        int ret = 0;
-        {
-            std::lock_guard<std::mutex> lock(g_vpn_service_mutex);
-            if (g_vpn_service && g_protect_method) {
-                jboolean success = env->CallBooleanMethod(g_vpn_service, g_protect_method, fd);
-                if (!success) {
-                    android_utils::log_error(LOG_TAG, "Proxy: VpnService.protect(" + std::to_string(fd) + ") returned FALSE");
-                    ret = -1;
-                }
-                if (env->ExceptionCheck()) {
-                    android_utils::log_error(LOG_TAG, "Proxy: VpnService.protect(" + std::to_string(fd) + ") threw exception");
-                    env->ExceptionDescribe();
-                    env->ExceptionClear();
-                    ret = -1;
-                }
-            } else {
-                android_utils::log_error(LOG_TAG, "Proxy: VpnService or protect method NULL during call for fd " + std::to_string(fd));
-                ret = -1;
-            }
-        }
-
-        write(g_proxy_res_fd, &ret, sizeof(ret));
+    JavaVMAttachArgs args = { JNI_VERSION_1_6, "NativeThread", nullptr };
+    if (jvm->AttachCurrentThread(&env, &args) == JNI_OK) {
+        if (attached) *attached = true;
+        return env;
     }
 
-    g_jvm->DetachCurrentThread();
-    android_utils::log_info(LOG_TAG, "VPN Protect Proxy Thread stopped");
-}
-
-static void stop_protect_proxy() {
-    if (g_proxy_running_flag.exchange(false)) {
-        int sentinel = -1;
-        if (g_caller_req_fd != -1) {
-            write(g_caller_req_fd, &sentinel, sizeof(sentinel));
-        }
-        if (g_proxy_thread && g_proxy_thread->joinable()) {
-            g_proxy_thread->join();
-        }
-        g_proxy_thread.reset();
-
-        if (g_proxy_req_fd != -1) close(g_proxy_req_fd);
-        if (g_caller_req_fd != -1) close(g_caller_req_fd);
-        if (g_proxy_res_fd != -1) close(g_proxy_res_fd);
-        if (g_caller_res_fd != -1) close(g_caller_res_fd);
-
-        g_proxy_req_fd = g_caller_req_fd = g_proxy_res_fd = g_caller_res_fd = -1;
-    }
-}
-
-static void start_protect_proxy() {
-    stop_protect_proxy();
-
-    int fds1[2], fds2[2];
-    if (pipe(fds1) != 0 || pipe(fds2) != 0) {
-        android_utils::log_error(LOG_TAG, "Failed to create pipes for protect proxy");
-        return;
-    }
-
-    g_proxy_req_fd = fds1[0];
-    g_caller_req_fd = fds1[1];
-    g_caller_res_fd = fds2[0];
-    g_proxy_res_fd = fds2[1];
-
-    g_proxy_running_flag = true;
-    g_proxy_thread = std::make_unique<std::thread>(vpn_protect_proxy_worker);
+    return nullptr;
 }
 
 extern "C" {
 
-jint JNI_OnLoad(JavaVM *vm, void *reserved) {
-    g_jvm = vm;
+JNIEXPORT jboolean JNICALL
+Java_com_example_nozapret_core_ByeDpiProxy_jniIsRunning([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
+    return g_proxy_running.load();
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_example_nozapret_core_HevSocks5Tunnel_jniIsRunning([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
+    return g_tunnel_running.load();
+}
+
+jint JNI_OnLoad(JavaVM *vm, [[maybe_unused]] void *reserved) {
+    g_jvm.store(vm);
+    log_info(LOG_TAG, "JNI_OnLoad: JavaVM cached");
     return JNI_VERSION_1_6;
 }
 
-int android_protect_socket(int fd) {
+__attribute__((visibility("default")))
+int android_protect_tunnel_socket(int fd) {
     if (fd < 0) return -1;
 
-    std::lock_guard<std::mutex> lock(g_proxy_comm_mutex);
-    if (!g_proxy_running_flag || g_caller_req_fd == -1) {
-        return 0;
+    bool attached = false;
+    JNIEnv* env = get_jni_env(&attached);
+    if (!env) return -1;
+
+    int result = 0;
+    {
+        std::lock_guard<std::mutex> lock(g_vpn_service_mutex);
+        if (g_vpn_service && g_protect_method) {
+            jobject service = g_vpn_service->get();
+            if (service) {
+                jboolean success = env->CallBooleanMethod(service, g_protect_method, (jint)fd);
+                if (env->ExceptionCheck()) {
+                    env->ExceptionDescribe();
+                    env->ExceptionClear();
+                    result = -1;
+                } else {
+                    result = success ? 0 : -1;
+                }
+            }
+        }
     }
 
-    if (write(g_caller_req_fd, &fd, sizeof(fd)) != sizeof(fd)) {
-        android_utils::log_error(LOG_TAG, "android_protect_socket failed: write to pipe failed");
-        return -1;
-    }
-
-    int result = -1;
-    ssize_t n = read(g_caller_res_fd, &result, sizeof(result));
-    if (n != sizeof(result)) {
-        android_utils::log_error(LOG_TAG, "android_protect_socket failed: read from pipe failed");
-        return -1;
+    if (attached) {
+        g_jvm.load()->DetachCurrentThread();
     }
 
     return result;
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_nozapret_services_DpiVpnService_jniCleanup(JNIEnv *env, jobject thiz) {
+Java_com_example_nozapret_services_DpiVpnService_jniCleanup(JNIEnv *env, [[maybe_unused]] jobject thiz) {
     std::lock_guard<std::mutex> lock(g_vpn_service_mutex);
-    if (g_vpn_service) {
-        env->DeleteGlobalRef(g_vpn_service);
-        g_vpn_service = nullptr;
-    }
-    if (g_vpn_service_class) {
-        env->DeleteGlobalRef(g_vpn_service_class);
-        g_vpn_service_class = nullptr;
-    }
+    g_vpn_service.reset();
     g_protect_method = nullptr;
-    stop_protect_proxy();
+    log_info(LOG_TAG, "jniCleanup: VpnService reference cleared");
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_nozapret_services_DpiVpnService_jniSetVpnService(JNIEnv *env, jobject thiz, jobject vpn_service) {
+Java_com_example_nozapret_services_DpiVpnService_jniSetVpnService(JNIEnv *env, [[maybe_unused]] jobject thiz, jobject vpn_service) {
     std::lock_guard<std::mutex> lock(g_vpn_service_mutex);
 
-    if (g_vpn_service) {
-        env->DeleteGlobalRef(g_vpn_service);
-        g_vpn_service = nullptr;
-    }
-    if (g_vpn_service_class) {
-        env->DeleteGlobalRef(g_vpn_service_class);
-        g_vpn_service_class = nullptr;
-    }
+    g_vpn_service.reset();
     g_protect_method = nullptr;
 
     if (vpn_service) {
-        g_vpn_service = env->NewGlobalRef(vpn_service);
-        jclass local_class = env->GetObjectClass(g_vpn_service);
+        JavaVM* jvm = g_jvm.load();
+        if (!jvm) return;
+
+        g_vpn_service = std::make_unique<GlobalRef>(jvm, env, vpn_service);
+        LocalRef<jclass> local_class(env, env->GetObjectClass(vpn_service));
         if (local_class) {
-            g_vpn_service_class = (jclass)env->NewGlobalRef(local_class);
-            g_protect_method = env->GetMethodID(g_vpn_service_class, "protect", "(I)Z");
-            env->DeleteLocalRef(local_class);
+            g_protect_method = env->GetMethodID(local_class.get(), "protect", "(I)Z");
         }
 
         if (g_protect_method) {
-            start_protect_proxy();
+            log_info(LOG_TAG, "jniSetVpnService: VpnService.protect method cached");
         } else {
-            android_utils::log_error(LOG_TAG, "Failed to find VpnService.protect(int) method");
+            log_error(LOG_TAG, "jniSetVpnService: VpnService.protect method NOT found");
         }
-    } else {
-        stop_protect_proxy();
     }
 }
 
 JNIEXPORT jint JNICALL
-Java_com_example_nozapret_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, jobject thiz, jobjectArray args) {
+Java_com_example_nozapret_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, [[maybe_unused]] jobject thiz, jobjectArray args) {
+    std::unique_lock<std::mutex> lock(g_proxy_mutex);
+
     if (g_proxy_running.exchange(true)) {
+        log_warn(LOG_TAG, "jniStartProxy: Proxy already running");
         return -1;
     }
 
-    signal(SIGPIPE, SIG_IGN);
+    log_info(LOG_TAG, "jniStartProxy: Initiating byedpi_main");
 
     int argc = env->GetArrayLength(args);
     std::vector<std::string> arg_strings;
+    arg_strings.reserve(static_cast<size_t>(argc));
     std::vector<char*> argv;
+    argv.reserve(static_cast<size_t>(argc) + 1);
 
     for (int i = 0; i < argc; i++) {
         jstring arg = (jstring)env->GetObjectArrayElement(args, i);
@@ -250,50 +179,86 @@ Java_com_example_nozapret_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, jobject th
     reset_params();
     optind = 1;
 
-    int result = byedpi_main(static_cast<int>(arg_strings.size()), argv.data());
+    // Release lock before blocking call to allow jniStopProxy/jniForceClose to proceed
+    lock.unlock();
+
+    int result = -1;
+    try {
+        result = byedpi_main(static_cast<int>(arg_strings.size()), argv.data());
+    } catch (...) {
+        log_error(LOG_TAG, "jniStartProxy: Fatal error in byedpi_main");
+    }
+
+    lock.lock();
+    log_info(LOG_TAG, "jniStartProxy: byedpi_main returned " + std::to_string(result));
 
     server_fd = -1;
     g_proxy_running = false;
-
     return result;
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_nozapret_core_ByeDpiProxy_jniStopProxy(JNIEnv *env, jobject thiz) {
-    if (!g_proxy_running) return;
+Java_com_example_nozapret_core_ByeDpiProxy_jniStopProxy([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
+    // We don't necessarily need to hold the lock here as byedpi_stop is thread-safe (just sets a flag)
+    // but we can if we want to ensure no overlap with init/cleanup.
+    log_info(LOG_TAG, "jniStopProxy: Calling byedpi_stop");
     byedpi_stop();
 }
 
 JNIEXPORT jint JNICALL
-Java_com_example_nozapret_core_ByeDpiProxy_jniForceClose(JNIEnv *env, jobject thiz) {
+Java_com_example_nozapret_core_ByeDpiProxy_jniForceClose([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
+    log_info(LOG_TAG, "jniForceClose: Calling byedpi_stop and waiting");
+    byedpi_stop();
+
+    // Wait for the running thread to finish and release the mutex
+    std::lock_guard<std::mutex> lock(g_proxy_mutex);
+
     if (g_proxy_running) {
-        byedpi_stop();
-        // Simple wait
-        for(int i=0; i<200 && g_proxy_running; ++i) usleep(10000);
+        log_warn(LOG_TAG, "jniForceClose: Proxy still marked as running, resetting manually");
+        server_fd = -1;
+        g_proxy_running = false;
     }
-    return g_proxy_running ? 1 : 0;
+    return 0;
 }
 
 JNIEXPORT jint JNICALL
-Java_com_example_nozapret_core_HevSocks5Tunnel_TProxyStartService(JNIEnv *env, jobject thiz, jstring config_path, jint fd) {
-    if (g_tunnel_running.exchange(true)) return -1;
+Java_com_example_nozapret_core_HevSocks5Tunnel_TProxyStartService(JNIEnv *env, [[maybe_unused]] jobject thiz, jstring config_path, jint fd) {
+    std::unique_lock<std::mutex> lock(g_tunnel_mutex);
+
+    if (g_tunnel_running.exchange(true)) {
+        log_warn(LOG_TAG, "TProxyStartService: Tunnel already running");
+        return -1;
+    }
 
     const char *path = env->GetStringUTFChars(config_path, nullptr);
-    int res = hev_socks5_tunnel_main(path, fd);
+    log_info(LOG_TAG, "TProxyStartService: Starting hev_socks5_tunnel_main");
+
+    lock.unlock();
+
+    int res = -1;
+    try {
+        res = hev_socks5_tunnel_main(path, fd);
+    } catch (...) {
+        log_error(LOG_TAG, "TProxyStartService: Fatal error in hev_socks5_tunnel_main");
+    }
+
     env->ReleaseStringUTFChars(config_path, path);
+
+    lock.lock();
+    log_info(LOG_TAG, "TProxyStartService: hev_socks5_tunnel_main returned " + std::to_string(res));
 
     g_tunnel_running = false;
     return res;
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_nozapret_core_HevSocks5Tunnel_TProxyStopService(JNIEnv *env, jobject thiz) {
-    if (!g_tunnel_running) return;
+Java_com_example_nozapret_core_HevSocks5Tunnel_TProxyStopService([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
+    log_info(LOG_TAG, "TProxyStopService: Calling hev_socks5_tunnel_quit");
     hev_socks5_tunnel_quit();
 }
 
 JNIEXPORT jlongArray JNICALL
-Java_com_example_nozapret_core_HevSocks5Tunnel_TProxyGetStats(JNIEnv *env, jobject thiz) {
+Java_com_example_nozapret_core_HevSocks5Tunnel_TProxyGetStats(JNIEnv *env, [[maybe_unused]] jobject thiz) {
     jlongArray result = env->NewLongArray(2);
     jlong stats[2] = {0, 0};
     env->SetLongArrayRegion(result, 0, 2, stats);
