@@ -24,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.nozapret.R
+import com.example.nozapret.ui.components.FadeEntrance
+import com.example.nozapret.ui.components.bouncingClickable
 
 @Composable
 fun LogViewer(
@@ -62,57 +64,59 @@ fun LogViewer(
         context.startActivity(shareIntent)
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                stringResource(R.string.title_native_logs),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Row {
-                IconButton(onClick = { copyLogsToClipboard() }) {
-                    Icon(Icons.Rounded.ContentCopy, stringResource(R.string.btn_copy_logs))
-                }
-                IconButton(onClick = { shareLogs() }) {
-                    Icon(Icons.Rounded.Share, stringResource(R.string.btn_share_logs))
-                }
-                IconButton(onClick = onClearLogs) { 
-                    Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) 
+    FadeEntrance {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.title_native_logs),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Row {
+                    IconButton(onClick = { copyLogsToClipboard() }, modifier = Modifier.bouncingClickable { copyLogsToClipboard() }) {
+                        Icon(Icons.Rounded.ContentCopy, stringResource(R.string.btn_copy_logs))
+                    }
+                    IconButton(onClick = { shareLogs() }, modifier = Modifier.bouncingClickable { shareLogs() }) {
+                        Icon(Icons.Rounded.Share, stringResource(R.string.btn_share_logs))
+                    }
+                    IconButton(onClick = onClearLogs, modifier = Modifier.bouncingClickable { onClearLogs() }) { 
+                        Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) 
+                    }
                 }
             }
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Surface(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
-            shape = MaterialTheme.shapes.large,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 100.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+            Surface(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+                shape = MaterialTheme.shapes.large,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
-                items(logLines) { line ->
-                    Text(
-                        text = line,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            lineHeight = 16.sp,
-                            letterSpacing = 0.sp
-                        ),
-                        fontFamily = FontFamily.Monospace,
-                        color = when {
-                            line.contains(" E/") || line.contains("Error") -> MaterialTheme.colorScheme.error
-                            line.contains(" W/") || line.contains("Warning") -> MaterialTheme.colorScheme.tertiary
-                            line.contains(" D/") -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 100.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(logLines) { line ->
+                        Text(
+                            text = line,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                lineHeight = 16.sp,
+                                letterSpacing = 0.sp
+                            ),
+                            fontFamily = FontFamily.Monospace,
+                            color = when {
+                                line.contains(" E/") || line.contains("Error") -> MaterialTheme.colorScheme.error
+                                line.contains(" W/") || line.contains("Warning") -> MaterialTheme.colorScheme.tertiary
+                                line.contains(" D/") -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                    }
                 }
             }
         }

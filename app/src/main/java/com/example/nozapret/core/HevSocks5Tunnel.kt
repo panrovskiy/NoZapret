@@ -37,7 +37,12 @@ class HevSocks5Tunnel {
         }
     }
 
+    fun isRunning(): Boolean {
+        return if (isLoaded) jniIsRunning() else false
+    }
+
     private external fun TProxyStartService(configPath: String, fd: Int): Int
     private external fun TProxyStopService()
     private external fun TProxyGetStats(): LongArray
+    private external fun jniIsRunning(): Boolean
 }

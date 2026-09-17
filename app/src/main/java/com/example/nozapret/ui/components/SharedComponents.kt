@@ -1,11 +1,13 @@
 package com.example.nozapret.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -15,6 +17,7 @@ fun SettingsGroup(
     modifier: Modifier = Modifier,
     title: String? = null,
     icon: ImageVector? = null,
+    border: BorderStroke? = null,
     content: @Composable (ColumnScope.() -> Unit),
 ) {
     Column(
@@ -29,7 +32,11 @@ fun SettingsGroup(
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             shape = MaterialTheme.shapes.extraLarge,
-            tonalElevation = 1.dp
+            tonalElevation = 1.dp,
+            border = border,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.extraLarge)
         ) {
             Column(
                 modifier = Modifier

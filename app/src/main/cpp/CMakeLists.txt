@@ -138,7 +138,7 @@ set(YAML_SOURCES
 )
 
 add_library(byedpi SHARED
-    native-lib.c
+    native-lib.cpp
     ${BYEDPI_SOURCES}
     ${TUNNEL_SOURCES}
     ${TUNNEL_CORE_SOURCES}
@@ -196,9 +196,24 @@ target_compile_definitions(byedpi PRIVATE
     ENABLE_STACK_OVERFLOW_DETECTION
     ENABLE_MEMALLOC_SLICE
     ENABLE_IO_SPLICE_SYSCALL
+    FAKE_SUPPORT
+    TIMEOUT_SUPPORT
 )
 
-target_compile_options(byedpi PRIVATE -O3 -Wall -std=gnu99)
+target_compile_options(byedpi PRIVATE
+    -O3
+    -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wno-unused-parameter
+    $<$<COMPILE_LANGUAGE:C>: -std=gnu17>
+    $<$<COMPILE_LANGUAGE:CXX>: -std=c++20>
+)
+
+# Use system headers for third-party libraries to suppress their warnings
+target_include_directories(byedpi SYSTEM PRIVATE
+    ${LWIP_DIR}/src/include
+    ${LWIP_DIR}/src/ports/include
+    ${LWIP_DIR}/src/ports/unix/include
+    ${YAML_DIR}/src
+)
 
 target_link_libraries(byedpi
     ${log-lib}

@@ -19,11 +19,13 @@
 #define MH_DMIX 4
 
 #define ANTOHS(data, i) \
-    (((uint16_t)data[i] << 8) + (uint8_t)data[i + 1])
+    (uint16_t)(((uint16_t)(uint8_t)(data)[i] << 8) | (uint8_t)(data)[i + 1])
     
 #define SHTONA(data, i, x) \
-    data[i] = (uint8_t)((x) >> 8); \
-    data[i + 1] = ((x) & 0xff)
+    do { \
+        (data)[i] = (char)((uint16_t)(x) >> 8); \
+        (data)[i + 1] = (char)((uint16_t)(x) & 0xff); \
+    } while(0)
 
 extern char tls_data[517];
 extern char http_data[43];

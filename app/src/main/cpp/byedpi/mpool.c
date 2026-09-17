@@ -10,14 +10,15 @@
 static int bit_cmp(const struct elem *p, const struct elem *q)
 {
     int len = q->len < p->len ? q->len : p->len;
-    int df = len % 8, bytes = len / 8;
+    int df = len % 8;
+    size_t bytes = (size_t)(len / 8);
     int cmp = memcmp(p->data, q->data, bytes);
     
     if (cmp || !df) {
         return cmp;
     }
-    uint8_t c1 = p->data[bytes] >> (8 - df);
-    uint8_t c2 = q->data[bytes] >> (8 - df);
+    uint8_t c1 = (uint8_t)(p->data[bytes] >> (8 - df));
+    uint8_t c2 = (uint8_t)(q->data[bytes] >> (8 - df));
     if (c1 != c2) {
         if (c1 < c2) return -1;
         else return 1;
@@ -31,7 +32,7 @@ static int byte_cmp(const struct elem *p, const struct elem *q)
     if (p->len != q->len) {
         return p->len < q->len ? -1 : 1;
     }
-    return memcmp(p->data, q->data, p->len);
+    return memcmp(p->data, q->data, (size_t)p->len);
 }
 
 
@@ -172,10 +173,10 @@ void dump_cache(struct mphdr *hdr, FILE *out, struct desync_params *dp)
         else
             inet_ntop(AF_INET6, &key->ip.v6, ADDR_STR, sizeof(ADDR_STR));
         
-        int bitlen = p->main.len - offsetof(struct cache_key, ip.v4) * 8;
+        int bitlen = p->main.len - (int)offsetof(struct cache_key, ip.v4) * 8;
         fprintf(out, "0 %s %d %d %jd %.*s\n", 
             ADDR_STR, bitlen, ntohs(key->port),
-            (intmax_t)p->time, p->extra_len ? p->extra_len : 1, p->extra ? p->extra : "-");
+            (intmax_t)p->time, (int)(p->extra_len ? p->extra_len : 1), p->extra ? p->extra : "-");
     } 
     while (kavl_itr_next(my, &itr));
     fflush(out);
@@ -198,31 +199,31 @@ void load_cache(struct mphdr *hdr, FILE *in, struct desync_params *dp)
             return;
         }
         struct cache_key key = { 0 };
-        int key_size = offsetof(struct cache_key, ip.v4);
+        int key_size = (int)offsetof(struct cache_key, ip.v4);
         bitlen += key_size * 8;
         
         if (inet_pton(AF_INET, addr_str, &key.ip.v4) <= 0) {
             if (inet_pton(AF_INET6, addr_str, &key.ip.v6) <= 0) {
                 continue;
             } else {
-                key.family = AF_INET6;
-                key_size += sizeof(key.ip.v6);
+                key.family = (uint16_t)AF_INET6;
+                key_size += (int)sizeof(key.ip.v6);
             }
         }
         else {
-            key.family = AF_INET;
-            key_size += sizeof(key.ip.v4);
+            key.family = (uint16_t)AF_INET;
+            key_size += (int)sizeof(key.ip.v4);
         }
         if (key_size * 8 < bitlen) {
             continue;
         }
         key.port = htons(port);
         
-        struct cache_key *data = calloc(1, key_size);
+        struct cache_key *data = calloc(1, (size_t)key_size);
         if (!data) {
             return;
         }
-        memcpy(data, &key, key_size);
+        memcpy(data, &key, (size_t)key_size);
         
         struct elem_i *e = mem_add(hdr, (char *)data, bitlen, sizeof(struct elem_i));
         if (!e) {
@@ -230,7 +231,7 @@ void load_cache(struct mphdr *hdr, FILE *in, struct desync_params *dp)
             return;
         }
         e->time = cache_time;
-        e->extra_len = strlen(host);
+        e->extra_len = (unsigned int)strlen(host);
         e->dp = dp;
         
         if (e->extra_len > 1) {

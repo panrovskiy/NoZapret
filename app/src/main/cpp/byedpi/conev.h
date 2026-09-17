@@ -121,6 +121,7 @@ struct poolhd {
     struct eval *tv_start, *tv_end;
     struct buffer *root_buff;
     int buff_count;
+    int ctrl_fds[2];
 };
 
 struct poolhd *init_pool(int count);
@@ -142,6 +143,8 @@ void set_timer(struct poolhd *pool, struct eval *val, long ms);
 void remove_timer(struct poolhd *pool, struct eval *val);
 
 void loop_event(struct poolhd *pool);
+
+void byedpi_wakeup(struct poolhd *pool);
 
 struct buffer *buff_pop(struct poolhd *pool, size_t size);
 

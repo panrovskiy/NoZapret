@@ -6,7 +6,7 @@ object Config {
 
     val BYPASS_LISTS = listOf(
         "Russia Default" to emptyArray<String>(),
-        "Aggressive" to arrayOf("--drop-sack", "--mod-http", "hcsmix,dcsmix"),
+        "Aggressive" to arrayOf("--drop-sack", "--mod-http", "h,d"),
     )
 
     val STRATEGIES = listOf(
@@ -17,6 +17,7 @@ object Config {
         "YouTube Light (Battery)" to "Very light strategy that drains the battery less.",
         "YouTube TLS Split" to "Strategy using TLS record splitting and multi-stage disorder.",
         "RU Discord (Alt)" to "Alternative Discord bypass using fake SNI and auto-modes.",
+        "RU Universal (Powerful)" to "Aggressive bypass for most blocked sites in Russia.",
         "Simple Split" to "Basic TCP splitting at 2nd byte.",
         "Simple Fake" to "Basic fake packet with default TTL.",
         "Custom" to "Use arguments from General settings.",
@@ -38,44 +39,99 @@ object Config {
     fun getStrategyArgs(name: String, customArgs: String = ""): Array<String> {
         return when (name) {
             "Auto (Recommended)" -> arrayOf(
-                "--split", "2",
+                "--tlsrec", "1+s",
                 "--disorder", "1",
-                "--oob", "1",
-                "--fake", "-1",
-                "--ttl", "5",
-                "--fake-tls-mod", "rand",
-                "--mod-http", "hcsmix,dcsmix",
+                "--split", "2",
+                "--fake-sni", "www.google.com",
+                "--fake-tls-mod", "orig",
+                "--mod-http", "h,d",
                 "--udp-fake", "3",
-                "--auto", "torst,rst,tls"
+                "--wait-send",
+                "--auto", "t,s,c",
+                "--drop-sack",
+                "--block-quic"
             )
             "Modern Ultra" -> arrayOf(
-                "--split", "1", "--disorder", "1", "--fake", "-1", "--ttl", "3", "--fake-tls-mod", "rand", "--udp-fake", "3", "--drop-sack"
+                "--tlsrec", "1+s",
+                "--disorder", "1",
+                "--oob", "1",
+                "--split", "2",
+                "--wait-send",
+                "--udp-fake", "5",
+                "--drop-sack",
+                "--auto", "t,r,s,c",
+                "--block-quic"
             )
             "YouTube/Google Fix" -> arrayOf(
-                "--split", "1", "--disorder", "1", "--oob", "1", "--fake", "-1", "--ttl", "3", "--fake-tls-mod", "rand", "--mod-http", "hcsmix,dcsmix", "--udp-fake", "3", "--drop-sack"
+                "--tlsrec", "1+s",
+                "--disorder", "1",
+                "--oob", "1",
+                "--split", "2",
+                "--fake-sni", "www.google.com",
+                "--fake-sni", "www.youtube.com",
+                "--fake-sni", "yandex.ru",
+                "--fake-tls-mod", "orig",
+                "--mod-http", "h,d",
+                "--udp-fake", "15",
+                "--drop-sack",
+                "--wait-send",
+                "--await-int", "20",
+                "--auto", "t,r,s,c",
+                "--block-quic"
             )
             "Discord/UDP Fix" -> arrayOf(
-                "--split", "1", "--disorder", "1", "--udp-fake", "5", "--ttl", "3", "--fake", "-1", "--drop-sack"
+                "--disorder", "1",
+                "--split", "1",
+                "--udp-fake", "20",
+                "--wait-send",
+                "--drop-sack"
             )
-            "YouTube Light (Battery)" -> parseCustomArgs("-H:\"signaler-pa.youtube.com\" -o 1 -r 5+s -r 16+s -An -H:\"youtube.com\" -o 1 -r -8+se -r -4+se -An -H:\"youtu.be\" -o 1 -r -6+se -r -3+se -An -H:\"googlevideo.com\" -o 1 -r -11+se -r -5+se -An -H:\"ytimg.com ggpht.com youtubei.googleapis.com yt3.googleusercontent.com\" -o 1 -r 1+s -An")
-            "YouTube TLS Split" -> parseCustomArgs("-H:\"youtube.com youtu.be ytimg.com ggpht.com googleapis.com googleusercontent.com signaler-pa.youtube.com\" --tlsrec 4+s --tlsrec 8+s --tlsrec 12+s --tlsrec 16+s --tlsrec 20+s --disorder 25+s -H:\"googlevideo.com\" --tlsrec 14+s --disorder 25+s")
-            "RU Discord (Alt)" -> arrayOf("--disorder", "1:2", "--fake", "-1", "--ttl", "4", "--fake-sni", "yandex.ru", "--udp-fake", "3")
-            "Simple Split" -> arrayOf("--split", "2")
-            "Simple Fake" -> arrayOf("--fake", "-1", "--fake-sni", "yandex.ru", "--ttl", "4")
-            "Torrent/P2P Fix" -> arrayOf("--split", "1", "--udp-fake", "5", "--auto", "none", "--drop-sack")
-            "RU Discord (Alt 2)" -> arrayOf("--disorder", "1", "--oob", "1", "--fake", "-1", "--ttl", "3", "--udp-fake", "10", "--fake-tls-mod", "rand")
-            "Modern YouTube (Extreme)" -> arrayOf("--split", "2", "--disorder", "1", "--oob", "1", "--fake", "-1", "--ttl", "4", "--fake-tls-mod", "rand", "--mod-http", "hcsmix,dcsmix", "--udp-fake", "5", "--drop-sack", "--auto", "torst,rst,tls")
-            "Universal Web (Safe)" -> arrayOf("--split", "2", "--auto", "none")
+            "YouTube Light (Battery)" -> arrayOf(
+                "--tlsrec", "1+s",
+                "--split", "1",
+                "--auto", "t",
+                "--block-quic"
+            )
+            "YouTube TLS Split" -> parseCustomArgs("--tlsrec 1+s --split 1 --wait-send --block-quic")
+            "RU Discord (Alt)" -> arrayOf("--disorder", "1", "--split", "1", "--wait-send", "--udp-fake", "10")
+            "RU Universal (Powerful)" -> arrayOf(
+                "--tlsrec", "1+s",
+                "--disorder", "1",
+                "--split", "1",
+                "--wait-send",
+                "--udp-fake", "5",
+                "--auto", "t,r,s,c",
+                "--drop-sack",
+                "--block-quic"
+            )
+            "Simple Split" -> arrayOf("--split", "1", "--wait-send")
+            "Simple Fake" -> arrayOf("--tlsrec", "1+s", "--fake-sni", "yandex.ru")
+            "Torrent/P2P Fix" -> arrayOf("--split", "1", "--udp-fake", "10", "--wait-send", "--drop-sack")
+            "RU Discord (Alt 2)" -> arrayOf("--disorder", "1", "--oob", "1", "--udp-fake", "20", "--wait-send")
+            "Modern YouTube (Extreme)" -> arrayOf(
+                "--tlsrec", "1+s",
+                "--disorder", "1",
+                "--split", "1",
+                "--oob", "1",
+                "--mod-http", "h,d",
+                "--udp-fake", "30",
+                "--wait-send",
+                "--await-int", "20",
+                "--drop-sack",
+                "--auto", "t,r,s,c",
+                "--block-quic"
+            )
+            "Universal Web (Safe)" -> arrayOf("--split", "1", "--tlsrec", "1+s", "--wait-send")
             "Custom" -> parseCustomArgs(customArgs)
-            "Strategy 1" -> parseCustomArgs("-s1 -q1 -a1 -Y -Ar -a1 -s5 -o2 -At -f-1 -r1+s -a1 -As -s1 -o1+s -s-1 -a1")
-            "Strategy 2" -> parseCustomArgs("-d1 -s1+s -d1+s -s3+s -d6+s -s12+s -d14+s -s20+s -d24+s -s30+s -a1")
-            "Strategy 3" -> parseCustomArgs("-d1 -s1+s -s3+s -s6+s -s9+s -s12+s -s15+s -s20+s -s30+s -a1")
-            "Strategy 4" -> parseCustomArgs("-s1 -q1 -Y -a1 -At,r,s -f-1 -r1+s -a1")
-            "Strategy 5" -> parseCustomArgs("-d1 -s1+s -d3+s -s6+s -d9+s -s12+s -d15+s -s20+s -d25+s -s30+s -d35+s -a1")
-            "Strategy 6" -> parseCustomArgs("-d1 -s1+s -d2+s -s4+s -d8+s -s16+s -d32+s -s64+s -a1")
-            "Strategy 7" -> parseCustomArgs("-o1 -q1 -s1 -d1 -f-1 -r1+s -a1")
-            "Strategy 8" -> parseCustomArgs("-d1 -s1+s -d1+s -s2+s -d2+s -s3+s -d3+s -s4+s -d4+s -a1")
-            "Strategy 9" -> parseCustomArgs("-s1 -o1 -q1 -Y -Ar -At -As -f-1 -r1+s -a1")
+            "Strategy 1" -> parseCustomArgs("--tlsrec 1+s --disorder 1 --split 2 --wait-send --auto t,s")
+            "Strategy 2" -> parseCustomArgs("--tlsrec 1+s --split 2 --oob 1 --wait-send --auto t,r")
+            "Strategy 3" -> parseCustomArgs("--disorder 1 --split 2 --wait-send --udp-fake 5")
+            "Strategy 4" -> parseCustomArgs("--tlsrec 1+s --wait-send --auto t")
+            "Strategy 5" -> parseCustomArgs("--split 2 --wait-send --drop-sack")
+            "Strategy 6" -> parseCustomArgs("--tlsrec 1+s --disorder 1 --split 1 --wait-send")
+            "Strategy 7" -> parseCustomArgs("--oob 1 --split 2 --wait-send")
+            "Strategy 8" -> parseCustomArgs("--tlsrec 1+s --split 2 --udp-fake 10 --wait-send")
+            "Strategy 9" -> parseCustomArgs("--tlsrec 1+s --disorder 1 --oob 1 --split 2 --wait-send --auto t,r,s,c")
             else -> emptyArray()
         }
     }

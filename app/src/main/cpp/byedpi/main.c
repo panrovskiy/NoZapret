@@ -46,22 +46,22 @@ fake_udp = {
 };
 
 
-struct params params = {
-    .await_int = 10,
-    
-    .ipv6 = 1,
-    .resolve = 1,
-    .udp = 1,
-    .max_open = 512,
-    .bfsize = 16384,
-    .baddr = {
-        .in6 = { .sin6_family = AF_INET6 }
-    },
-    .laddr = {
-        .in = { .sin_family = AF_INET }
-    },
-    .debug = 0
-};
+
+struct params params;
+
+void reset_params(void)
+{
+    memset(&params, 0, sizeof(params));
+    params.await_int = 10;
+    params.ipv6 = 1;
+    params.resolve = 1;
+    params.udp = 1;
+    params.max_open = 512;
+    params.bfsize = 16384;
+    params.baddr.in6.sin6_family = AF_INET6;
+    params.laddr.in.sin_family = AF_INET;
+    params.debug = 0;
+}
 
 
 static const char help_text[] = {
@@ -121,6 +121,7 @@ static const char help_text[] = {
     "    -r, --tlsrec <pos_t>      Make TLS record at position\n"
     "    -m, --tlsminor <ver>      Change minor version of TLS\n"
     "    -a, --udp-fake <count>    UDP fakes count, default 0\n"
+    "    -J, --block-quic          Drop UDP 443 (QUIC)\n"
     #ifdef __linux__
     "    -Y, --drop-sack           Drop packets with SACK extension\n"
     #endif
@@ -182,6 +183,7 @@ const struct option options[] = {
     {"tlsrec",        1, 0, 'r'},
     {"tlsminor",      1, 0, 'm'},
     {"udp-fake",      1, 0, 'a'},
+    {"block-quic",    0, 0, 'J'},
     {"def-ttl",       1, 0, 'g'},
     {"wait-send",     0, 0, 'Z'}, //
     {"await-int",     1, 0, 'W'}, //
@@ -224,18 +226,18 @@ ssize_t parse_cform(char *buffer, size_t blen,
         int n = 0;
         if (sscanf(&str[p], "x%2hhx%n", (uint8_t *)&buffer[i], &n) == 1
               || sscanf(&str[p], "%3hho%n", (uint8_t *)&buffer[i], &n) == 1) {
-            p += (n - 1);
+            p += (size_t)(n - 1);
             continue;
         }
         i--; p--;
     }
-    return i;
+    return (ssize_t)i;
 }
 
 
 char *data_from_str(const char *str, ssize_t *size)
 {
-    ssize_t len = strlen(str);
+    size_t len = strlen(str);
     if (len == 0) {
         return 0;
     }
@@ -245,10 +247,11 @@ char *data_from_str(const char *str, ssize_t *size)
     }
     ssize_t i = parse_cform(d, len, str, len);
     
-    char *m = len != i ? realloc(d, i) : 0;
-    if (i == 0) {
+    if (i <= 0) {
+        free(d);
         return 0;
     }
+    char *m = (size_t)i != len ? realloc(d, (size_t)i) : 0;
     *size = i;
     return m ? m : d;
 }
@@ -277,10 +280,10 @@ char *ftob(const char *str, ssize_t *sl)
         if (fseek(file, 0, SEEK_SET)) {
             break;
         }
-        if (!(buffer = malloc(size))) {
+        if (!(buffer = malloc((size_t)size))) {
             break;
         }
-        size_t rs = fread(buffer, 1, size, file);
+        size_t rs = fread(buffer, 1, (size_t)size, file);
         if (rs != (size_t )size) {
             free(buffer);
             buffer = 0;
@@ -331,12 +334,12 @@ int parse_hosts(struct mphdr *hdr, char *buffer, size_t size)
             continue;
         }
         if (!drop) {
-            if (!mem_add(hdr, s, e - s, sizeof(struct elem))) {
+            if (!mem_add(hdr, s, (int)(e - s), sizeof(struct elem))) {
                 return -1;
             }
         } 
         else {
-            LOG(LOG_E, "invalid host: num: %zd \"%.*s\"\n", num + 1, ((int )(e - s)), s);
+            LOG(LOG_E, "invalid host: num: %zu \"%.*s\"\n", num + 1, (int)(e - s), s);
             drop = 0;
         }
         num++;
@@ -385,9 +388,11 @@ int parse_ipset(struct mphdr *hdr, char *buffer, size_t size)
             s++;
             continue;
         }
-        char ip[e - s + 1];
-        ip[e - s] = 0;
-        memcpy(ip, s, e - s);
+        char ip[256];
+        size_t ip_len = (size_t)(e - s);
+        if (ip_len >= sizeof(ip)) ip_len = sizeof(ip) - 1;
+        memcpy(ip, s, ip_len);
+        ip[ip_len] = 0;
         
         num++;
         s = e + 1;
@@ -395,11 +400,12 @@ int parse_ipset(struct mphdr *hdr, char *buffer, size_t size)
         char ip_stack[sizeof(struct in6_addr)];
         int bits = parse_ip(ip_stack, ip, sizeof(ip));
         if (bits <= 0) {
-            LOG(LOG_E, "invalid ip: num: %zd\n", num);
+            LOG(LOG_E, "invalid ip: num: %zu\n", num);
             continue;
         }
-        int len = bits / 8 + (bits % 8 ? 1 : 0);
+        size_t len = (size_t)(bits / 8) + (size_t)(bits % 8 ? 1 : 0);
         char *ip_raw = malloc(len);
+        if (!ip_raw) continue;
         memcpy(ip_raw, ip_stack, len);
         
         struct elem *elem = mem_add(hdr, ip_raw, bits, sizeof(struct elem));
@@ -437,9 +443,11 @@ int get_addr(const char *str, union sockaddr_u *addr)
         e = strchr(str, 0);
     }
     if (e != s) {
-        char str_ip[(e - s) + 1];
-        memcpy(str_ip, s, e - s);
-        str_ip[e - s] = 0;
+        char str_ip[256];
+        size_t sip_len = (size_t)(e - s);
+        if (sip_len >= sizeof(str_ip)) sip_len = sizeof(str_ip) - 1;
+        memcpy(str_ip, s, sip_len);
+        str_ip[sip_len] = 0;
         
         struct addrinfo hints = {0}, *res = 0;
         
@@ -483,7 +491,7 @@ int get_addr_scheme(const char *str, union sockaddr_u *addr)
     };
     int mode = 0;
     for (size_t i = 0; schemes[i]; i++) {
-        int s_len = strlen(schemes[i]);
+        size_t s_len = strlen(schemes[i]);
         if (!strncmp(str, schemes[i], s_len)) {
             mode = scheme_int[i];
             str += s_len;
@@ -539,14 +547,14 @@ int parse_offset(struct part *part, const char *str)
         if (!part->r) {
             if (!rs) 
                 return -1;
-            part->r = rs;
+            part->r = (int)rs;
         }
         else {
-            part->s = rs;
+            part->s = (int)rs;
             break;
         }
     }
-    if (part->m == DESYNC_DISORDER || part->m == DESYNC_DISOOB) {
+    if (part->m == DESYNC_DISORDER || part->m == DESYNC_DISOOB || part->m == DESYNC_FAKE) {
         if (!part->r) part->r = 2;
     }
     if (*end == '+') {
@@ -586,13 +594,13 @@ int parse_offset(struct part *part, const char *str)
 
 void *add(void **root, int *n, size_t ss)
 {
-    char *p = realloc(*root, ss * (*n + 1));
+    char *p = realloc(*root, ss * (size_t)(*n + 1));
     if (!p) {
         uniperror("realloc");
         return 0;
     }
     *root = p;
-    p = (p + ((*n) * ss));
+    p = (p + ((size_t)(*n) * ss));
     memset(p, 0, ss);
     *n = *n + 1;
     return p;
@@ -693,15 +701,16 @@ void clear_params(char *line, char **argv)
 
 int parse_args(int argc, char **argv) 
 {
-    int optc = sizeof(options)/sizeof(*options);
-    for (int i = 0, e = optc; i < e; i++)
+    int optc_base = (int)(sizeof(options)/sizeof(*options));
+    int optc = optc_base;
+    for (int i = 0, e = optc_base; i < e; i++)
         optc += options[i].has_arg;
-        
+
     char opt[optc + 1];
     opt[optc] = 0;
     
-    for (int i = 0, o = 0; o < optc; i++, o++) {
-        opt[o] = options[i].val;
+    for (int i = 0, o = 0; o < optc && i < optc_base; i++, o++) {
+        opt[o] = (char)options[i].val;
         for (int c = options[i].has_arg; c; c--) {
             o++;
             opt[o] = ':';
@@ -716,25 +725,25 @@ int parse_args(int argc, char **argv)
     }
     int rez;
     int invalid = 0;
-    
+
     long val = 0;
     char *end = 0;
     bool all_limited = 1;
-    
+
     int curr_optind = 1;
-    
+
     params.mempool = mem_pool(MF_EXTRA, CMP_BITS);
     if (!params.mempool) {
         uniperror("mem_pool");
         return -1;
     }
-    
+
     struct desync_params *dp = add_group(0);
     if (!dp) {
         return -1;
     }
     params.dp = dp;
-    
+
     while (!invalid && (rez = getopt_long(
              argc, argv, opt, options, 0)) != -1) {
         switch (rez) {
@@ -796,7 +805,7 @@ int parse_args(int argc, char **argv)
             if (val <= 0 || val > INT_MAX/4 || *end)
                 invalid = 1;
             else
-                params.bfsize = val;
+                params.bfsize = (size_t)val;
             break;
             
         case 'c':
@@ -804,11 +813,11 @@ int parse_args(int argc, char **argv)
             if (val <= 0 || val >= (0xffff/2) || *end) 
                 invalid = 1;
             else
-                params.max_open = val;
+                params.max_open = (int)val;
             break;
            
         case 'x': //
-            params.debug = strtol(optarg, 0, 0);
+            params.debug = (int)strtol(optarg, 0, 0);
             if (params.debug < 0)
                 invalid = 1;
             break;
@@ -945,19 +954,19 @@ int parse_args(int argc, char **argv)
             if (val < 0 || val > 32 || *end) 
                 invalid = 1;
             else 
-                params.cache_pre = 32 - val;
+                params.cache_pre = (char)(32 - val);
             break;
             
         case 'T':;
             float f = strtof(optarg, &end);
-            params.timeout = (f * 1000);
+            params.timeout = (unsigned int)(f * 1000.0f);
             
             if (*end == ':') 
-                params.ptimeout = strtof(end + 1, &end) * 1000;
+                params.ptimeout = (unsigned int)(strtof(end + 1, &end) * 1000.0f);
             if (*end == ':') 
-                params.to_count_lim = strtof(end + 1, &end);
+                params.to_count_lim = (int)strtof(end + 1, &end);
             if (*end == ':')
-                params.to_bytes_lim = strtof(end + 1, &end);
+                params.to_bytes_lim = (int)strtof(end + 1, &end);
             if (*end)
                 invalid = 1;
                 
@@ -1002,10 +1011,11 @@ int parse_args(int argc, char **argv)
             }
             char **d = add((void *)&params.need_free, &params.need_free_n, sizeof(data));
             if (!d) {
+                free(data);
                 return -1;
             }
             *d = data;
-            if (parse_hosts(dp->hosts, data, size)) {
+            if (parse_hosts(dp->hosts, data, (size_t)size)) {
                 uniperror("parse_hosts");
                 return -1;
             }
@@ -1020,9 +1030,10 @@ int parse_args(int argc, char **argv)
             }
             if (!dp->ipset 
                     && !(dp->ipset = mem_pool(0, CMP_BITS))) {
+                free(data);
                 return -1;
             }
-            if (parse_ipset(dp->ipset, data, size)) {
+            if (parse_ipset(dp->ipset, data, (size_t)size)) {
                 uniperror("parse_ipset");
                 invalid = 1;
             }
@@ -1062,7 +1073,7 @@ int parse_args(int argc, char **argv)
             if (val <= 0 || val > 255 || *end) 
                 invalid = 1;
             else
-                dp->ttl = val;
+                dp->ttl = (int)val;
             break;
             
         case 'S':
@@ -1090,7 +1101,7 @@ int parse_args(int argc, char **argv)
                         if ((end = strchr(end, '='))) {
                             val = strtol(end + 1, &end, 0);
                             if (!(val > INT_MAX || (*end && *end != ','))) {
-                                dp->fake_tls_size = val;
+                                dp->fake_tls_size = (int)val;
                                 break;
                             }
                         }
@@ -1173,7 +1184,7 @@ int parse_args(int argc, char **argv)
             if (val <= 0 || val > 255 || *end) 
                 invalid = 1;
             else {
-                dp->tlsminor = val;
+                dp->tlsminor = (uint8_t)val;
                 dp->tlsminor_set = 1;
             }
             break;
@@ -1183,15 +1194,19 @@ int parse_args(int argc, char **argv)
             if (val < 0 || val > INT_MAX || *end)
                 invalid = 1;
             else
-                dp->udp_fake_count = val;
+                dp->udp_fake_count = (int)val;
             break;
             
+        case 'J':
+            params.block_quic = 1;
+            break;
+
         case 'V':
             val = strtol(optarg, &end, 0);
             if (val <= 0 || val > USHRT_MAX)
                 invalid = 1;
             else {
-                dp->pf[0] = htons(val);
+                dp->pf[0] = htons((uint16_t)val);
                 if (*end == '-') {
                     val = strtol(end + 1, &end, 0);
                     if (val <= 0 || val > USHRT_MAX)
@@ -1200,7 +1215,7 @@ int parse_args(int argc, char **argv)
                 if (*end)
                     invalid = 1;
                 else
-                    dp->pf[1] = htons(val);
+                    dp->pf[1] = htons((uint16_t)val);
             }
             break;
             
@@ -1209,7 +1224,7 @@ int parse_args(int argc, char **argv)
             if (val <= 0 || val > INT_MAX)
                 invalid = 1;
             else {
-                dp->rounds[0] = val;
+                dp->rounds[0] = (int)val;
                 if (*end == '-') {
                     val = strtol(end + 1, &end, 0);
                     if (val <= 0 || val > INT_MAX)
@@ -1218,7 +1233,7 @@ int parse_args(int argc, char **argv)
                 if (*end)
                     invalid = 1;
                 else
-                    dp->rounds[1] = val;
+                    dp->rounds[1] = (int)val;
             }
             break;
             
@@ -1227,7 +1242,7 @@ int parse_args(int argc, char **argv)
             if (val <= 0 || val > 255 || *end)
                 invalid = 1;
             else {
-                params.def_ttl = val;
+                params.def_ttl = (int)val;
                 params.custom_ttl = 1;
             }
             break;
@@ -1245,7 +1260,7 @@ int parse_args(int argc, char **argv)
             break;
             
         case 'C':
-            dp->out_type = get_addr_scheme(optarg, &dp->out_addr);
+            dp->out_type = (uint16_t)get_addr_scheme(optarg, &dp->out_addr);
             if ((dp->out_type & OUT_SUPPORT) != dp->out_type
                     || !dp->out_addr.in6.sin6_port) {
                 invalid = 1;

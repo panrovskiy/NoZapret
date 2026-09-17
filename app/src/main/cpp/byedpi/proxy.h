@@ -110,6 +110,8 @@ int start_event_loop(int srvfd);
 
 int run(const union sockaddr_u *srv);
 
+int android_protect_tunnel_socket(int fd);
+
 void byedpi_stop(void);
 
 #endif

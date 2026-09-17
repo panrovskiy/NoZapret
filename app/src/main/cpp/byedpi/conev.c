@@ -7,6 +7,16 @@
 #include "error.h"
 
 
+#include <unistd.h>
+#include <fcntl.h>
+
+static int on_ctrl(struct poolhd *pool, struct eval *val, int et)
+{
+    char buf[64];
+    while (read(val->fd, buf, sizeof(buf)) > 0);
+    return 0;
+}
+
 struct poolhd *init_pool(int count)
 {
     struct poolhd *pool = calloc(1, sizeof(struct poolhd));
@@ -26,9 +36,9 @@ struct poolhd *init_pool(int count)
     }
     pool->efd = efd;
     #endif
-    pool->pevents = malloc(sizeof(*pool->pevents) * count);
-    pool->links = malloc(sizeof(*pool->links) * count);
-    pool->items = malloc(sizeof(*pool->items) * count);
+    pool->pevents = malloc(sizeof(*pool->pevents) * (size_t)count);
+    pool->links = malloc(sizeof(*pool->links) * (size_t)count);
+    pool->items = malloc(sizeof(*pool->items) * (size_t)count);
 
     if (!pool->pevents || !pool->links || !pool->items) {
         uniperror("init pool");
@@ -39,6 +49,14 @@ struct poolhd *init_pool(int count)
         pool->links[i] = &(pool->items[i]);
         pool->items[i].fd = -1;
     }
+
+    if (pipe(pool->ctrl_fds) == 0) {
+        fcntl(pool->ctrl_fds[0], F_SETFL, O_NONBLOCK);
+        add_event(pool, on_ctrl, pool->ctrl_fds[0], POLLIN);
+    } else {
+        pool->ctrl_fds[0] = pool->ctrl_fds[1] = -1;
+    }
+
     return pool;
 }
 
@@ -60,7 +78,7 @@ struct eval *add_event(struct poolhd *pool, evcb_t cb,
     val->cb = cb;
 
     #ifndef NOEPOLL
-    struct epoll_event ev = { .events = _POLLDEF | e, .data = {val} };
+    struct epoll_event ev = { .events = (uint32_t)(_POLLDEF | e), .data = { .ptr = val } };
     if (epoll_ctl(pool->efd, EPOLL_CTL_ADD, fd, &ev)) {
         uniperror("add event");
         return 0;
@@ -145,6 +163,11 @@ void del_event(struct poolhd *pool, struct eval *val)
 
 void destroy_pool(struct poolhd *pool)
 {
+    if (pool->ctrl_fds[0] != -1) {
+        close(pool->ctrl_fds[0]);
+        close(pool->ctrl_fds[1]);
+        pool->ctrl_fds[0] = pool->ctrl_fds[1] = -1;
+    }
     while (pool->count) {
         struct eval *val = pool->links[0];
         del_event(pool, val);
@@ -190,9 +213,9 @@ struct eval *next_event(struct poolhd *pool, int *offs, int *type, int ms)
 
 int mod_etype(struct poolhd *pool, struct eval *val, int type)
 {
-    assert(val->fd > 0);
+        assert(val->fd > 0);
     struct epoll_event ev = {
-        .events = _POLLDEF | type, .data = {val}
+        .events = (uint32_t)(_POLLDEF | type), .data = { .ptr = val }
     };
     return epoll_ctl(pool->efd, EPOLL_CTL_MOD, val->fd, &ev);
 }
@@ -241,11 +264,11 @@ static long time_ms(void)
     #ifndef _WIN32
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
-    return t.tv_sec * 1e3 + (t.tv_nsec / 1e6);
+    return (long)t.tv_sec * 1000L + (long)t.tv_nsec / 1000000L;
     #else
     FILETIME st;
     GetSystemTimeAsFileTime(&st);
-    return (((((uint64_t)st.dwHighDateTime) << 32) | st.dwLowDateTime) / 1e4);
+    return (long)((((((uint64_t)st.dwHighDateTime) << 32) | st.dwLowDateTime) / 10000L));
     #endif
 }
 
@@ -339,6 +362,13 @@ void loop_event(struct poolhd *pool)
         if (ret < 0) {
             del_event(pool, val);
         }
+    }
+}
+
+void byedpi_wakeup(struct poolhd *pool)
+{
+    if (pool && pool->ctrl_fds[1] != -1) {
+        write(pool->ctrl_fds[1], "w", 1);
     }
 }
 

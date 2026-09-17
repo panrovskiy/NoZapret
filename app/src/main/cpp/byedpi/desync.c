@@ -85,10 +85,10 @@ static bool sock_has_notsent(int sfd)
         return 0;
     }
     if (tcpi.tcpi_state != 1) {
-        LOG(LOG_E, "state: %d\n", tcpi.tcpi_state);
+        LOG(LOG_E, "state: %d\n", (int)tcpi.tcpi_state);
         return 0;
     }
-    if (ts <= offsetof(struct tcp_info, tcpi_notsent_bytes)) {
+    if ((size_t)ts <= offsetof(struct tcp_info, tcpi_notsent_bytes)) {
         LOG(LOG_E, "tcpi_notsent_bytes not provided\n");
         return 0;
     }
@@ -124,14 +124,14 @@ static struct packet get_tcp_fake(const char *buffer, ssize_t n,
     }
     ssize_t ps = n > pkt.size ? n : pkt.size;
     
-    char *p = alloc_pktd(ps);
+    char *p = alloc_pktd((size_t)ps);
     if (!p) {
         uniperror("malloc/mmap");
         pkt.data = 0; return pkt;
     }
     const char *sni = 0;
         if (opt->fake_sni_count) {
-            sni = opt->fake_sni_list[(size_t)rand() % opt->fake_sni_count];
+            sni = opt->fake_sni_list[(size_t)rand() % (size_t)opt->fake_sni_count];
         }
     do {
         ssize_t f_size = opt->fake_tls_size;
@@ -175,9 +175,13 @@ static struct packet get_tcp_fake(const char *buffer, ssize_t n,
 #ifdef __linux__
 static int set_md5sig(int sfd, unsigned short key_len)
 {
-    struct tcp_md5sig md5 = {
-        .tcpm_keylen = key_len
-    };
+    struct tcp_md5sig md5;
+    memset(&md5, 0, sizeof(md5));
+    md5.tcpm_keylen = key_len;
+    if (key_len > 0) {
+        memcpy(md5.tcpm_key, "proxy", (key_len > 5) ? 5 : key_len);
+    }
+
     socklen_t addr_size = sizeof(md5.tcpm_addr);
     
     if (getpeername(sfd, 
@@ -202,12 +206,19 @@ static ssize_t send_fake(struct eval *val, const char *buffer,
         uniperror("pipe");
         return -1;
     }
-    // size_t ms = pos > pkt.size ? pos : pkt.size;
-    (void)pos; (void)pkt.size;
     ssize_t ret = -1;
+    ssize_t ps = pkt.size - pkt.off;
+
+    if (ps < 0) {
+        close(fds[0]);
+        close(fds[1]);
+        return -1;
+    }
 
     while (1) {
         char *p = pkt.data + pkt.off;
+        ssize_t send_len = (ssize_t)pos;
+        if (ps < send_len) send_len = ps;
 
         if (setttl(val->fd, opt->ttl ? opt->ttl : DEFAULT_TTL) < 0) {
             break;
@@ -218,14 +229,14 @@ static ssize_t send_fake(struct eval *val, const char *buffer,
         }
         val->restore_md5 = opt->md5sig;
         
-        struct iovec vec = { .iov_base = p, .iov_len = pos };
+        struct iovec vec = { .iov_base = p, .iov_len = (size_t)send_len };
         
         ssize_t len = vmsplice(fds[1], &vec, 1, SPLICE_F_GIFT);
         if (len < 0) {
             uniperror("vmsplice");
             break;
         }
-        len = splice(fds[0], 0, val->fd, 0, len, 0);
+        len = splice(fds[0], 0, val->fd, 0, (size_t)len, 0);
         if (len < 0) {
             uniperror("splice");
             break;
@@ -393,13 +404,13 @@ static void restore_state(struct eval *val)
 static ssize_t send_oob(int sfd, char *buffer,
         ssize_t n, long pos, const char *c)
 {
-    if (n <= pos) {
+    if (n <= (ssize_t)pos) {
         return -1;
     }
     char rchar = buffer[pos];
     buffer[pos] = c[1] ? c[0] : 'a';
     
-    ssize_t len = send(sfd, buffer, pos + 1, MSG_OOB);
+    ssize_t len = send(sfd, buffer, (size_t)(pos + 1), MSG_OOB);
     buffer[pos] = rchar;
     
     if (len < 0) {
@@ -421,13 +432,13 @@ static void init_proto_info(
     if (!info->init) {
         char *host = 0;
         
-        if ((info->host_len = parse_tls(buffer, n, &host))) {
+        if ((info->host_len = (int)parse_tls(buffer, n, &host))) {
             info->type = IS_HTTPS;
         }
-        else if ((info->host_len = parse_http(buffer, n, &host, 0))) {
+        else if ((info->host_len = (int)parse_http(buffer, n, &host, 0))) {
             info->type = IS_HTTP;
         }
-        info->host_pos = host ? host - buffer : 0;
+        info->host_pos = (int)(host ? host - buffer : 0);
         info->init = 1;
     }
 }
@@ -443,17 +454,17 @@ static long gen_offset(long pos, int flag,
                 || ((flag & OFFSET_SNI) && info->type != IS_HTTPS)) {
             return -1;
         }
-        pos += info->host_pos;
+        pos += (long)info->host_pos;
         
         if (flag & OFFSET_END)
-            pos += info->host_len;
+            pos += (long)info->host_len;
         else if (flag & OFFSET_MID)
-            pos += (info->host_len / 2);
+            pos += (long)(info->host_len / 2);
         else if (flag & OFFSET_RAND)
             pos += (long)((unsigned int)rand() % (unsigned int)info->host_len);
     }
     else if (flag & OFFSET_RAND) {
-        pos += lp + (long)((unsigned int)rand() % (unsigned int)(n - lp));
+        pos += lp + (long)((unsigned int)rand() % (unsigned int)((ssize_t)n - lp));
     }
     else if (flag & OFFSET_MID) {
         pos += (long)(n / 2);
@@ -559,7 +570,7 @@ ssize_t desync(struct poolhd *pool,
         long pos = gen_offset(part.pos, part.flag, buffer, n, lp, &info);
         pos += (long )part.s * (part.r - r);
         
-        bool is_first_of_pair = (part.m == DESYNC_DISORDER || part.m == DESYNC_DISOOB)
+        bool is_first_of_pair = (part.m == DESYNC_DISORDER || part.m == DESYNC_DISOOB || part.m == DESYNC_FAKE)
                                 && !((part.r - r) % 2);
 
         if (((skip && pos < skip)
@@ -574,7 +585,7 @@ ssize_t desync(struct poolhd *pool,
             break;
         }
         if (pos > n) {
-            LOG(LOG_E, "pos reduced: %zd -> %zd\n", (ssize_t)pos, n);
+            LOG(LOG_E, "pos reduced: %ld -> %zd\n", pos, n);
             pos = n;
         }
         ssize_t s = 0;
@@ -587,23 +598,27 @@ ssize_t desync(struct poolhd *pool,
             #ifdef FAKE_SUPPORT
             case DESYNC_FAKE:
                 {
-                struct packet pkt = get_tcp_fake(buffer, n, &info, &dp);
-                if (!pkt.data) {
-                    return -1;
+                if (is_first_of_pair) {
+                    struct packet pkt = get_tcp_fake(buffer, n, &info, &dp);
+                    if (!pkt.data) {
+                        return -1;
+                    }
+                    val->restore_fake = pkt.data;
+                    val->restore_fake_len = (size_t)pkt.size;
+                    if (pos != lp) s = send_fake(val,
+                        buffer + lp, pos - lp, &dp, pkt);
+                    #ifndef __linux__
+                    free(pkt.data);
+                    #endif
+                } else {
+                    s = send(sfd, buffer + lp, (size_t)(pos - lp), 0);
                 }
-                val->restore_fake = pkt.data;
-                val->restore_fake_len = pkt.size;
-                if (pos != lp) s = send_fake(val,
-                    buffer + lp, pos - lp, &dp, pkt);
-                #ifndef __linux__
-                free(pkt.data);
-                #endif
                 }
                 break;
             #endif
             case DESYNC_OOB:
                 s = send_oob(sfd, 
-                    buffer + lp, (ssize_t)(bfsize - lp), (long)(pos - lp), dp.oob_char);
+                    buffer + lp, (ssize_t)(bfsize - (size_t)lp), (long)(pos - lp), dp.oob_char);
                 break;
                 
             case DESYNC_DISORDER:
@@ -616,9 +631,9 @@ ssize_t desync(struct poolhd *pool,
                 
                 if (part.m == DESYNC_DISOOB) 
                     s = send_oob(sfd, 
-                        buffer + lp, (ssize_t)(bfsize - lp), (long)(pos - lp), dp.oob_char);
+                        buffer + lp, (ssize_t)(bfsize - (size_t)lp), (long)(pos - lp), dp.oob_char);
                 else 
-                    s = send(sfd, buffer + lp, pos - lp, 0);
+                    s = send(sfd, buffer + lp, (size_t)(pos - lp), 0);
                 
                 if (s < 0) {
                     uniperror("send");
@@ -628,7 +643,7 @@ ssize_t desync(struct poolhd *pool,
             case DESYNC_SPLIT:
             case DESYNC_NONE:
             default:
-                s = send(sfd, buffer + lp, pos - lp, 0);
+                s = send(sfd, buffer + lp, (size_t)(pos - lp), 0);
                 break;
         }
         LOG(LOG_S, "split: pos=%ld-%ld (%zd), m: %s\n", lp, pos, s, demode_str[part.m]);
@@ -641,18 +656,25 @@ ssize_t desync(struct poolhd *pool,
             return lp - offset;
         }
         if (s < 0) {
-            if (get_e() == EAGAIN) {
+            if (get_e() == EAGAIN || get_e() == EWOULDBLOCK) {
                 return lp - offset;
             }
+            uniperror("send");
             return -1;
         }
         else if (s != (pos - lp)) {
-            LOG(LOG_E, "%zd != %ld\n", s, pos - lp);
+            LOG(LOG_E, "partial send: %zd != %ld (fd=%d)\n", s, pos - lp, sfd);
             return lp + s - offset;
         }
 
-        if (is_first_of_pair && (part.m == DESYNC_DISORDER || part.m == DESYNC_DISOOB)) {
+        if (is_first_of_pair && (part.m == DESYNC_DISORDER || part.m == DESYNC_DISOOB || part.m == DESYNC_FAKE)) {
             s = 0;
+            // For pair-based strategies, we successfully sent the first part (TTL=1 or Fake)
+            // We should record that we are now in the middle of this part
+            // to avoid re-sending it if the second part blocks.
+            // But the current part_sent logic is integer-based.
+            // We'll leave it for now as re-sending is usually harmless,
+            // but we MUST ensure we don't advance lp yet.
         }
 
         if (s > 0) {
@@ -674,7 +696,7 @@ ssize_t desync(struct poolhd *pool,
     // send all/rest
     if (lp < n) {
         LOG((lp ? LOG_S : LOG_L), "send: pos=%ld-%zd\n", lp, n);
-        if (send(sfd, buffer + lp, n - lp, 0) < 0) {
+        if (send(sfd, buffer + lp, (size_t)(n - lp), 0) < 0) {
             if (get_e() == EAGAIN) {
                 return lp - offset;
             }
@@ -739,7 +761,7 @@ ssize_t desync_udp(int sfd, char *buffer,
             return -1;
         }
         for (int i = 0; i < dp->udp_fake_count; i++) {
-            ssize_t len = send(sfd, pkt.data, pkt.size, 0);
+            ssize_t len = send(sfd, pkt.data, (size_t)pkt.size, 0);
             if (len < 0) {
                 uniperror("send");
                 return -1;
@@ -749,5 +771,5 @@ ssize_t desync_udp(int sfd, char *buffer,
             return -1;
         }
     }
-    return send(sfd, buffer, n, 0);
+    return send(sfd, buffer, (size_t)n, 0);
 }

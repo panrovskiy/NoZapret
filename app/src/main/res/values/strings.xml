@@ -74,7 +74,13 @@
     <string name="btn_start">Start</string>
     <string name="btn_stop">Stop</string>
     <string name="btn_test_all">Test All</string>
-    <string name="btn_reset">Reset</string>
+    <string name="section_connection">Connection</string>
+    <string name="section_proxy_config">Proxy Configuration</string>
+    <string name="section_app_management">Application Management</string>
+    <string name="btn_export">Export</string>
+    <string name="btn_import">Import</string>
+    <string name="test_stat_format">Passed: %1$d / Checked: %2$d / Total: %3$d</string>
+    <string name="label_proxy_mode_hint">Runs byedpi locally without system VPN. Connect via 127.0.0.1:1080 SOCKS5.</string>
     <string name="btn_filter">Filter by Preset</string>
     <string name="filter_all_sites">All Sites</string>
     <string name="no_args_set">No arguments set</string>
@@ -151,9 +157,6 @@
 
     <!-- Bypass Lists -->
     <string name="list_russia_default">Russia Default</string>
-    <string name="list_russia_youtube">Russia YouTube</string>
-    <string name="list_russia_youtube_2">Russia YouTube 2</string>
-    <string name="list_russia_youtube_3">Russia YouTube 3</string>
     <string name="list_aggressive">Aggressive</string>
 
     <!-- Strategies -->
@@ -225,6 +228,7 @@
     <string name="strategy_tls_record_frag_desc">Splits TLS records into smaller chunks.</string>
     <string name="strategy_custom">Custom</string>
     <string name="strategy_custom_desc">Use arguments from General settings.</string>
+    <string name="strategy_desc_format">%1$s\n%2$s</string>
     <string name="strategy_torrent_fix">Torrent/P2P Fix</string>
     <string name="strategy_torrent_fix_desc">Optimized for P2P: UDP fakes and aggressive TCP splitting.</string>
     <string name="strategy_1">Strategy 1</string>
@@ -295,6 +299,8 @@
     <string name="diag_ipv6_not_detected">IPv6 not detected.</string>
     <string name="diag_byedpi_load_success">byedpi library loaded successfully.</string>
     <string name="diag_byedpi_load_failed">Failed to load byedpi library.</string>
+    <string name="diag_vpn_prepared">VPN permission granted.</string>
+    <string name="diag_vpn_not_prepared">VPN permission not granted.</string>
     <string name="diag_proxy_running">Local proxy is running and reachable.</string>
     <string name="diag_proxy_not_running">Local proxy is NOT reachable. VPN might be stuck.</string>
     <string name="diag_mtproto_passed">Telegram (MTProto) is reachable.</string>
@@ -316,121 +322,18 @@
     <string name="msg_no_results_preset">No results for %1$s.\nEnable it in General settings and run tests.</string>
     <string name="apps_selected_count">Selected: %1$d apps</string>
 
-    <string name="changelog_content" translatable="false">
-        <b>v2.3.2</b> (August 29, 2026)\n
-        • Added Pause/Resume buttons to the notification\n
-        • Improved notification management (clearable, updated status messages)\n
-        • Resolved UI warnings and fixed localized strings\n
-        • Improved background service stability\n\n
-        <b>v2.3.1-fix2</b> (August 22, 2026)\n
-        • Fixed connectivity issues and binding deadlocks\n
-        • Fixed 404 error when checking for updates\n
-        • Improved VPN service stability and responsiveness\n\n
-        <b>v2.3.1</b> (August 22, 2026)\n
-        • Fixed concurrent testing bug in \"Test All\"\n
-        • Added test results to all strategy pickers\n
-        • Improved stability and site tester cleanup\n
-        • Fixed UI infinite loading and warnings\n
-        • Optimized configuration presets\n\n
-        <b>v2.3.0</b> (August 21, 2026)\n
-        <i>The Stability &amp; Connectivity Update</i>\n\n
-        • <b>Stability Fix</b>: Resolved an issue where the VPN would disconnect after several seconds on certain strategies.\n
-        • <b>Centered Toggle</b>: Redesigned the Home screen for better visual balance and accessibility.\n
-        • <b>Application Modes</b>: Added \"Proxy Mode\" to run the bypass engine without a system-wide VPN.\n
-        • <b>Static Shortcuts</b>: Long-press the app icon to instantly start or stop the service from your launcher.\n
-        • <b>Improved Site Tester</b>: Added detailed TLS and HTTP verification results with robust timeout handling.\n
-        • <b>Refined UI</b>: The strategy selection menu is now scrollable and supports large lists of pinned items.\n
-    </string>
-    <string name="changelog_history" translatable="false">
-        <b>v2.2.0</b> (July 14, 2026)\n
-        <i>The Connectivity &amp; QOL Update</i>\n\n
-        • <b>New YouTube Strategies</b>: Added updated working strategies for YouTube in restricted regions.\n
-        • <b>Check for Updates</b>: Added a modern in-app update system to keep you on the latest version.\n
-        • <b>Uptime Tracker</b>: Monitor your active session time directly on the home screen.\n
-        • <b>Backup &amp; Restore</b>: Export and import your entire configuration (strategies, apps, themes) easily.\n
-        • <b>IPv6 Toggle</b>: New advanced setting to enable or disable IPv6 support in the VPN tunnel.\n
-        • <b>Log Export</b>: Quickly copy or share native logs for troubleshooting.\n
-        • <b>App Shortcut</b>: Long-press the app icon to start/stop the bypass instantly.\n
-        <hr/>
-        <b>v2.1.0</b> (July 7, 2026)\n
-        <i>The Strategy Control Update</i>\n\n
-        • <b>Pinned Strategies</b>: Pin your favorite strategies in the Testing tab for quick access.\n
-        • <b>Quick Switch</b>: Change the current strategy directly from the main screen.\n
-        • <b>Stability fixes</b>: General bug fixes and performance improvements.\n\n
-        <hr/>
-        <b>v2.0.0</b> (June 23, 2026)\n
-        <i>The Maximum Optimization Update</i>\n\n
-        • <b>Platform Support</b>: Full support for Android 17 (API 37). Minimum requirement is now Android 11 (API 30).\n
-        • <b>Core Improvements</b>: Fixed an issue where the \"Connect\" button would occasionally fail to initiate the connection.\n
-        • <b>Language Selection</b>: Added a dedicated language button in Settings for quick switching (EN, RU, UK, KK).\n
-        • <b>Library Updates</b>: All internal libraries and dependencies have been updated to their latest stable versions.\n
-        • <b>Extreme Size Reduction</b>: APK size minimized through R8 Full Mode and ABI filtering (ARM only).\n
-        • <b>Resource Management</b>: Optimized locale filtering to preserve all supported languages while stripping redundant resources.\n
-        • <b>Bytecode Stripping</b>: All Log.d, Log.i, and Log.v calls are now removed at the bytecode level in release builds.\n
-        • <b>Metadata Purge</b>: Removed unnecessary Kotlin metadata and ProGuard attributes.\n\n
-        <hr/>
-        <b>v1.4.1</b> (June 14, 2026)\n
-        <i>The Protocol &amp; Cleanup Update</i>\n\n
-        • <b>HTTP Verification</b>: Added full HTTP support to strategy verification. Now checks both TLS and plain HTTP availability.\n
-        • <b>Roblox Decommissioned</b>: Completely removed the \"Roblox\" preset and its domain mappings because of the unblock in Russia.\n
-        • <b>Codebase Optimization</b>: Purged unused helper functions and orphaned UI components to improve maintainability.\n\n
-        <hr/>
-        <b>v1.4.0</b> (June 01, 2026)\n
-        <i>The Performance &amp; Engine Update</i>\n\n
-        • <b>TLS Strategy Testing</b>: Added TLS handshake verification to find the most effective bypass parameters for your network.\n
-        • <b>Hyper-Fast Launch</b>: Parallelized configuration loading and offloaded heavy JSON processing to background threads for instant app startup.\n
-        • <b>Interactive Diagnostics</b>: New system-wide check for IPv6 leaks, battery optimizations, and TCP timestamp interference.\n
-        • <b>Visual Identity</b>: Integrated simple-icons library for high-quality, brand-specific icons (YouTube, Discord, etc.).\n
-        • <b>Screen Persistence</b>: Screen now stays active automatically during diagnostics and strategy testing.\n
-        • <b>Engine Stability</b>: Migrated VPN lifecycle to Kotlin Coroutines and implemented socket watchdogs to prevent UI freezes.\n\n
-        <hr/>
-        <b>v1.3.1</b> (May 29, 2026)\n
-        <i>Stability &amp; Refactoring</i>\n\n
-        • Refactored UI state management for better stability and predictability\n
-        • Optimized DPI-bypass configuration logic to prevent connection resets\n
-        • Improved resource handling and resolved technical debt in UI layer\n
-        • Modernized color parsing system using KTX extensions\n\n
-        <hr/>
-        <b>v1.3.0</b> (May 29, 2026)\n
-        <i>Smoothness &amp; QOL</i>\n\n
-        • Animations in navigation bar were optimized, now they are smooth and cool\n
-        • Added IP &amp; port strings to Current Configuration in Main Tab\n
-        • Added notification when testing strategies\n
-        • Fixed filling bar in strategies test (it was not filling correctly before)\n
-        • Added Global Mode to bypass all sites at once, also added Exclude Apps from VPN setting\n\n
-        <hr/>
-        <b>v1.2.1</b> (May 29, 2026)\n
-        <i>Maintenance Update</i>\n\n
-        • Added modern navigation bar to match modern style\n
-        • Resolved Quick Settings tile issues on Android 14+ devices\n
-        • Added smooth item animations in the Strategy Testing list\n
-        • Hardened internal broadcast security for Android 13+ compliance\n
-        • Optimized VPN lifecycle management and state synchronization\n\n
-        <hr/>
-        <b>v1.2.0</b> (May 29, 2026)\n
-        <i>Stability &amp; Roblox Support</i>\n\n
-        • Expanded Roblox preset with comprehensive infrastructure domains and IP ranges\n
-        • Fixed crash when rapidly toggling VPN from Quick Settings tile\n
-        • Enforced 0.3s debounce on Tile interactions to prevent race conditions\n
-        • Unified Settings and Testing into a single streamlined tab\n
-        • Optimized LogViewer with monospaced typography and batched UI updates\n
-        • Added \"History\" view to the changelog dialog\n\n
-        <hr/>
-        <b>v1.1.0</b> (May 29, 2026)\n
-        <i>Material Design Overhaul</i>\n\n
-        • Fully redesigned UI following Material 3 guidelines\n
-        • Enhanced Home screen with status animations and active config overview\n
-        • New Settings layout with logical grouping and improved readability\n
-        • Integrated Changelog and credits viewer\n
-        • Added Quick Settings Tile for rapid VPN control\n
-        • Improved VPN lifecycle management and connection speed\n
-        • Russian localization for all new interface elements\n\n
-        <hr/>
-        <b>v1.0.0</b> (May 29, 2026)\n
-        <i>Initial Release</i>\n\n
-        • Core DPI bypass functionality\n
-        • Multiple bypass strategies support\n
-        • Basic site list management\n
-        • Real-time connection logging
-    </string>
+    <!-- Status Card -->
+    <string name="label_vpn">VPN</string>
+    <string name="label_backend">Backend</string>
+    <string name="label_network">Network</string>
+    <string name="label_dns_short">DNS</string>
+    <string name="status_active">Active</string>
+    <string name="status_inactive">Inactive</string>
+    <string name="status_running">Running</string>
+    <string name="status_stopped">Stopped</string>
+
+    <!-- Error Messages -->
+    <string name="error_no_sites_testing">No sites selected for testing</string>
+    <string name="error_vpn_stop_failed">Failed to stop VPN for testing</string>
+    <string name="error_invalid_domain">Invalid domain</string>
 </resources>

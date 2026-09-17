@@ -19,23 +19,30 @@ import com.example.nozapret.core.Config
 import com.example.nozapret.core.HevSocks5Tunnel
 import com.example.nozapret.data.DataStoreManager
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration.Companion.milliseconds
 
 class DpiVpnService : VpnService() {
 
-    private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+    private val serviceJob = SupervisorJob()
+    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
+    
     private var vpnInterface: ParcelFileDescriptor? = null
     private val proxy = ByeDpiProxy()
     private val tunnel = HevSocks5Tunnel()
-    private var vpnJob: Job? = null
+    private var vpnWorkJob: Job? = null
+    private var healthCheckJob: Job? = null
 
     private val vpnLock = Mutex()
+    private val isStopping = AtomicBoolean(false)
 
     private var lastStrategy: String? = null
     private var lastArgs: String? = null
@@ -45,10 +52,20 @@ class DpiVpnService : VpnService() {
     private val queryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_QUERY_STATUS) {
-                sendStateBroadcast(isRunning)
+                updateVpnState(isRunning, isPaused, isConnecting, isDisconnecting, isError, startTime)
             }
         }
     }
+
+    data class VpnState(
+        val isRunning: Boolean = false,
+        val isPaused: Boolean = false,
+        val isConnecting: Boolean = false,
+        val isDisconnecting: Boolean = false,
+        val isError: Boolean = false,
+        val startTime: Long = 0L,
+        val strategy: String? = null
+    )
 
     companion object {
         const val ACTION_START = "ACTION_START"
@@ -58,21 +75,41 @@ class DpiVpnService : VpnService() {
         const val ACTION_VPN_STATE_CHANGED = "com.example.nozapret.VPN_STATE"
         const val EXTRA_IS_RUNNING = "running"
         const val EXTRA_IS_PAUSED = "paused"
+        const val EXTRA_IS_CONNECTING = "connecting"
+        const val EXTRA_IS_DISCONNECTING = "disconnecting"
+        const val EXTRA_IS_ERROR = "error"
         const val EXTRA_START_TIME = "start_time"
         const val ACTION_QUERY_STATUS = "com.example.nozapret.QUERY_STATUS"
 
+        @Volatile
         var isRunning = false
             private set
+        @Volatile
         var isPaused = false
             private set
+        @Volatile
+        var isConnecting = false
+            private set
+        @Volatile
+        var isDisconnecting = false
+            private set
+        @Volatile
+        var isError = false
+            private set
+        @Volatile
         var startTime = 0L
             private set
+
+        private val _vpnStateFlow = MutableStateFlow(VpnState())
+        val vpnStateFlow = _vpnStateFlow.asStateFlow()
     }
 
     private external fun jniSetVpnService(vpnService: VpnService?)
+    private external fun jniCleanup()
 
     override fun onCreate() {
         super.onCreate()
+        Log.d("DpiVpnService", "onCreate")
         createNotificationChannel()
         val filter = IntentFilter(ACTION_QUERY_STATUS)
         ContextCompat.registerReceiver(this, queryReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
@@ -80,7 +117,7 @@ class DpiVpnService : VpnService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action ?: ACTION_START
-        Log.d("DpiVpnService", "onStartCommand: action=$action (original=${intent?.action})")
+        Log.d("DpiVpnService", "onStartCommand: action=$action")
         
         when (action) {
             ACTION_START -> {
@@ -88,26 +125,11 @@ class DpiVpnService : VpnService() {
                 val args = intent?.getStringExtra("args")
                 val global = if (intent?.hasExtra("global") == true) intent.getBooleanExtra("global", true) else null
                 val bypassedSites = intent?.getStringArrayListExtra("bypassedSites")
-                
-                serviceScope.launch {
-                    vpnLock.withLock {
-                        if (vpnInterface != null && !isPaused) {
-                            Log.d("DpiVpnService", "VPN already running, updating UI")
-                            sendStateBroadcast(isRunning)
-                            return@withLock
-                        }
 
-                        if (isPaused) {
-                            resumeVpn()
-                        } else {
-                            jniSetVpnService(this@DpiVpnService)
-                            startVpn(strategy, args, global, bypassedSites)
-                        }
-                    }
-                }
+                handleStart(strategy, args, global, bypassedSites)
             }
             ACTION_STOP -> {
-                stopVpn("Action Stop")
+                handleStop("Action Stop")
             }
             ACTION_PAUSE -> {
                 pauseVpn()
@@ -119,180 +141,271 @@ class DpiVpnService : VpnService() {
         return START_STICKY
     }
 
-    private fun startVpn(strategyIn: String?, argsIn: String?, globalIn: Boolean?, bypassedSitesIn: ArrayList<String>?) {
-        isRunning = true
-        isPaused = false
-        startTime = System.currentTimeMillis()
-        
+    override fun onRevoke() {
+        Log.w("DpiVpnService", "VPN permission revoked!")
+        handleStop("Revoked")
+        super.onRevoke()
+    }
+
+    private fun handleStart(strategy: String?, args: String?, global: Boolean?, bypassedSites: ArrayList<String>?) {
+        isStopping.set(false)
         val notification = createNotification(getString(R.string.notification_connecting))
-        startForeground(1, notification)
+        if (android.os.Build.VERSION.SDK_INT >= 34) {
+            startForeground(1, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(1, notification)
+        }
 
-        serviceScope.launch(Dispatchers.IO) {
-            val dataStoreManager = DataStoreManager(applicationContext)
-            val prefs = dataStoreManager.getAllSettings().first()
-            
-            // Store configuration for Resuming
-            lastStrategy = strategyIn ?: prefs[DataStoreManager.SELECTED_STRATEGY] ?: "Auto (Recommended)"
-            lastArgs = argsIn ?: prefs[DataStoreManager.CUSTOM_ARGS] ?: ""
-            lastGlobal = globalIn ?: prefs[DataStoreManager.GLOBAL_MODE] ?: true
-            lastBypassedSites = bypassedSitesIn ?: ArrayList(prefs[DataStoreManager.CUSTOM_HOST_LIST]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList())
-            
-            val mtu = 1400 // Default MTU
-            val dns = prefs[DataStoreManager.DNS_SERVER] ?: "1.1.1.1"
-            val enableIpv6 = prefs[DataStoreManager.ENABLE_IPV6] ?: true
-            val excludeSelf = prefs[DataStoreManager.EXCLUDE_SELF] ?: true
-            val runMode = prefs[DataStoreManager.RUN_MODE] ?: "VPN"
-            
-            val host = prefs[DataStoreManager.PROXY_HOST] ?: Config.DEFAULT_PROXY_HOST
-            val portStr = prefs[DataStoreManager.PROXY_PORT] ?: Config.DEFAULT_PROXY_PORT
-            val port = try { portStr.toInt() } catch(_: Exception) { 1080 }
-
-            val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!)
-
-            try {
-                val builder = Builder()
-                    .setSession("NoZapret")
-                    .setMtu(mtu)
-                    .addAddress("10.0.0.1", 32)
-                    .addRoute("0.0.0.0", 0)
-                    .addDnsServer(dns)
-
-                if (enableIpv6) {
-                    builder.addAddress("fd00::1", 128)
-                    builder.addRoute("::", 0)
+        serviceScope.launch {
+            vpnLock.withLock {
+                if (isRunning && !isPaused) {
+                    Log.d("DpiVpnService", "VPN already running, updating UI")
+                    updateVpnState(isRunning, isPaused, isConnecting, isDisconnecting, isError, startTime)
+                    return@withLock
                 }
 
-                if (excludeSelf) {
-                    builder.addDisallowedApplication(packageName)
-                }
+                if (isPaused) {
+                    resumeVpn()
+                } else {
+                    isError = false
+                    isConnecting = true
+                    updateVpnState(false, false, true, false, false, 0L)
 
-                val establishedInterface = builder.establish()
-                if (establishedInterface == null) {
-                    Log.e("DpiVpnService", "Failed to establish VPN interface")
-                    stopVpn("Establish failed")
-                    return@launch
+                    withContext(Dispatchers.IO) {
+                        jniSetVpnService(this@DpiVpnService)
+                    }
+                    startVpnInternal(strategy, args, global, bypassedSites)
                 }
-                vpnInterface = establishedInterface
+            }
+        }
+    }
+
+    private suspend fun startVpnInternal(strategyIn: String?, argsIn: String?, globalIn: Boolean?, bypassedSitesIn: ArrayList<String>?) = withContext(Dispatchers.IO) {
+        val dataStoreManager = DataStoreManager(applicationContext)
+        val prefs = dataStoreManager.getAllSettings().first()
+        
+        lastStrategy = strategyIn ?: prefs[DataStoreManager.SELECTED_STRATEGY] ?: "Auto (Recommended)"
+        lastArgs = argsIn ?: prefs[DataStoreManager.CUSTOM_ARGS] ?: ""
+        lastGlobal = globalIn ?: prefs[DataStoreManager.GLOBAL_MODE] ?: true
+        lastBypassedSites = bypassedSitesIn ?: ArrayList(prefs[DataStoreManager.CUSTOM_HOST_LIST]?.split("\n")?.filter { it.isNotBlank() } ?: emptyList())
+        
+        val mtu = 1400 
+        val enableIpv6 = prefs[DataStoreManager.ENABLE_IPV6] ?: false
+        val excludeSelf = prefs[DataStoreManager.EXCLUDE_SELF] ?: true
+        
+        val host = prefs[DataStoreManager.PROXY_HOST] ?: Config.DEFAULT_PROXY_HOST
+        val portStr = prefs[DataStoreManager.PROXY_PORT] ?: Config.DEFAULT_PROXY_PORT
+        val port = try { portStr.toInt() } catch(_: Exception) { 1080 }
+
+        val dnsServer = prefs[DataStoreManager.DNS_SERVER] ?: "1.1.1.1"
+        val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!)
+
+        try {
+            val builder = Builder()
+                .setSession("NoZapret")
+                .setMtu(mtu)
+                .addAddress("10.1.1.1", 24)
+                .addRoute("0.0.0.0", 0)
+                .addDnsServer(dnsServer)
+
+            if (enableIpv6) {
+                builder.addAddress("fd00::1", 128)
+                builder.addRoute("::", 0)
+            }
+
+            if (excludeSelf) {
+                builder.addDisallowedApplication(packageName)
+            }
+
+            val establishedInterface = builder.establish()
+            if (establishedInterface == null) {
+                Log.e("DpiVpnService", "Failed to establish VPN interface")
+                isError = true
+                stopVpnAsync("Establish failed")
+                return@withContext
+            }
+            vpnInterface = establishedInterface
+            
+            val fd = vpnInterface?.fd ?: -1
+            val hostlistFile = File(cacheDir, "hostlist.txt")
+            if (lastBypassedSites!!.isNotEmpty()) {
+                hostlistFile.writeText(lastBypassedSites!!.joinToString("\n"))
+            }
+            
+            vpnWorkJob = serviceScope.launch(Dispatchers.IO) {
+                Log.d("DpiVpnService", "Bypass Work Job started. Strategy: $lastStrategy")
                 
-                val fd = vpnInterface?.fd ?: -1
-
-                val hostlistFile = File(cacheDir, "hostlist.txt")
-                if (lastBypassedSites!!.isNotEmpty()) {
-                    hostlistFile.writeText(lastBypassedSites!!.joinToString("\n"))
+                val finalArgs = mutableListOf(
+                    "byedpi",
+                    "-i", host,
+                    "-p", port.toString(),
+                    "-x", "1",
+                    "-P", "protect"
+                )
+                
+                if (lastGlobal == false && (lastBypassedSites?.isNotEmpty() == true)) {
+                    finalArgs.add("-H")
+                    finalArgs.add(hostlistFile.absolutePath)
                 }
                 
-                vpnJob = launch(Dispatchers.IO) {
-                    Log.d("DpiVpnService", "Bypass Service started. Strategy: $lastStrategy")
-                    
-                    val finalArgs = mutableListOf(
-                        "byedpi",
-                        "-i", host,
-                        "-p", port.toString(),
-                        "-x", "1"
-                    )
-                    
-                    // Always add protect global parameter
-                    finalArgs.add("-P")
-                    finalArgs.add("protect")
+                finalArgs.addAll(strategyArgs)
+                
+                if (lastGlobal == false) {
+                    finalArgs.add("-A")
+                    finalArgs.add("none")
+                }
+                
+                Log.d("DpiVpnService", "Starting ByeDPI with: ${finalArgs.joinToString(" ")}")
 
-                    // 1. Hosts group
-                    if (lastGlobal == false && (lastBypassedSites?.isNotEmpty() == true)) {
-                        finalArgs.add("-H")
-                        finalArgs.add(hostlistFile.absolutePath)
-                    }
-                    
-                    // 2. Strategy args (apply to the current group)
-                    finalArgs.addAll(strategyArgs)
-                    
-                    // 3. Fallback group for non-global (no desync for other sites)
-                    if (lastGlobal == false) {
-                        finalArgs.add("-A")
-                        finalArgs.add("none")
-                    }
-                    
-                    Log.d("DpiVpnService", "Starting ByeDPI with: ${finalArgs.joinToString(" ")}")
-
-                    launch {
-                        val res = proxy.start(finalArgs.toTypedArray())
-                        Log.d("DpiVpnService", "ByeDPI Proxy exited with code $res")
-                        if (isRunning && !isPaused) stopVpn("Proxy exit")
-                    }
-                    
-                    launch {
-                        if (!waitForProxy(host, port)) {
-                            Log.e("DpiVpnService", "Proxy failed to start in time on $host:$port, aborting")
-                            stopVpn("Proxy timeout")
-                            return@launch
-                        }
-                        Log.d("DpiVpnService", "Proxy is ready on $host:$port")
-                        startTime = System.currentTimeMillis()
-                        isRunning = true
-                        sendStateBroadcast(true)
-                        updateNotification(getString(R.string.notification_connected))
-
-                        if (runMode == "VPN") {
-                            val configPath = createTunnelConfig(enableIpv6, host, port)
-                            Log.d("DpiVpnService", "Starting tunnel with config: $configPath")
-                            val res = tunnel.start(configPath, fd)
-                            Log.d("DpiVpnService", "HevSocks5Tunnel exited with code $res")
-                            if (isRunning && !isPaused) stopVpn("Tunnel exit")
-                        } else {
-                            Log.d("DpiVpnService", "Running in SOCKS5 only mode")
-                        }
+                val proxyLaunch = launch {
+                    val res = proxy.start(finalArgs.toTypedArray())
+                    Log.d("DpiVpnService", "ByeDPI Proxy exited with code $res")
+                    if (isRunning && !isPaused && !isStopping.get()) {
+                        if (res != 0) isError = true
+                        stopVpnAsync("Proxy exit")
                     }
                 }
-            } catch (e: Exception) {
-                Log.e("DpiVpnService", "Error starting VPN: ${e.message}")
-                stopVpn("Error: ${e.message}")
+                
+                val tunnelLaunch = launch {
+                    if (!waitForProxy(host, port)) {
+                        Log.e("DpiVpnService", "Proxy failed to start in time on $host:$port, aborting")
+                        isError = true
+                        stopVpnAsync("Proxy timeout")
+                        return@launch
+                    }
+                    
+                    Log.d("DpiVpnService", "Proxy is ready on $host:$port")
+                    
+                    isRunning = true
+                    isPaused = false
+                    isConnecting = false
+                    isError = false
+                    startTime = System.currentTimeMillis()
+                    
+                    updateVpnState(true, false, false, false, false, startTime)
+                    updateNotification(getString(R.string.notification_connected))
+
+                    val configPath = createTunnelConfig(enableIpv6, host, port, dnsServer)
+                    Log.d("DpiVpnService", "Starting tunnel with config: $configPath")
+                    
+                    startHealthCheck()
+                    
+                    val res = tunnel.start(configPath, fd)
+                    Log.d("DpiVpnService", "HevSocks5Tunnel exited with code $res")
+                    if (isRunning && !isPaused && !isStopping.get()) {
+                        if (res != 0) isError = true
+                        stopVpnAsync("Tunnel exit")
+                    }
+                }
+                
+                joinAll(proxyLaunch, tunnelLaunch)
+            }
+        } catch (e: Exception) {
+            Log.e("DpiVpnService", "Error starting VPN: ${e.message}")
+            isError = true
+            stopVpnAsync("Error: ${e.message}")
+        }
+    }
+
+    private fun startHealthCheck() {
+        healthCheckJob?.cancel()
+        healthCheckJob = serviceScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(5000)
+                if (isRunning && !isPaused) {
+                    if (!proxy.isRunning() || !tunnel.isRunning()) {
+                        Log.w("DpiVpnService", "Health check failed: proxy=${proxy.isRunning()}, tunnel=${tunnel.isRunning()}")
+                        isError = true
+                        stopVpnAsync("Health check failure")
+                        break
+                    }
+                }
             }
         }
     }
 
     private fun pauseVpn() {
         Log.d("DpiVpnService", "Pausing VPN")
-        isPaused = true
-        isRunning = false
-        
-        vpnJob?.cancel()
-        vpnJob = null
-        
-        tunnel.stop()
-        proxy.stop()
-        
-        updateNotification(getString(R.string.notification_paused))
-        sendStateBroadcast(running = false)
+        serviceScope.launch {
+            vpnLock.withLock {
+                isPaused = true
+                isRunning = false
+                isConnecting = false
+                isDisconnecting = true
+                updateVpnState(false, true, false, true, isError, startTime)
+                
+                healthCheckJob?.cancel()
+                healthCheckJob = null
+                
+                vpnWorkJob?.cancel()
+                vpnWorkJob = null
+                
+                withContext(Dispatchers.IO) {
+                    tunnel.stop()
+                    proxy.stop()
+                    var wait = 0
+                    while ((proxy.isRunning() || tunnel.isRunning()) && wait < 20) {
+                        delay(100)
+                        wait++
+                    }
+                }
+                
+                isDisconnecting = false
+                updateNotification(getString(R.string.notification_paused))
+                updateVpnState(false, true, false, false, isError, startTime)
+            }
+        }
     }
 
     private fun resumeVpn() {
         Log.d("DpiVpnService", "Resuming VPN")
-        startVpn(lastStrategy, lastArgs, lastGlobal, lastBypassedSites)
+        serviceScope.launch {
+            vpnLock.withLock {
+                if (isPaused) {
+                    isPaused = false
+                    isConnecting = true
+                    updateVpnState(false, false, true, false, isError, startTime)
+                    startVpnInternal(lastStrategy, lastArgs, lastGlobal, lastBypassedSites)
+                }
+            }
+        }
     }
 
     private suspend fun waitForProxy(host: String, port: Int): Boolean {
         var attempts = 40
+        val startWait = System.currentTimeMillis()
         while (attempts-- > 0) {
-            try {
-                Socket().use { socket ->
-                    socket.connect(InetSocketAddress(host, port), 500)
+            if (proxy.isRunning()) {
+                try {
+                    withContext(Dispatchers.IO) {
+                        Socket().use { socket ->
+                            protect(socket)
+                            socket.connect(InetSocketAddress(host, port), 500)
+                        }
+                    }
+                    Log.d("DpiVpnService", "Proxy ready after ${System.currentTimeMillis() - startWait}ms")
                     return true
+                } catch (e: Exception) {
+                    if (attempts % 10 == 0) {
+                        Log.d("DpiVpnService", "Waiting for proxy on $host:$port... (${e.message})")
+                    }
                 }
-            } catch (_: Exception) {
-                delay(250.milliseconds)
             }
+            delay(250.milliseconds)
         }
         return false
     }
 
-    private fun createTunnelConfig(enableIpv6: Boolean, proxyHost: String, proxyPort: Int): String {
-        val mtu = 1400 // Matches VPN MTU
+    private fun createTunnelConfig(enableIpv6: Boolean, proxyHost: String, proxyPort: Int, dnsServer: String): String {
+        val mtu = 1400
         val tunnelName = "tun0"
         val config = """
             tunnel:
               name: $tunnelName
               mtu: $mtu
               ipv4:
-                address: 10.0.0.1
-                gateway: 10.0.0.2
+                address: 10.1.1.1
+                gateway: 10.1.1.2
                 netmask: 255.255.255.0
               ${if (enableIpv6) "ipv6:\n    address: fd00::1\n    gateway: fd00::2\n    prefix-length: 128" else ""}
 
@@ -305,9 +418,9 @@ class DpiVpnService : VpnService() {
               task-stack-size: 131072
               connect-timeout: 5000
               read-write-timeout: 60000
-              udp-read-write-timeout: 10000
-              max-session-count: 2048
-              log-level: debug
+              udp-read-write-timeout: 15000
+              max-session-count: 4096
+              log-level: info
         """.trimIndent()
 
         val configFile = File(cacheDir, "tunnel.yaml")
@@ -315,41 +428,95 @@ class DpiVpnService : VpnService() {
         return configFile.absolutePath
     }
 
-    private fun stopVpn(reason: String) {
+    private fun handleStop(reason: String) {
         serviceScope.launch {
-            vpnLock.withLock {
-                if (!isRunning && !isPaused && vpnInterface == null) return@withLock
-                Log.d("DpiVpnService", "Stopping VPN (Lock acquired). Reason: $reason")
-                
-                isRunning = false
-                isPaused = false
-                vpnJob?.cancel()
-                vpnJob = null
-
-                tunnel.stop()
-                proxy.stop()
-                
-                jniSetVpnService(null)
-
-                try {
-                    vpnInterface?.close()
-                } catch (e: Exception) {
-                    Log.e("DpiVpnService", "Error closing vpnInterface: ${e.message}")
-                }
-                vpnInterface = null
-
-                sendStateBroadcast(false)
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-            }
+            stopVpnAsync(reason)
         }
     }
 
-    private fun sendStateBroadcast(running: Boolean) {
+    private suspend fun stopVpnAsync(reason: String) {
+        Log.d("DpiVpnService", "stopVpnAsync: reason=$reason")
+        
+        vpnLock.withLock {
+            if (isStopping.getAndSet(true)) return@withLock
+            
+            if (!isRunning && !isPaused && !isConnecting && vpnInterface == null) {
+                isRunning = false
+                isPaused = false
+                isConnecting = false
+                isDisconnecting = false
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                isStopping.set(false)
+                return@withLock
+            }
+            
+            Log.d("DpiVpnService", "Stopping VPN... (Lock acquired)")
+            
+            isDisconnecting = true
+            updateVpnState(isRunning, isPaused, isConnecting, true, isError, startTime)
+            
+            healthCheckJob?.cancel()
+            healthCheckJob = null
+            
+            vpnWorkJob?.cancel()
+            vpnWorkJob = null
+
+            withContext(Dispatchers.IO) {
+                tunnel.stop()
+                proxy.stop()
+                
+                var wait = 0
+                while ((proxy.isRunning() || tunnel.isRunning()) && wait < 50) {
+                    delay(100)
+                    wait++
+                }
+                
+                if (proxy.isRunning()) {
+                    Log.w("DpiVpnService", "Proxy still running, forcing close")
+                    proxy.forceClose()
+                }
+                
+                jniSetVpnService(null)
+                jniCleanup()
+            }
+
+            try {
+                vpnInterface?.close()
+            } catch (e: Exception) {
+                Log.e("DpiVpnService", "Error closing vpnInterface: ${e.message}")
+            }
+            vpnInterface = null
+
+            isRunning = false
+            isPaused = false
+            isConnecting = false
+            isDisconnecting = false
+            updateVpnState(false, false, false, false, isError, 0L)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            isStopping.set(false)
+            Log.d("DpiVpnService", "VPN Stopped.")
+        }
+    }
+
+    private fun updateVpnState(running: Boolean, paused: Boolean, connecting: Boolean, disconnecting: Boolean, error: Boolean, start: Long) {
+        isRunning = running
+        isPaused = paused
+        isConnecting = connecting
+        isDisconnecting = disconnecting
+        isError = error
+        startTime = start
+
+        _vpnStateFlow.value = VpnState(running, paused, connecting, disconnecting, error, start, lastStrategy)
+        
         val intent = Intent(ACTION_VPN_STATE_CHANGED).apply {
             putExtra(EXTRA_IS_RUNNING, running)
-            putExtra(EXTRA_IS_PAUSED, isPaused)
-            putExtra(EXTRA_START_TIME, if (running) startTime else 0L)
+            putExtra(EXTRA_IS_PAUSED, paused)
+            putExtra(EXTRA_IS_CONNECTING, connecting)
+            putExtra(EXTRA_IS_DISCONNECTING, disconnecting)
+            putExtra(EXTRA_IS_ERROR, error)
+            putExtra(EXTRA_START_TIME, start)
             `package` = packageName
         }
         sendBroadcast(intent)
@@ -396,7 +563,9 @@ class DpiVpnService : VpnService() {
             .setContentText(content)
             .setSmallIcon(R.drawable.ic_stat_vpn)
             .setContentIntent(pendingIntent)
-            .setOngoing(false) // Make it clearable
+            .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .addAction(pauseResumeAction)
             .addAction(stopAction)
             .build()
@@ -409,11 +578,18 @@ class DpiVpnService : VpnService() {
 
     override fun onDestroy() {
         Log.d("DpiVpnService", "Service onDestroy")
-        stopVpn("Destroyed")
+        handleStop("Destroyed")
         try {
             unregisterReceiver(queryReceiver)
         } catch(_: Exception) {}
-        serviceScope.cancel()
+        
+        serviceScope.launch {
+            vpnLock.withLock {
+                jniSetVpnService(null)
+                jniCleanup()
+            }
+            serviceJob.cancel()
+        }
         super.onDestroy()
     }
 }

@@ -53,7 +53,12 @@ class ByeDpiProxy {
         }
     }
 
+    fun isRunning(): Boolean {
+        return if (isLoaded) jniIsRunning() else false
+    }
+
     private external fun jniStartProxy(args: Array<String>): Int
     private external fun jniStopProxy()
     private external fun jniForceClose(): Int
+    private external fun jniIsRunning(): Boolean
 }

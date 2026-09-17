@@ -1,6 +1,10 @@
 #ifndef CIADPI_ERROR_H
 #define CIADPI_ERROR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <errno.h>
@@ -63,11 +67,11 @@ static inline int unie(int e)
     #define LOG_S ANDROID_LOG_DEBUG
     #define LOG_L ANDROID_LOG_VERBOSE
     #ifdef NDEBUG
-        #define LOG(s, str, ...) do {} while(0)
+        #define LOG(s, ...) do {} while(0)
         #define LOG_ENABLED 0
     #else
-        #define LOG(s, str, ...) \
-            __android_log_print(s, "proxy", str, ##__VA_ARGS__)
+        #define LOG(s, ...) \
+            __android_log_print(s, "proxy", __VA_ARGS__)
         #define LOG_ENABLED (params.debug >= 0)
     #endif
 #else
@@ -106,5 +110,9 @@ static inline int unie(int e)
         for (; i_hex < (size_t)(s); i_hex++) \
             snprintf(HEX_STR + i_hex * 2, sizeof(HEX_STR) - i_hex * 2, "%02x", (unsigned int)(unsigned char)b[i_hex]); \
     } while (0)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

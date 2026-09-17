@@ -2,8 +2,7 @@ package com.example.nozapret.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -13,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -21,9 +19,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.nozapret.R
+import com.example.nozapret.ui.components.AnimatedVpnButton
+import com.example.nozapret.ui.components.StatusCard
+import com.example.nozapret.ui.components.VpnButtonState
+import com.example.nozapret.ui.components.bouncingClickable
 import com.example.nozapret.ui.getLocalizedPresetName
 import com.example.nozapret.ui.getLocalizedStrategyName
+import com.example.nozapret.ui.theme.MotionConstants
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
@@ -40,9 +44,22 @@ fun HomeTab(
     committedStats: Map<String, Triple<Int, Int, Int>>,
     bypassedSitesCount: Int,
     onStrategySelected: (String) -> Unit,
+    // New states from MainViewModel
+    isConnecting: Boolean = false,
+    isDisconnecting: Boolean = false,
+    isError: Boolean = false,
+    dnsServer: String = "1.1.1.1"
 ) {
     var showStrategyDialog by remember { mutableStateOf(value = false) }
     var uptimeMillis by remember { mutableLongStateOf(0L) }
+
+    val vpnButtonState = when {
+        isError -> VpnButtonState.ERROR
+        isConnecting -> VpnButtonState.CONNECTING
+        isDisconnecting -> VpnButtonState.DISCONNECTING
+        isEnabled -> VpnButtonState.CONNECTED
+        else -> VpnButtonState.DISCONNECTED
+    }
 
     LaunchedEffect(isEnabled, vpnStartTime) {
         if (isEnabled && (vpnStartTime > 0)) {
@@ -68,307 +85,218 @@ fun HomeTab(
     }
 
     if (showStrategyDialog) {
-        AlertDialog(
-            onDismissRequest = { showStrategyDialog = false },
-            title = { Text(stringResource(R.string.title_select_strategy)) },
-            text = {
-                val displayStrategies = if (pinnedStrategies.isNotEmpty()) {
-                    pinnedStrategies
-                } else {
-                    com.example.nozapret.core.Config.STRATEGIES.map { it.first }
-                }
-                androidx.compose.foundation.lazy.LazyColumn(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    items(displayStrategies) { strategy ->
-                        val isApplied = strategy == selectedStrategy
-                        Surface(
-                            onClick = {
-                                onStrategySelected(strategy)
-                                showStrategyDialog = false
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
-                            color = if (isApplied) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    getLocalizedStrategyName(strategy),
-                                    fontWeight = if (isApplied) FontWeight.Bold else FontWeight.Normal,
-                                    textAlign = TextAlign.Center
-                                )
-                                committedStats[strategy]?.let { (success, tested, total) ->
-                                    if (tested > 0) {
-                                        Text(
-                                            stringResource(R.string.test_progress_short, success, total, tested),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = if (success == tested) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                        )
-                                    }
-                                }
-                                if (isApplied) {
-                                    Text(
-                                        stringResource(R.string.label_applied),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+        StrategySelectionDialog(
+            current = selectedStrategy,
+            pinned = pinnedStrategies,
+            onSelect = {
+                onStrategySelected(it)
+                showStrategyDialog = false
             },
-            confirmButton = { TextButton(onClick = { showStrategyDialog = false }) { Text(stringResource(R.string.btn_cancel)) } }
+            onDismiss = { showStrategyDialog = false }
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Active Config Card with sequential entrance
+        AnimatedVisibility(
+            visible = true,
+            enter = fadeIn(tween(MotionConstants.DurationEmphasis)) + 
+                    slideInVertically(tween(MotionConstants.DurationEmphasis)) { -40 }
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            // Active Config Card
-            OutlinedCard(
-                colors = CardDefaults.outlinedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
-                ),
-                shape = MaterialTheme.shapes.extraLarge,
-                modifier = Modifier.fillMaxWidth(),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            ConfigCard(
+                strategy = selectedStrategy,
+                stats = committedStats[selectedStrategy],
+                globalMode = globalMode,
+                presets = selectedPresets,
+                proxyHost = proxyHost,
+                proxyPort = proxyPort,
+                uptime = if (isEnabled) formatUptime(uptimeMillis) else null,
+                onClick = { showStrategyDialog = true }
+            )
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Central Button Section
+        Box(
+            modifier = Modifier.wrapContentSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedVpnButton(
+                state = vpnButtonState,
+                onClick = onToggleVpn
+            )
+        }
+
+        Spacer(modifier = Modifier.weight(1.2f))
+
+        // Status Details
+        AnimatedVisibility(
+            visible = true,
+            enter = fadeIn(tween(MotionConstants.DurationLong, delayMillis = 200)) + 
+                    expandVertically(tween(MotionConstants.DurationLong, delayMillis = 200))
+        ) {
+            StatusCard(
+                vpnActive = isEnabled,
+                backendActive = isEnabled && !isConnecting,
+                networkType = "Default", 
+                dnsServer = dnsServer
+            )
+        }
+
+        Text(
+            if (isEnabled) stringResource(R.string.home_hint_connected) else stringResource(R.string.home_hint_disconnected),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+    }
+}
+
+@Composable
+fun ConfigCard(
+    strategy: String,
+    stats: Triple<Int, Int, Int>?,
+    globalMode: Boolean,
+    presets: List<String>,
+    proxyHost: String,
+    proxyPort: String,
+    uptime: String?,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .bouncingClickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        shape = MaterialTheme.shapes.extraLarge,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Icon(
+                    Icons.Rounded.Bolt,
+                    null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    getLocalizedStrategyName(strategy),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+
+            if (stats != null && stats.second > 0) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    shape = CircleShape
                 ) {
                     Text(
-                        stringResource(R.string.home_active_config),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        stringResource(R.string.test_progress_short, stats.first, stats.third, stats.second),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
                     )
-
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.clickable { showStrategyDialog = true }
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Rounded.Build,
-                                null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                getLocalizedStrategyName(selectedStrategy),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        committedStats[selectedStrategy]?.let { (success, tested, total) ->
-                            if (tested > 0) {
-                                Text(
-                                    stringResource(R.string.test_progress_short, success, total, tested),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                )
-                            }
-                        }
-                        Text(
-                            stringResource(R.string.label_change_strategy),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                            textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
-                        )
-                    }
-
-                    if (globalMode) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                            shape = CircleShape
-                        ) {
-                            Text(
-                                stringResource(R.string.label_global_mode),
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
-                        }
-                    } else if (selectedPresets.isNotEmpty()) {
-                        val localizedPresets = mutableListOf<String>()
-                        for (preset in selectedPresets) {
-                            localizedPresets.add(getLocalizedPresetName(preset))
-                        }
-                        Text(
-                            localizedPresets.joinToString(" • "),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Rounded.Hub,
-                                null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "$proxyHost:$proxyPort",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-
-                        if (isEnabled && (uptimeMillis > 0)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Rounded.Timer,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = formatUptime(uptimeMillis),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            if (globalMode) {
+                Badge(containerColor = MaterialTheme.colorScheme.tertiaryContainer) {
+                    Text(stringResource(R.string.label_global_mode), modifier = Modifier.padding(4.dp))
+                }
+            } else if (presets.isNotEmpty()) {
+                val localizedPresets = mutableListOf<String>()
+                for (preset in presets) {
+                    localizedPresets.add(getLocalizedPresetName(preset))
+                }
+                Text(
+                    localizedPresets.joinToString(" • "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
-            // VPN Toggle Section
-            val statusColor by animateColorAsState(
-                if (isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                label = "StatusColor"
-            )
-            val containerColor by animateColorAsState(
-                if (isEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                label = "ContainerColor"
-            )
-            val iconColor by animateColorAsState(
-                if (isEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                label = "IconColor"
-            )
-            
-            val pulseScale by animateFloatAsState(
-                targetValue = if (isEnabled) 1.4f else 1f,
-                animationSpec = if (isEnabled) {
-                    infiniteRepeatable(
-                        animation = tween(2000, easing = FastOutSlowInEasing),
-                        repeatMode = RepeatMode.Restart
-                    )
-                } else {
-                    snap()
-                },
-                label = "PulseScale"
-            )
+            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
 
-            Box(
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isEnabled) {
-                    Box(
-                        modifier = Modifier
-                            .size(220.dp)
-                            .drawBehind {
-                                drawCircle(
-                                    color = statusColor.copy(alpha = 0.2f * (1f - (pulseScale - 1f) / 0.4f)),
-                                    radius = size.minDimension / 2 * pulseScale
-                                )
-                            }
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Rounded.Lan, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                    Text("$proxyHost:$proxyPort", style = MaterialTheme.typography.labelMedium, fontFamily = FontFamily.Monospace)
                 }
 
-                Surface(
-                    modifier = Modifier.size(200.dp),
-                    shape = CircleShape,
-                    color = containerColor,
-                    onClick = { onToggleVpn() },
-                    tonalElevation = if (isEnabled) 4.dp else 0.dp,
-                    shadowElevation = if (isEnabled) 8.dp else 2.dp,
-                    border = BorderStroke(
-                        width = 4.dp,
-                        color = if (isEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.Transparent
-                    )
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                if (isEnabled) Icons.Rounded.Shield else Icons.Rounded.ShieldMoon,
-                                null,
-                                modifier = Modifier.size(80.dp),
-                                tint = iconColor
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            AnimatedContent(
-                                targetState = isEnabled,
-                                transitionSpec = {
-                                    fadeIn() + scaleIn() togetherWith fadeOut() + scaleOut()
-                                },
-                                label = "StatusText"
-                            ) { enabled ->
-                                Text(
-                                    if (enabled) stringResource(R.string.status_connected) else stringResource(R.string.status_disconnected),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = iconColor
-                                )
-                            }
-                        }
+                if (uptime != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Rounded.Schedule, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        Text(uptime, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Text(
-                if (isEnabled) stringResource(R.string.home_hint_connected) else stringResource(R.string.home_hint_disconnected),
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-            Spacer(modifier = Modifier.height(120.dp))
         }
     }
+}
+
+@Composable
+fun StrategySelectionDialog(
+    current: String,
+    pinned: List<String>,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.title_select_strategy)) },
+        text = {
+            val strategies = if (pinned.isNotEmpty()) pinned else com.example.nozapret.core.Config.STRATEGIES.map { it.first }
+            androidx.compose.foundation.lazy.LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.heightIn(max = 400.dp)
+            ) {
+                items(strategies) { strategy ->
+                    val isSelected = strategy == current
+                    Surface(
+                        onClick = { onSelect(strategy) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                        border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(getLocalizedStrategyName(strategy), fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                            if (isSelected) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) } }
+    )
 }

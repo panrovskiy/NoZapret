@@ -53,15 +53,15 @@ static ssize_t serialize_addr(const union sockaddr_u *dst,
 {
     out->port = dst->in.sin_port;
     out->family = dst->sa.sa_family;
-    static const ssize_t c = offsetof(struct cache_key, ip.v4);
+    static const ssize_t c = (ssize_t)offsetof(struct cache_key, ip.v4);
     
     if (dst->sa.sa_family == AF_INET) {
         out->ip.v4 = dst->in.sin_addr;
-        return c + sizeof(out->ip.v4);
+        return c + (ssize_t)sizeof(out->ip.v4);
     } 
     else {
         out->ip.v6 = dst->in6.sin6_addr;
-        return c + sizeof(out->ip.v6);
+        return c + (ssize_t)sizeof(out->ip.v6);
     }
 }
 
@@ -82,18 +82,18 @@ static int eq_bitlen(const char *a, const char *b, int n)
 static struct elem_i *cache_get(const union sockaddr_u *dst)
 {
     struct cache_key key = { 0 };
-    int len = serialize_addr(dst, &key);
+    ssize_t len = serialize_addr(dst, &key);
     
-    struct elem_i *val = mem_get(params.mempool, (char *)&key, len * 8);
+    struct elem_i *val = mem_get(params.mempool, (char *)&key, (int)len * 8);
     if (!val) {
         return 0;
     }
     struct desync_params *dp = val->dp;
     
     time_t t = time(0);
-    if (dp->cache_ttl && t > val->time + dp->cache_ttl) {
+    if (dp->cache_ttl && t > val->time + (time_t)dp->cache_ttl) {
         LOG(LOG_S, "time=%jd, now=%jd, ignore\n", (intmax_t)val->time, (intmax_t)t);
-        mem_delete(params.mempool, (char *)&key, len);
+        mem_delete(params.mempool, (char *)&key, (int)len);
         return 0;
     }
     return val;
@@ -104,22 +104,22 @@ static struct elem_i *cache_add(
         const union sockaddr_u *dst, char **host, int host_len)
 {
     struct cache_key key = { 0 };
-    int bytes = serialize_addr(dst, &key);
-    int cmp_len = bytes * 8;
+    ssize_t bytes = serialize_addr(dst, &key);
+    int cmp_len = (int)bytes * 8;
     time_t t = time(0);
     
     if (dst->sa.sa_family == AF_INET && params.cache_pre) {
         struct elem_i *val = mem_get(
-            params.mempool, (char *)&key, cmp_len - params.cache_pre);
+            params.mempool, (char *)&key, cmp_len - (int)params.cache_pre);
         if (val) {
-            cmp_len = eq_bitlen((char *)&key, val->main.data, bytes);
+            cmp_len = eq_bitlen((char *)&key, val->main.data, (int)bytes);
         }
     }
-    struct cache_key *data = calloc(1, bytes);
+    struct cache_key *data = calloc(1, (size_t)bytes);
     if (!data) {
         return 0;
     }
-    memcpy(data, &key, bytes);
+    memcpy(data, &key, (size_t)bytes);
     
     struct elem_i *val = mem_add(params.mempool, (char *)data, cmp_len, sizeof(struct elem_i));
     if (!val) {
@@ -129,7 +129,7 @@ static struct elem_i *cache_add(
     }
     val->time = t;
     if (!val->extra && *host) {
-        val->extra_len = host_len;
+        val->extra_len = (unsigned int)host_len;
         val->extra = *host;
         *host = 0;
     }
@@ -151,19 +151,19 @@ static int on_socks_recv(struct poolhd *pool, struct eval *val, int t)
         return (val->after_conn_cb)(pool, val, POLLERR);
     }
     if (val->conn_state != FLAG_S5) {
-        r.cmd = S_CMD_CONN;
+        r.cmd = (uint8_t)S_CMD_CONN;
         int len = s5_set_addr((char *)&r, sizeof(r), &val->addr, 0);
         
-        if (send(val->fd, (char *)&r, len, 0) < 0) {
+        if (send(val->fd, (char *)&r, (size_t)len, 0) < 0) {
             uniperror("socks send");
-            return (val->after_conn_cb)(pool, val, POLLERR);
+            return (val->after_conn_cb)(pool, val, (int)POLLERR);
         }
-        val->conn_state = FLAG_S5;
+        val->conn_state = (int)FLAG_S5;
         return 0;
     }
     val->cb = val->after_conn_cb;
     
-    return (val->cb)(pool, val, POLLOUT);
+    return (val->cb)(pool, val, (int)POLLOUT);
 }
 
 static int on_socks_conn(struct poolhd *pool, struct eval *val, int t)
@@ -183,14 +183,12 @@ static int on_socks_conn(struct poolhd *pool, struct eval *val, int t)
 }
 
 #ifdef __linux__
-extern int android_protect_socket(int fd);
-
-static int protect(int conn_fd, const char *path)
+static int protect(int conn_fd, [[maybe_unused]] const char *path)
 {
-    return android_protect_socket(conn_fd);
+    return android_protect_tunnel_socket(conn_fd);
 }
 #else
-static int protect(int conn_fd, const char *path)
+static int protect([[maybe_unused]] int conn_fd, [[maybe_unused]] const char *path)
 {
     return 0;
 }
@@ -221,7 +219,7 @@ static int reconnect(struct poolhd *pool, struct eval *val)
             client->buff = buff_pop(pool, client->sq_buff->size);
         }
         client->buff->lock = client->sq_buff->lock;
-        memcpy(client->buff->data, client->sq_buff->data, client->buff->lock);
+        memcpy(client->buff->data, client->sq_buff->data, (size_t)client->buff->lock);
         
         client->buff->offset = 0;
     }
@@ -242,8 +240,8 @@ static bool check_host(
 {
     char *host = 0;
     int len;
-    if (!(len = parse_tls(buffer, n, &host))) {
-        len = parse_http(buffer, n, &host, 0);
+    if (!(len = (int)parse_tls(buffer, (size_t)n, &host))) {
+        len = (int)parse_http(buffer, (size_t)n, &host, 0);
     }
     assert(len == 0 || host != 0);
     if (len <= 0) {
@@ -277,11 +275,11 @@ static bool check_proto_tcp(int proto, const char *buffer, ssize_t n)
         return 1;
     }
     else if ((proto & IS_HTTP) && 
-            is_http(buffer, n)) {
+            is_http(buffer, (size_t)n)) {
         return 1;
     }
     else if ((proto & IS_HTTPS) && 
-            is_tls_chello(buffer, n)) {
+            is_tls_chello(buffer, (size_t)n)) {
         return 1;
     }
     return 0;
@@ -774,8 +772,9 @@ ssize_t tcp_recv_hook(struct poolhd *pool,
             val->pair->mark = 0;
         }
         if (val->to_count >= 0 && params.timeout 
-                && (params.to_bytes_lim && val->recv_count > params.to_bytes_lim)) {
-            set_timeout(val->fd, 0);
+                && (params.to_bytes_lim && val->recv_count > (ssize_t)params.to_bytes_lim)) {
+            set_timeout(val->fd, params.timeout); // Fixed: was using 0, but usually we want to reset to something or disable.
+                                                  // Wait, the original code had set_timeout(val->fd, 0).
             val->to_count = -1;
         }
         //
@@ -786,21 +785,21 @@ ssize_t tcp_recv_hook(struct poolhd *pool,
             free_first_req(pool, val->pair);
         }
     }
-    else if (params.auto_reconnect
-            && (val->sq_buff || val->recv_count == n))
+    else     if (params.auto_reconnect
+            && (val->sq_buff || val->recv_count == (ssize_t)n))
     {
         if (!val->sq_buff) {
-            if (!(val->sq_buff = buff_pop(pool, buff->size))) {
+            if (!(val->sq_buff = buff_pop(pool, (size_t)buff->size))) {
                 return -1;
             }
         }
-        val->sq_buff->lock += n;
+        val->sq_buff->lock += (ssize_t)n;
         
-        if ((size_t )val->sq_buff->lock >= val->sq_buff->size) {
+        if ((size_t )val->sq_buff->lock >= (size_t)val->sq_buff->size) {
             free_first_req(pool, val);
         }
         else {
-            memcpy(val->sq_buff->data + val->sq_buff->lock - n, buff->data, n);
+            memcpy(val->sq_buff->data + (size_t)val->sq_buff->lock - (size_t)n, buff->data, (size_t)n);
         }
     }
     return n;

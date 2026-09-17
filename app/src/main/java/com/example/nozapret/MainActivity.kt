@@ -65,6 +65,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.util.Log
 import com.example.nozapret.core.Config
+import com.example.nozapret.core.VpnController
 import com.example.nozapret.services.DpiVpnService
 import com.example.nozapret.ui.getLocalizedStrategyName
 import com.example.nozapret.ui.screens.HomeTab
@@ -154,21 +155,17 @@ class MainActivity : AppCompatActivity() {
 }
 
 fun startVpnService(context: Context, viewModel: MainViewModel) {
-    val intent = Intent(context, DpiVpnService::class.java).apply {
-        action = DpiVpnService.ACTION_START
-        putExtra("strategy", viewModel.selectedStrategy)
-        putExtra("args", viewModel.customArgs)
-        putExtra("global", viewModel.globalMode)
-        putExtra("bypassedSites", ArrayList(viewModel.bypassedSites))
-    }
-    context.startForegroundService(intent)
+    VpnController.startVpn(
+        context, 
+        viewModel.selectedStrategy, 
+        viewModel.customArgs, 
+        viewModel.globalMode, 
+        viewModel.bypassedSites
+    )
 }
 
 fun stopVpnService(context: Context) {
-    val intent = Intent(context, DpiVpnService::class.java).apply {
-        action = DpiVpnService.ACTION_STOP
-    }
-    context.startService(intent)
+    VpnController.stopVpn(context)
 }
 
 
@@ -222,6 +219,7 @@ fun MainScreen(viewModel: MainViewModel) {
         
         toggleJob?.cancel()
         if (viewModel.isEnabled) {
+            Log.d("MainActivity", "[VPN] Stopping VPN via toggle")
             stopVpnService(context)
             viewModel.updateVpnState(running = false)
         } else {
@@ -230,8 +228,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 vpnPrepareLauncher.launch(intent)
             } else {
                 toggleJob = scope.launch {
-                    viewModel.stopAllTests()
-                    delay(300.milliseconds) // Give it a bit of time to release native resources
+                    Log.d("MainActivity", "[VPN] Starting VPN via toggle")
                     startVpnService(context, viewModel)
                 }
             }
@@ -254,6 +251,9 @@ fun MainScreen(viewModel: MainViewModel) {
                         viewModel.updateVpnState(
                             intent.getBooleanExtra(DpiVpnService.EXTRA_IS_RUNNING, false),
                             intent.getBooleanExtra(DpiVpnService.EXTRA_IS_PAUSED, false),
+                            intent.getBooleanExtra(DpiVpnService.EXTRA_IS_CONNECTING, false),
+                            intent.getBooleanExtra(DpiVpnService.EXTRA_IS_DISCONNECTING, false),
+                            intent.getBooleanExtra(DpiVpnService.EXTRA_IS_ERROR, false),
                             intent.getLongExtra(DpiVpnService.EXTRA_START_TIME, 0L)
                         )
                     }
@@ -344,160 +344,13 @@ fun MainScreen(viewModel: MainViewModel) {
         snackbarHost = {
             SnackbarHost(
                 hostState = snackbarHostState,
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .padding(bottom = 92.dp)
+                modifier = Modifier.navigationBarsPadding()
             )
-        }
-    ) { innerPadding ->
-        if (showNoSitesWarning) {
-            AlertDialog(
-                onDismissRequest = { showNoSitesWarning = false },
-                icon = { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error) },
-                title = { Text(stringResource(R.string.warning_no_sites_title)) },
-                text = { Text(stringResource(R.string.warning_no_sites_text)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showNoSitesWarning = false
-                            scope.launch {
-                                viewModel.settingsTab = 0
-                                pagerState.animateScrollToPage(1)
-                                delay(300.milliseconds)
-                                highlightPresetsTrigger++
-                            }
-                        },
-                    ) {
-                        Text(stringResource(R.string.btn_go_to_settings))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showNoSitesWarning = false }) {
-                        Text(stringResource(R.string.btn_dismiss))
-                    }
-                }
-            )
-        }
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .hazeSource(state = hazeState),
-                beyondViewportPageCount = 1,
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = 0.dp
-                )
-            ) { page ->
-                Box(modifier = Modifier.fillMaxSize()) {
-                    when (page) {
-                        0 -> HomeTab(
-                            isEnabled = viewModel.isEnabled,
-                            vpnStartTime = viewModel.vpnStartTime,
-                            selectedStrategy = viewModel.selectedStrategy,
-                            pinnedStrategies = viewModel.pinnedStrategies,
-                            selectedPresets = viewModel.selectedPresets,
-                            onToggleVpn = { onToggleVpn() },
-                            proxyHost = viewModel.proxyHost,
-                            proxyPort = viewModel.proxyPort,
-                            globalMode = viewModel.globalMode,
-                            committedStats = viewModel.committedStats,
-                            bypassedSitesCount = viewModel.sitesToTestCount,
-                            onStrategySelected = viewModel::applyStrategy
-                        )
-
-                        1 -> {
-                            SettingsTab(
-                                settingsTab = viewModel.settingsTab,
-                                onSettingsTabChange = { viewModel.settingsTab = it },
-                                scrollState = settingsScrollState,
-                                highlightPresetsTrigger = highlightPresetsTrigger,
-                                selectedStrategy = viewModel.selectedStrategy,
-                                onStrategyChange = viewModel::updateSelectedStrategy,
-                                selectedPresets = viewModel.selectedPresets,
-                                onPresetToggle = viewModel::togglePreset,
-                                dnsServer = viewModel.dnsServer,
-                                onDnsChange = viewModel::updateDnsServer,
-                                customArgs = viewModel.customArgs,
-                                onCustomArgsChange = viewModel::updateCustomArgs,
-                                excludeSelf = viewModel.excludeSelf,
-                                onExcludeSelfChange = viewModel::updateExcludeSelf,
-                                globalMode = viewModel.globalMode,
-                                onGlobalModeChange = viewModel::updateGlobalMode,
-                                customHostList = viewModel.customHostList,
-                                onCustomHostListChange = viewModel::updateCustomHostList,
-                                isIgnoringBattery = viewModel.isIgnoringBattery,
-                                stats = viewModel.stats,
-                                committedStats = viewModel.committedStats,
-                                currentlyTesting = viewModel.currentlyTesting,
-                                onTestStrategy = { viewModel.testStrategy(it) },
-                                onShowDetails = { selectedTestStrategyForDetails = it },
-                                onShowStrategyArgsInfo = { strategyForArgsInfo = it },
-                                onResetTests = { viewModel.resetTests() },
-                                onTestAll = { viewModel.testAllStrategies() },
-                                pinnedStrategies = viewModel.pinnedStrategies,
-                                onPinStrategy = viewModel::togglePinStrategy,
-                                bypassedSitesCount = viewModel.sitesToTestCount,
-                                strategiesTestedCount = viewModel.strategiesTestedCount,
-                                proxyHost = viewModel.proxyHost,
-                                onProxyHostChange = viewModel::updateProxyHost,
-                                proxyPort = viewModel.proxyPort,
-                                onProxyPortChange = viewModel::updateProxyPort,
-                                allowedApps = viewModel.allowedApps,
-                                onToggleAllowedApp = viewModel::toggleAllowedApp,
-                                testResults = viewModel.testResults,
-                                themeMode = viewModel.themeMode,
-                                onThemeModeChange = viewModel::updateThemeMode,
-                                customPrimaryColor = viewModel.customPrimaryColor,
-                                onCustomPrimaryColorChange = viewModel::updateCustomPrimaryColor,
-                                customThemeBase = viewModel.customThemeBase,
-                                onCustomThemeBaseChange = viewModel::updateCustomThemeBase,
-                                quickTestUrl = viewModel.quickTestUrl,
-                                onQuickTestUrlChange = { 
-                                    viewModel.quickTestUrl = it
-                                    if (it.isBlank()) {
-                                        viewModel.quickTestResult = null
-                                    }
-                                },
-                                quickTestResult = viewModel.quickTestResult,
-                                isQuickTesting = viewModel.isQuickTesting,
-                                onRunQuickTest = { viewModel.runQuickTest() },
-                                quickTestStrategy = viewModel.quickTestStrategy,
-                                onQuickTestStrategyChange = {
-                                    viewModel.quickTestStrategy = it
-                                    viewModel.quickTestResult = null
-                                },
-                                onRunDiagnostics = viewModel::runDiagnostics,
-                                selectedLanguage = viewModel.selectedLanguage,
-                                onLanguageChange = viewModel::updateSelectedLanguage,
-                                autoConnect = viewModel.autoConnect,
-                                onAutoConnectChange = viewModel::updateAutoConnect,
-                                enableIpv6 = viewModel.enableIpv6,
-                                onEnableIpv6Change = viewModel::updateEnableIpv6,
-                                runMode = viewModel.runMode,
-                                onRunModeChange = viewModel::updateRunMode,
-                                isCheckingUpdates = viewModel.isCheckingUpdates,
-                                onCheckUpdates = viewModel::checkForUpdates,
-                                onExportConfig = { viewModel.exportConfiguration(context) },
-                                onImportConfig = { configImportLauncher.launch("application/json") }
-                            )
-                        }
-
-                        2 -> LogViewer(
-                            logLines = viewModel.logLines,
-                            onClearLogs = { viewModel.clearLogs() }
-                        )
-                    }
-                }
-            }
-
+        },
+        bottomBar = {
             // Floating Navigation Bar with Haze Blur
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(8.dp)
                     .navigationBarsPadding(),
@@ -623,6 +476,156 @@ fun MainScreen(viewModel: MainViewModel) {
                     }
                 }
             }
+        }
+    ) { innerPadding ->
+        if (showNoSitesWarning) {
+            AlertDialog(
+                onDismissRequest = { showNoSitesWarning = false },
+                icon = { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error) },
+                title = { Text(stringResource(R.string.warning_no_sites_title)) },
+                text = { Text(stringResource(R.string.warning_no_sites_text)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showNoSitesWarning = false
+                            scope.launch {
+                                viewModel.settingsTab = 0
+                                pagerState.animateScrollToPage(1)
+                                delay(300.milliseconds)
+                                highlightPresetsTrigger++
+                            }
+                        },
+                    ) {
+                        Text(stringResource(R.string.btn_go_to_settings))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showNoSitesWarning = false }) {
+                        Text(stringResource(R.string.btn_dismiss))
+                    }
+                }
+            )
+        }
+
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .hazeSource(state = hazeState),
+                beyondViewportPageCount = 1
+            ) { page ->
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when (page) {
+                        0 -> HomeTab(
+                            isEnabled = viewModel.isEnabled,
+                            vpnStartTime = viewModel.vpnStartTime,
+                            selectedStrategy = viewModel.selectedStrategy,
+                            pinnedStrategies = viewModel.pinnedStrategies,
+                            selectedPresets = viewModel.selectedPresets,
+                            onToggleVpn = { onToggleVpn() },
+                            proxyHost = viewModel.proxyHost,
+                            proxyPort = viewModel.proxyPort,
+                            globalMode = viewModel.globalMode,
+                            committedStats = viewModel.committedStats,
+                            bypassedSitesCount = viewModel.sitesToTestCount,
+                            onStrategySelected = viewModel::applyStrategy,
+                            isConnecting = viewModel.isConnecting,
+                            isDisconnecting = viewModel.isDisconnecting,
+                            isError = viewModel.isError,
+                            dnsServer = viewModel.dnsServer
+                        )
+
+                        1 -> {
+                            SettingsTab(
+                                settingsTab = viewModel.settingsTab,
+                                onSettingsTabChange = { viewModel.settingsTab = it },
+                                scrollState = settingsScrollState,
+                                highlightPresetsTrigger = highlightPresetsTrigger,
+                                selectedStrategy = viewModel.selectedStrategy,
+                                onStrategyChange = viewModel::updateSelectedStrategy,
+                                selectedPresets = viewModel.selectedPresets,
+                                onPresetToggle = viewModel::togglePreset,
+                                dnsServer = viewModel.dnsServer,
+                                onDnsChange = viewModel::updateDnsServer,
+                                customArgs = viewModel.customArgs,
+                                onCustomArgsChange = viewModel::updateCustomArgs,
+                                excludeSelf = viewModel.excludeSelf,
+                                onExcludeSelfChange = viewModel::updateExcludeSelf,
+                                globalMode = viewModel.globalMode,
+                                onGlobalModeChange = viewModel::updateGlobalMode,
+                                customHostList = viewModel.customHostList,
+                                onCustomHostListChange = viewModel::updateCustomHostList,
+                                isIgnoringBattery = viewModel.isIgnoringBattery,
+                                stats = viewModel.stats,
+                                committedStats = viewModel.committedStats,
+                                currentlyTesting = viewModel.currentlyTesting,
+                                onTestStrategy = { viewModel.testStrategy(it) },
+                                onShowDetails = { selectedTestStrategyForDetails = it },
+                                onShowStrategyArgsInfo = { strategyForArgsInfo = it },
+                                onResetTests = { viewModel.resetTests() },
+                                onTestAll = { viewModel.testAllStrategies() },
+                                pinnedStrategies = viewModel.pinnedStrategies,
+                                onPinStrategy = viewModel::togglePinStrategy,
+                                bypassedSitesCount = viewModel.sitesToTestCount,
+                                strategiesTestedCount = viewModel.strategiesTestedCount,
+                                proxyHost = viewModel.proxyHost,
+                                onProxyHostChange = viewModel::updateProxyHost,
+                                proxyPort = viewModel.proxyPort,
+                                onProxyPortChange = viewModel::updateProxyPort,
+                                allowedApps = viewModel.allowedApps,
+                                onToggleAllowedApp = viewModel::toggleAllowedApp,
+                                testResults = viewModel.testResults,
+                                themeMode = viewModel.themeMode,
+                                onThemeModeChange = viewModel::updateThemeMode,
+                                customPrimaryColor = viewModel.customPrimaryColor,
+                                onCustomPrimaryColorChange = viewModel::updateCustomPrimaryColor,
+                                customThemeBase = viewModel.customThemeBase,
+                                onCustomThemeBaseChange = viewModel::updateCustomThemeBase,
+                                quickTestUrl = viewModel.quickTestUrl,
+                                onQuickTestUrlChange = { 
+                                    viewModel.quickTestUrl = it
+                                    if (it.isBlank()) {
+                                        viewModel.quickTestResult = null
+                                    }
+                                },
+                                quickTestResult = viewModel.quickTestResult,
+                                isQuickTesting = viewModel.isQuickTesting,
+                                onRunQuickTest = { viewModel.runQuickTest() },
+                                quickTestStrategy = viewModel.quickTestStrategy,
+                                onQuickTestStrategyChange = {
+                                    viewModel.quickTestStrategy = it
+                                    viewModel.quickTestResult = null
+                                },
+                                onRunDiagnostics = viewModel::runDiagnostics,
+                                selectedLanguage = viewModel.selectedLanguage,
+                                onLanguageChange = viewModel::updateSelectedLanguage,
+                                autoConnect = viewModel.autoConnect,
+                                onAutoConnectChange = viewModel::updateAutoConnect,
+                                enableIpv6 = viewModel.enableIpv6,
+                                onEnableIpv6Change = viewModel::updateEnableIpv6,
+                                runMode = viewModel.runMode,
+                                onRunModeChange = viewModel::updateRunMode,
+                                isCheckingUpdates = viewModel.isCheckingUpdates,
+                                onCheckUpdates = viewModel::checkForUpdates,
+                                onExportConfig = { viewModel.exportConfiguration(context) },
+                                onImportConfig = { configImportLauncher.launch("application/json") }
+                            )
+                        }
+
+                        2 -> LogViewer(
+                            logLines = viewModel.logLines,
+                            onClearLogs = { viewModel.clearLogs() }
+                        )
+                    }
+                }
+            }
+
+            // Floating Navigation Bar was here, moved to bottomBar
         }
 
         if (strategyForArgsInfo != null) {
