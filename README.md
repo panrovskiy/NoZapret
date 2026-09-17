@@ -1,45 +1,6 @@
-# NoZapret v2.3.2 - Advanced DPI Bypass for Android
+# NoZapret - Advanced DPI Bypass for Android
 
 NoZapret is a powerful, coroutine-based Android application designed to bypass Deep Packet Inspection (DPI) using the `byedpi` engine. It works either as a system-wide VPN or a local SOCKS5 proxy.
-
-## Key Features in v2.3.2
-
-### 1. UX & Stability
-- **Sequential Strategy Tester**: Fixed a bug where "Test All Strategies" would start all tests simultaneously. Tests now run one-by-one for more accurate results.
-- **Improved Results Visibility**: Strategy test results are now visible directly in the strategy selection menus across the entire app.
-- **Bug Fixes**: Resolved UI warnings and infinite loading states in the site tester after a test was completed.
-- **Cleanup**: Removed duplicate bypass presets and refined the configuration logic.
-
-## Key Features in v2.x.х
-
-### 1. Stability & Connectivity
-- **Stability Fix**: Resolved a critical issue where the VPN would unexpectedly disconnect after several seconds on specific strategies.
-- **Application Modes**: Added **Proxy Mode** (SOCKS5), allowing you to run the engine without a system-wide TUN interface.
-- **Improved Site Tester**: Enhanced verification engine with detailed TLS/HTTP results and robust timeout handling.
-
-### 2. User Interface Enhancements
-- **Redesigned Home Screen**: A more accessible, centered toggle button and a refined layout for better visual balance.
-- **Language Support**: Added official support for English, Russian, Ukrainian, and Kazakh. Includes a fixed language selector that updates the UI immediately.
-- **Scrollable Menus**: Optimized the strategy selection and settings menus for better navigation with large lists.
-- **App Shortcuts**: Support for static shortcuts (long-press app icon) to quickly Start or Stop the service.
-
-### 3. Performance & Size Optimization
-- **Aggressive Stripping**: Release builds are optimized using R8 Full Mode, ABI filtering (ARM only), and bytecode-level log stripping to ensure the smallest possible APK size.
-- **Per-App Language Settings**: Integrated with modern Android locale APIs for seamless language management.
-
-## Key Features in v1.4.x
-
-### 1. Interactive System Diagnostics
-A comprehensive diagnostic suite to identify and resolve connectivity issues:
-- **Automatic Checks**: Native library integrity, battery optimization, network conflicts, IPv6 detection, and MTProto reachability.
-- **One-Click Fixes**: Interactive "Fix" buttons to guide users through troubleshooting steps.
-
-### 2. Optimized Strategy Testing Engine
-- **Parallel Testing**: Evaluate multiple strategies (e.g., `Split`, `Disorder`, `Fake`) without interrupting your active connection.
-- **TLS Handshake Insights**: View detailed results including ping, protocol version, and cipher suites.
-
-### 3. High-Performance Log Viewer
-- **Real-time Streaming**: Integrated `logcat` viewer with batch UI updates to maintain responsiveness during high-frequency logging.
 
 ## Technical Details
 
