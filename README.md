@@ -8,7 +8,7 @@ NoZapret is a powerful, coroutine-based Android application designed to bypass D
 - **Native Engine**: `byedpi` (compiled as a shared library) and `hev-socks5-tunnel`.
 - **UI**: Jetpack Compose (Material 3).
 - **Data**: Jetpack DataStore.
-- **Requirements**: Android 11 (API 30) or higher. Supports Android 15+.
+- **Requirements**: Android 11 (API 30) or higher. Supports Android 17+.
 
 ## Troubleshooting
 If you experience issues:
