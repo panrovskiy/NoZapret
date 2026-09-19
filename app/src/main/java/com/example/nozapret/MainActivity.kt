@@ -613,7 +613,10 @@ fun MainScreen(viewModel: MainViewModel) {
                                 isCheckingUpdates = viewModel.isCheckingUpdates,
                                 onCheckUpdates = viewModel::checkForUpdates,
                                 onExportConfig = { viewModel.exportConfiguration(context) },
-                                onImportConfig = { configImportLauncher.launch("application/json") }
+                                onImportConfig = { configImportLauncher.launch("application/json") },
+                                onPasteCustomArgs = viewModel::onPasteCustomArgs,
+                                onClearCustomArgs = viewModel::onClearCustomArgs,
+                                onExportLogs = { viewModel.exportLogs(context) }
                             )
                         }
 

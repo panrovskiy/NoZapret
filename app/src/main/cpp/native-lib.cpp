@@ -114,7 +114,19 @@ Java_com_example_nozapret_services_DpiVpnService_jniCleanup(JNIEnv *env, [[maybe
     std::lock_guard<std::mutex> lock(g_vpn_service_mutex);
     g_vpn_service.reset();
     g_protect_method = nullptr;
-    log_info(LOG_TAG, "jniCleanup: VpnService reference cleared");
+    log_info(LOG_TAG, "jniCleanup (DpiVpnService): VpnService reference cleared");
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_nozapret_core_StrategyTester_jniCleanup([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
+    log_info(LOG_TAG, "jniCleanup (StrategyTester): Resetting params");
+    reset_params();
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_nozapret_core_ByeDpiProxy_jniCleanup([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
+    log_info(LOG_TAG, "jniCleanup (ByeDpiProxy): Resetting params");
+    reset_params();
 }
 
 JNIEXPORT void JNICALL
@@ -146,11 +158,14 @@ JNIEXPORT jint JNICALL
 Java_com_example_nozapret_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, [[maybe_unused]] jobject thiz, jobjectArray args) {
     std::unique_lock<std::mutex> lock(g_proxy_mutex);
 
-    if (g_proxy_running.exchange(true)) {
-        log_warn(LOG_TAG, "jniStartProxy: Proxy already running");
+    if (g_proxy_running.load()) {
+        log_warn(LOG_TAG, "jniStartProxy: Proxy already running, waiting for it to finish...");
+        // If we want to support restarting, we should probably stop the old one first,
+        // but for now let's just fail if it's already running to avoid corruption.
         return -1;
     }
 
+    g_proxy_running.store(true);
     log_info(LOG_TAG, "jniStartProxy: Initiating byedpi_main");
 
     int argc = env->GetArrayLength(args);
@@ -193,7 +208,7 @@ Java_com_example_nozapret_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, [[maybe_un
     log_info(LOG_TAG, "jniStartProxy: byedpi_main returned " + std::to_string(result));
 
     server_fd = -1;
-    g_proxy_running = false;
+    g_proxy_running.store(false);
     return result;
 }
 
@@ -207,16 +222,24 @@ Java_com_example_nozapret_core_ByeDpiProxy_jniStopProxy([[maybe_unused]] JNIEnv 
 
 JNIEXPORT jint JNICALL
 Java_com_example_nozapret_core_ByeDpiProxy_jniForceClose([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
-    log_info(LOG_TAG, "jniForceClose: Calling byedpi_stop and waiting");
+    log_info(LOG_TAG, "jniForceClose: Calling byedpi_stop and closing server_fd");
     byedpi_stop();
+
+    // Close the server socket if it's active to unblock any accept() calls
+    int fd = server_fd;
+    if (fd >= 0) {
+        log_info(LOG_TAG, "jniForceClose: Closing server_fd " + std::to_string(fd));
+        shutdown(fd, SHUT_RDWR);
+        close(fd);
+        server_fd = -1;
+    }
 
     // Wait for the running thread to finish and release the mutex
     std::lock_guard<std::mutex> lock(g_proxy_mutex);
 
-    if (g_proxy_running) {
-        log_warn(LOG_TAG, "jniForceClose: Proxy still marked as running, resetting manually");
-        server_fd = -1;
-        g_proxy_running = false;
+    if (g_proxy_running.load()) {
+        log_warn(LOG_TAG, "jniForceClose: Proxy still marked as running after wait, resetting manually");
+        g_proxy_running.store(false);
     }
     return 0;
 }

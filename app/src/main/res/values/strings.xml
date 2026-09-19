@@ -336,4 +336,6 @@
     <string name="error_no_sites_testing">No sites selected for testing</string>
     <string name="error_vpn_stop_failed">Failed to stop VPN for testing</string>
     <string name="error_invalid_domain">Invalid domain</string>
+    <string name="btn_export_logs">Export Logs</string>
+    <string name="error_no_logs">No logs found</string>
 </resources>

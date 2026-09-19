@@ -115,6 +115,9 @@ fun SettingsTab(
     onCheckUpdates: () -> Unit,
     onExportConfig: () -> Unit,
     onImportConfig: () -> Unit,
+    onPasteCustomArgs: () -> Unit,
+    onClearCustomArgs: () -> Unit,
+    onExportLogs: () -> Unit,
 ) {
     val context = LocalContext.current
     var showAppPicker by remember { mutableStateOf(false) }
@@ -245,7 +248,17 @@ fun SettingsTab(
                                         label = { Text(stringResource(R.string.label_custom_arguments)) },
                                         modifier = Modifier.fillMaxWidth().padding(8.dp),
                                         shape = MaterialTheme.shapes.medium,
-                                        leadingIcon = { Icon(Icons.Rounded.Code, null) }
+                                        leadingIcon = { Icon(Icons.Rounded.Code, null) },
+                                        trailingIcon = {
+                                            Row {
+                                                IconButton(onClick = onPasteCustomArgs) {
+                                                    Icon(Icons.Rounded.ContentPaste, stringResource(R.string.btn_paste))
+                                                }
+                                                IconButton(onClick = onClearCustomArgs) {
+                                                    Icon(Icons.Rounded.Clear, stringResource(R.string.btn_clear))
+                                                }
+                                            }
+                                        }
                                     )
                                 }
                             }
@@ -581,6 +594,16 @@ fun SettingsTab(
                                         else Icon(Icons.Rounded.Update, null)
                                         Spacer(Modifier.width(8.dp))
                                         Text(stringResource(R.string.btn_check_updates))
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onExportLogs,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent)
+                                    ) {
+                                        Icon(Icons.Rounded.Description, null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.btn_export_logs))
                                     }
 
                                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

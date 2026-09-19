@@ -1,6 +1,7 @@
 package com.example.nozapret
 
 import android.app.Application
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -9,6 +10,7 @@ import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
+import androidx.core.content.FileProvider
 import androidx.core.content.edit
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
@@ -200,6 +202,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun togglePinStrategy(name: String) = settingsManager.togglePinStrategy(name)
     fun updateSelectedStrategy(s: String) = settingsManager.updateSelectedStrategy(s)
     fun updateCustomArgs(a: String) = settingsManager.updateCustomArgs(a)
+    
+    fun onPasteCustomArgs() {
+        val clipboard = getApplication<Application>().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = clipboard.primaryClip
+        if (clip != null && clip.itemCount > 0) {
+            val text = clip.getItemAt(0).text?.toString() ?: ""
+            if (text.isNotBlank()) {
+                updateCustomArgs(text)
+            }
+        }
+    }
+
+    fun onClearCustomArgs() {
+        updateCustomArgs("")
+    }
+
     fun updateAutoConnect(e: Boolean) = settingsManager.updateAutoConnect(e)
     fun updateEnableIpv6(e: Boolean) = settingsManager.updateEnableIpv6(e)
     fun updateDnsServer(d: String) = settingsManager.updateDnsServer(d)
@@ -225,25 +243,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateRunMode(m: String) = settingsManager.updateRunMode(m)
 
     private fun observeTestingService() {
+        var lastReportedStrategy = ""
         viewModelScope.launch {
             TestingService.statusFlow.collectLatest { status ->
                 val strategy = status.strategyName
                 if (strategy.isEmpty()) return@collectLatest
                 
                 if (status.isRunning) {
+                    if (lastReportedStrategy.isNotEmpty() && lastReportedStrategy != strategy) {
+                        // Previous strategy in batch finished
+                        currentlyTesting.remove(lastReportedStrategy)
+                        committedStats[lastReportedStrategy] = stats[lastReportedStrategy] ?: Triple(0, 0, 0)
+                    }
+                    
                     if (!currentlyTesting.contains(strategy)) currentlyTesting.add(strategy)
                     stats[strategy] = Triple(status.success, status.tested, status.total)
+                    lastReportedStrategy = strategy
                     
                     status.lastResult?.let { result ->
                         val currentMap = testResults[strategy] ?: emptyMap()
                         testResults[strategy] = currentMap + (status.lastSite to result)
                     }
                 } else {
-                    if (currentlyTesting.contains(strategy)) {
-                        currentlyTesting.remove(strategy)
-                        committedStats[strategy] = stats[strategy] ?: Triple(status.success, status.tested, status.total)
-                        saveTestResults()
+                    // Batch or single test finished
+                    currentlyTesting.forEach { name ->
+                        committedStats[name] = stats[name] ?: Triple(0, 0, 0)
                     }
+                    currentlyTesting.clear()
+                    lastReportedStrategy = ""
+                    saveTestResults()
                 }
             }
         }
@@ -326,34 +354,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         
         allTestsJob = viewModelScope.launch {
             VpnController.runWithVpnStopped(getApplication()) {
-                Config.STRATEGIES.forEach { pair ->
-                    val name = pair.first
-                    if (!isActive) return@forEach
-                    testStrategySync(name)
+                val strategies = Config.STRATEGIES.map { it.first }
+                val intent = Intent(getApplication(), TestingService::class.java).apply {
+                    action = TestingService.ACTION_START_TEST_BATCH
+                    putExtra(TestingService.EXTRA_STRATEGIES, ArrayList(strategies))
+                    putExtra(TestingService.EXTRA_CUSTOM_ARGS, customArgs)
+                    putStringArrayListExtra(TestingService.EXTRA_SITES, ArrayList(bypassedSites.filter { it.isNotBlank() && !it.contains("/") }))
                 }
+                getApplication<Application>().startForegroundService(intent)
             }
         }
     }
 
-    private suspend fun testStrategySync(strategyName: String) = coroutineScope {
-        val intent = Intent(getApplication(), TestingService::class.java).apply {
-            action = TestingService.ACTION_START_TEST
-            putExtra(TestingService.EXTRA_STRATEGY, strategyName)
-            putExtra(TestingService.EXTRA_CUSTOM_ARGS, customArgs)
-            putStringArrayListExtra(TestingService.EXTRA_SITES, ArrayList(bypassedSites.filter { it.isNotBlank() && !it.contains("/") }))
-        }
-        getApplication<Application>().startForegroundService(intent)
-        
-        var waitStart = 0
-        while (!TestingService.isRunning && waitStart < 20 && isActive) {
-            delay(100)
-            waitStart++
-        }
-
-        while (TestingService.isRunning && isActive) {
-            delay(500)
-        }
-    }
 
     fun resetTests() {
         viewModelScope.launch {
@@ -405,8 +417,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             VpnController.runWithVpnStopped(getApplication()) {
                 strategyTester.testStrategy(quickTestStrategy, listOf(url), customArgs,
-                    onResult = { _, result -> quickTestResult = result },
-                    onProgress = { _, _, _ -> }
+                    onResult = { _, result, _, _, _ -> quickTestResult = result }
                 )
             }
             isQuickTesting = false
@@ -491,40 +502,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun exportConfiguration(context: Context) {
+        // ...
+    }
+
+    fun exportLogs(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val config = JSONObject().apply {
-                    put("strategy", selectedStrategy)
-                    put("customArgs", customArgs)
-                    put("dns", dnsServer)
-                    put("proxyHost", proxyHost)
-                    put("proxyPort", proxyPort)
-                    put("excludeSelf", excludeSelf)
-                    put("globalMode", globalMode)
-                    put("presets", JSONArray(selectedPresets))
-                    put("customHosts", customHostList)
-                    put("allowedApps", JSONArray(allowedApps))
-                    put("theme", themeMode)
-                    put("language", selectedLanguage)
-                    put("primaryColor", customPrimaryColor)
-                    put("themeBase", customThemeBase)
-                    put("pinned", JSONArray(pinnedStrategies))
-                    put("autoConnect", autoConnect)
-                    put("enableIpv6", enableIpv6)
-                    put("runMode", runMode)
+                val logFiles = AppLogger.getLogFiles(context)
+                if (logFiles.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        snackbarHostState.showSnackbar(context.getString(R.string.error_no_logs))
+                    }
+                    return@launch
                 }
 
-                val fileName = "NoZapret_Config_${System.currentTimeMillis()}.json"
-                val file = File(context.cacheDir, fileName)
-                file.writeText(config.toString(2))
-
-                val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                // Create a temporary zip file or just send the latest log
+                val latestLog = logFiles.first()
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", latestLog)
+                
                 val intent = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/json"
+                    type = "text/plain"
                     putExtra(Intent.EXTRA_STREAM, uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
-                context.startActivity(Intent.createChooser(intent, context.getString(R.string.btn_export_config)))
+                context.startActivity(Intent.createChooser(intent, context.getString(R.string.btn_export_logs)))
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     snackbarHostState.showSnackbar(context.getString(R.string.error_export_failed, e.message))

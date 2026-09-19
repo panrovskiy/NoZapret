@@ -14,13 +14,12 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 class UpdateManager(private val application: Application) {
     private val TAG = "UpdateManager"
     private val GITHUB_API_URL = "https://api.github.com/repos/panrovskiy/NoZapret/releases/latest"
     
-    private val okHttpClient = OkHttpClient()
-
     private val _isDownloading = MutableStateFlow(false)
     val isDownloading = _isDownloading.asStateFlow()
 
@@ -29,9 +28,16 @@ class UpdateManager(private val application: Application) {
 
     suspend fun checkForUpdates(): MainViewModel.UpdateInfo? = withContext(Dispatchers.IO) {
         try {
+            val client = OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .build()
             val request = Request.Builder().url(GITHUB_API_URL).build()
-            okHttpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext null
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.e(TAG, "Update check failed: HTTP ${response.code}")
+                    return@withContext null
+                }
                 val body = response.body.string()
                 val json = JSONObject(body)
                 val latestVersion = json.getString("tag_name").removePrefix("v")
@@ -62,16 +68,29 @@ class UpdateManager(private val application: Application) {
         _downloadProgress.value = 0f
         
         try {
+            Log.d(TAG, "Starting download from: ${info.downloadUrl}")
+            val client = OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .build()
+
             val request = Request.Builder().url(info.downloadUrl).build()
-            okHttpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext false
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.e(TAG, "Download failed: HTTP ${response.code}")
+                    return@withContext false
+                }
                 val body = response.body
                 val totalBytes = body.contentLength()
-                val file = File(application.cacheDir, "update.apk")
+                val destFile = File(application.cacheDir, "update.apk")
+                val partFile = File(application.cacheDir, "update.apk.part")
+                
+                if (partFile.exists()) partFile.delete()
                 
                 body.byteStream().use { input ->
-                    file.outputStream().use { output ->
-                        val buffer = ByteArray(8192)
+                    partFile.outputStream().use { output ->
+                        val buffer = ByteArray(16384)
                         var bytesRead: Int
                         var downloadedBytes = 0L
                         while (input.read(buffer).also { bytesRead = it } != -1) {
@@ -84,8 +103,20 @@ class UpdateManager(private val application: Application) {
                     }
                 }
                 
+                if (totalBytes > 0 && partFile.length() < totalBytes) {
+                    Log.e(TAG, "Download incomplete: ${partFile.length()} / $totalBytes")
+                    return@withContext false
+                }
+
+                if (destFile.exists()) destFile.delete()
+                if (!partFile.renameTo(destFile)) {
+                    Log.e(TAG, "Failed to rename .part to .apk")
+                    return@withContext false
+                }
+                
+                Log.d(TAG, "Download completed successfully: ${destFile.absolutePath}")
                 withContext(Dispatchers.Main) {
-                    installApk(file)
+                    installApk(destFile)
                 }
                 true
             }

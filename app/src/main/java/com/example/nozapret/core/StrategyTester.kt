@@ -3,6 +3,7 @@ package com.example.nozapret.core
 import android.app.Application
 import android.util.Log
 import com.example.nozapret.MainViewModel
+import com.example.nozapret.core.AppLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,8 +11,11 @@ import kotlinx.coroutines.sync.Semaphore
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.Socket
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
@@ -28,16 +32,18 @@ class StrategyTester(private val application: Application) {
     val isTesting = _isTesting.asStateFlow()
 
     private val proxy = ByeDpiProxy()
+    private val dnsCache = ConcurrentHashMap<String, String>()
+
+    private external fun jniCleanup()
 
     suspend fun testStrategy(
         strategyName: String,
         bypassedSites: List<String>,
         customArgs: String,
-        onResult: (String, MainViewModel.TlsTestResult) -> Unit,
-        onProgress: (Int, Int, Int) -> Unit
+        onResult: (String, MainViewModel.TlsTestResult, Int, Int, Int) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         if (strategyName == "None") {
-            return@withContext runDirectTest(bypassedSites, onResult, onProgress)
+            return@withContext runDirectTest(bypassedSites, onResult)
         }
 
         val sitesToTest = bypassedSites.filter { it.isNotBlank() && !it.contains("/") }
@@ -51,6 +57,7 @@ class StrategyTester(private val application: Application) {
         val testedCount = AtomicInteger(0)
         val successCount = AtomicInteger(0)
 
+        val startTime = System.currentTimeMillis()
         try {
             val strategyArgs = Config.getStrategyArgs(strategyName, customArgs)
             val hostlistFile = File(application.cacheDir, "test_hostlist.txt")
@@ -65,49 +72,55 @@ class StrategyTester(private val application: Application) {
             finalArgs.add("-P")
             finalArgs.add("protect")
 
-            Log.d(TAG, "[TEST] Starting test proxy for $strategyName with args: ${finalArgs.joinToString(" ")}")
+            AppLogger.d("TEST", "[PERF] Starting test proxy for $strategyName")
             
             // Ensure any old proxy is closed
             proxy.forceClose()
-            delay(200.milliseconds)
+            delay(100.milliseconds)
 
+            val proxyStartTime = System.currentTimeMillis()
             val proxyJob = launch {
                 try {
                     val res = proxy.start(finalArgs.toTypedArray())
-                    Log.d(TAG, "[TEST] Test proxy for $strategyName exited with code $res")
+                    AppLogger.d("TEST", "[TEST] Test proxy for $strategyName exited with code $res")
                 } catch (e: Exception) {
-                    Log.e(TAG, "[TEST] Exception in test proxy for $strategyName", e)
+                    AppLogger.e("TEST", "[TEST] Exception in test proxy for $strategyName", e)
                 }
             }
 
             // Wait for proxy to be ready
             var ready = false
             var wait = 0
-            while (!ready && wait < 60 && isActive) {
+            while (!ready && wait < 40 && isActive) { // Reduced wait time 10s max
                 if (proxy.isRunning()) {
                     try {
                         Socket().use { s ->
-                            s.connect(InetSocketAddress("127.0.0.1", 1081), 400)
+                            s.connect(InetSocketAddress("127.0.0.1", 1081), 200) // Reduced connect timeout
                             ready = true
                         }
                     } catch (_: Exception) {}
                 }
                 if (!ready) {
-                    if (wait % 4 == 0) Log.d(TAG, "[TEST] Waiting for test proxy ($wait)...")
                     delay(250.milliseconds)
                 }
                 wait++
             }
+            AppLogger.d("TEST", "[PERF] Proxy ready in ${System.currentTimeMillis() - proxyStartTime}ms")
 
             if (!ready) {
-                Log.e(TAG, "[TEST] Proxy failed to start for $strategyName")
+                AppLogger.e("TEST", "[TEST] Proxy failed to start for $strategyName")
                 proxyJob.cancelAndJoin()
                 return@withContext false
             }
 
-            Log.d(TAG, "[TEST] Test proxy ready for $strategyName. Starting checks.")
+            val strategyClient = okHttpClient.newBuilder()
+                .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", 1081)))
+                .connectTimeout(3, TimeUnit.SECONDS)
+                .readTimeout(3, TimeUnit.SECONDS)
+                .build()
 
-            val semaphore = Semaphore(2) // Low concurrency for better stability on low-end devices
+            val checksStartTime = System.currentTimeMillis()
+            val semaphore = Semaphore(6) // Bounded concurrency
 
             coroutineScope {
                 sitesToTest.forEach { site ->
@@ -115,18 +128,18 @@ class StrategyTester(private val application: Application) {
                         semaphore.acquire()
                         try {
                             if (!isActive) return@launch
+                            val checkStart = System.currentTimeMillis()
                             val result = try {
-                                performCombinedCheck(site, false)
+                                performCombinedCheck(site, false, strategyClient)
                             } catch (e: Exception) {
-                                Log.w(TAG, "Check failed for $site: ${e.message}")
+                                AppLogger.w("TEST", "Check failed for $site: ${e.message}")
                                 MainViewModel.TlsTestResult(false, error = "Check crashed: ${e.message}")
                             }
-                            
+
                             if (isActive) {
-                                onResult(site, result)
                                 val currentTested = testedCount.incrementAndGet()
                                 if (result.success) successCount.incrementAndGet()
-                                onProgress(successCount.get(), currentTested, total)
+                                onResult(site, result, successCount.get(), currentTested, total)
                             }
                         } finally {
                             semaphore.release()
@@ -135,7 +148,9 @@ class StrategyTester(private val application: Application) {
                 }
             }
 
-            Log.d(TAG, "[TEST] Checks finished for $strategyName. Cleaning up.")
+            AppLogger.d("TEST", "[PERF] All checks for $strategyName finished in ${System.currentTimeMillis() - checksStartTime}ms")
+            
+            val cleanupStartTime = System.currentTimeMillis()
             proxy.stop()
             proxy.forceClose()
             proxyJob.cancelAndJoin()
@@ -146,23 +161,28 @@ class StrategyTester(private val application: Application) {
                 delay(100.milliseconds)
                 releaseWait++
             }
-            Log.d(TAG, "[CLEANUP] Test proxy cleanup done. Port 1081 released=${!proxy.isRunning()}")
+            AppLogger.d("TEST", "[PERF] Cleanup took ${System.currentTimeMillis() - cleanupStartTime}ms. Total strategy time: ${System.currentTimeMillis() - startTime}ms")
             
-            delay(200.milliseconds) // Small pause between strategies
+            delay(100.milliseconds) // Reduced pause
             true
         } catch (e: Exception) {
             Log.e(TAG, "[TEST] Test failed for $strategyName", e)
             false
         } finally {
             _isTesting.value = false
+            try {
+                jniCleanup()
+                Log.d(TAG, "[CLEANUP] Native JNI cleanup performed")
+            } catch (e: Exception) {
+                Log.e(TAG, "[CLEANUP] Native JNI cleanup failed", e)
+            }
             Log.d(TAG, "[CLEANUP] Test state reset for $strategyName")
         }
     }
 
     private suspend fun runDirectTest(
         bypassedSites: List<String>,
-        onResult: (String, MainViewModel.TlsTestResult) -> Unit,
-        onProgress: (Int, Int, Int) -> Unit
+        onResult: (String, MainViewModel.TlsTestResult, Int, Int, Int) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         val sitesToTest = bypassedSites.filter { it.isNotBlank() && !it.contains("/") }
         if (sitesToTest.isEmpty()) return@withContext true
@@ -170,7 +190,7 @@ class StrategyTester(private val application: Application) {
         val total = sitesToTest.size
         val testedCount = AtomicInteger(0)
         val successCount = AtomicInteger(0)
-        val semaphore = Semaphore(5)
+        val semaphore = Semaphore(10) // More concurrency for direct tests
 
         coroutineScope {
             sitesToTest.forEach { site ->
@@ -180,10 +200,9 @@ class StrategyTester(private val application: Application) {
                         if (!isActive) return@launch
                         val result = performCombinedCheck(site, true)
                         if (isActive) {
-                            onResult(site, result)
                             val currentTested = testedCount.incrementAndGet()
                             if (result.success) successCount.incrementAndGet()
-                            onProgress(successCount.get(), currentTested, total)
+                            onResult(site, result, successCount.get(), currentTested, total)
                         }
                     } finally {
                         semaphore.release()
@@ -194,9 +213,9 @@ class StrategyTester(private val application: Application) {
         true
     }
 
-    private suspend fun performCombinedCheck(domain: String, direct: Boolean): MainViewModel.TlsTestResult = coroutineScope {
+    private suspend fun performCombinedCheck(domain: String, direct: Boolean, client: OkHttpClient? = null): MainViewModel.TlsTestResult = coroutineScope {
         val tlsDeferred = async { fastTlsCheck(domain, direct) }
-        val httpDeferred = async { fastHttpCheck(domain, direct) }
+        val httpDeferred = async { fastHttpCheck(domain, direct, client) }
         val tls = tlsDeferred.await()
         val http = httpDeferred.await()
         tls.copy(httpSuccess = http.first, httpError = http.second)
@@ -208,8 +227,19 @@ class StrategyTester(private val application: Application) {
             try {
                 val proxyAddr = if (direct) java.net.Proxy.NO_PROXY else java.net.Proxy(java.net.Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", 1081))
                 val socket = Socket(proxyAddr)
-                socket.connect(InetSocketAddress.createUnresolved(domain, 443), 5000)
-                socket.soTimeout = 5000
+                
+                // Use cached IP if available to speed up connection setup
+                val targetAddr = if (direct) {
+                    val ip = dnsCache.getOrPut(domain) { InetAddress.getByName(domain).hostAddress!! }
+                    InetSocketAddress(ip, 443)
+                } else {
+                    // When proxying, let the proxy handle resolution if it supports it, 
+                    // or use unresolved to pass hostname through SOCKS5
+                    InetSocketAddress.createUnresolved(domain, 443)
+                }
+
+                socket.connect(targetAddr, 3000)
+                socket.soTimeout = 3000
                 
                 val sslSocketFactory = javax.net.ssl.SSLSocketFactory.getDefault() as javax.net.ssl.SSLSocketFactory
                 val sslSocket = sslSocketFactory.createSocket(socket, domain, 443, true) as javax.net.ssl.SSLSocket
@@ -231,19 +261,26 @@ class StrategyTester(private val application: Application) {
         }
     }
 
-    private suspend fun fastHttpCheck(domain: String, direct: Boolean): Pair<Boolean, String?> {
+    private suspend fun fastHttpCheck(domain: String, direct: Boolean, strategyClient: OkHttpClient? = null): Pair<Boolean, String?> {
         return withContext(Dispatchers.IO) {
             try {
-                val proxyAddr = if (direct) null else java.net.Proxy(java.net.Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", 1081))
-                val client = okHttpClient.newBuilder()
-                    .apply { if (proxyAddr != null) proxy(proxyAddr) }
-                    .connectTimeout(5, TimeUnit.SECONDS)
-                    .readTimeout(5, TimeUnit.SECONDS)
-                    .build()
+                val client = if (direct) {
+                    okHttpClient.newBuilder()
+                        .connectTimeout(3, TimeUnit.SECONDS)
+                        .readTimeout(3, TimeUnit.SECONDS)
+                        .build()
+                } else {
+                    strategyClient ?: okHttpClient.newBuilder()
+                        .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", 1081)))
+                        .connectTimeout(3, TimeUnit.SECONDS)
+                        .readTimeout(3, TimeUnit.SECONDS)
+                        .build()
+                }
                 
                 val request = Request.Builder()
                     .url("http://$domain")
                     .header("User-Agent", "Mozilla/5.0 (Android 14)")
+                    .header("Connection", "close") // Don't keep connections alive for testing
                     .build()
                 
                 client.newCall(request).execute().use { response ->

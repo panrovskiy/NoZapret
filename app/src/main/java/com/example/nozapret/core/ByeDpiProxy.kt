@@ -43,6 +43,13 @@ class ByeDpiProxy {
             jniStopProxy()
         }
     }
+
+    fun cleanup() {
+        Log.d("ByeDpiProxy", "Cleaning up native proxy state")
+        if (isLoaded) {
+            jniCleanup()
+        }
+    }
     
     fun forceClose(): Int {
         Log.d("ByeDpiProxy", "Force closing proxy")
@@ -59,6 +66,7 @@ class ByeDpiProxy {
 
     private external fun jniStartProxy(args: Array<String>): Int
     private external fun jniStopProxy()
+    private external fun jniCleanup()
     private external fun jniForceClose(): Int
     private external fun jniIsRunning(): Boolean
 }

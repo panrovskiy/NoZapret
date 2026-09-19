@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.nozapret.MainActivity
 import com.example.nozapret.R
+import com.example.nozapret.core.AppLogger
 import com.example.nozapret.core.ByeDpiProxy
 import com.example.nozapret.core.Config
 import com.example.nozapret.core.HevSocks5Tunnel
@@ -184,6 +185,8 @@ class DpiVpnService : VpnService() {
         val dataStoreManager = DataStoreManager(applicationContext)
         val prefs = dataStoreManager.getAllSettings().first()
         
+        val runMode = prefs[DataStoreManager.RUN_MODE] ?: "VPN"
+        
         lastStrategy = strategyIn ?: prefs[DataStoreManager.SELECTED_STRATEGY] ?: "Auto (Recommended)"
         lastArgs = argsIn ?: prefs[DataStoreManager.CUSTOM_ARGS] ?: ""
         lastGlobal = globalIn ?: prefs[DataStoreManager.GLOBAL_MODE] ?: true
@@ -201,39 +204,44 @@ class DpiVpnService : VpnService() {
         val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!)
 
         try {
-            val builder = Builder()
-                .setSession("NoZapret")
-                .setMtu(mtu)
-                .addAddress("10.1.1.1", 24)
-                .addRoute("0.0.0.0", 0)
-                .addDnsServer(dnsServer)
+            var fd = -1
+            if (runMode == "VPN") {
+                val builder = Builder()
+                    .setSession("NoZapret")
+                    .setMtu(mtu)
+                    .addAddress("10.1.1.1", 24)
+                    .addRoute("0.0.0.0", 0)
+                    .addDnsServer(dnsServer)
 
-            if (enableIpv6) {
-                builder.addAddress("fd00::1", 128)
-                builder.addRoute("::", 0)
-            }
+                if (enableIpv6) {
+                    builder.addAddress("fd00::1", 128)
+                    builder.addRoute("::", 0)
+                }
 
-            if (excludeSelf) {
-                builder.addDisallowedApplication(packageName)
-            }
+                if (excludeSelf) {
+                    builder.addDisallowedApplication(packageName)
+                }
 
-            val establishedInterface = builder.establish()
-            if (establishedInterface == null) {
-                Log.e("DpiVpnService", "Failed to establish VPN interface")
-                isError = true
-                stopVpnAsync("Establish failed")
-                return@withContext
+                val establishedInterface = builder.establish()
+                if (establishedInterface == null) {
+                    Log.e("DpiVpnService", "Failed to establish VPN interface")
+                    isError = true
+                    stopVpnAsync("Establish failed")
+                    return@withContext
+                }
+                vpnInterface = establishedInterface
+                fd = vpnInterface?.fd ?: -1
+            } else {
+                Log.d("DpiVpnService", "Starting in Proxy mode, skipping VPN interface")
             }
-            vpnInterface = establishedInterface
             
-            val fd = vpnInterface?.fd ?: -1
             val hostlistFile = File(cacheDir, "hostlist.txt")
             if (lastBypassedSites!!.isNotEmpty()) {
                 hostlistFile.writeText(lastBypassedSites!!.joinToString("\n"))
             }
             
             vpnWorkJob = serviceScope.launch(Dispatchers.IO) {
-                Log.d("DpiVpnService", "Bypass Work Job started. Strategy: $lastStrategy")
+                AppLogger.i("VPN", "Bypass Work Job started. Mode: $runMode, Strategy: $lastStrategy")
                 
                 val finalArgs = mutableListOf(
                     "byedpi",
@@ -283,25 +291,32 @@ class DpiVpnService : VpnService() {
                     startTime = System.currentTimeMillis()
                     
                     updateVpnState(true, false, false, false, false, startTime)
-                    updateNotification(getString(R.string.notification_connected))
+                    
+                    val notificationText = if (runMode == "VPN") getString(R.string.notification_connected) else getString(R.string.run_mode_proxy)
+                    updateNotification(notificationText)
 
-                    val configPath = createTunnelConfig(enableIpv6, host, port, dnsServer)
-                    Log.d("DpiVpnService", "Starting tunnel with config: $configPath")
-                    
-                    startHealthCheck()
-                    
-                    val res = tunnel.start(configPath, fd)
-                    Log.d("DpiVpnService", "HevSocks5Tunnel exited with code $res")
-                    if (isRunning && !isPaused && !isStopping.get()) {
-                        if (res != 0) isError = true
-                        stopVpnAsync("Tunnel exit")
+                    if (runMode == "VPN") {
+                        val configPath = createTunnelConfig(enableIpv6, host, port, dnsServer)
+                        Log.d("DpiVpnService", "Starting tunnel with config: $configPath")
+                        
+                        startHealthCheck()
+                        
+                        val res = tunnel.start(configPath, fd)
+                        Log.d("DpiVpnService", "HevSocks5Tunnel exited with code $res")
+                        if (isRunning && !isPaused && !isStopping.get()) {
+                            if (res != 0) isError = true
+                            stopVpnAsync("Tunnel exit")
+                        }
+                    } else {
+                        Log.d("DpiVpnService", "Proxy mode active, tunnel not started")
+                        // In proxy mode, we just wait for proxyLaunch to finish
                     }
                 }
                 
                 joinAll(proxyLaunch, tunnelLaunch)
             }
         } catch (e: Exception) {
-            Log.e("DpiVpnService", "Error starting VPN: ${e.message}")
+            Log.e("DpiVpnService", "Error starting VPN/Proxy: ${e.message}")
             isError = true
             stopVpnAsync("Error: ${e.message}")
         }
@@ -479,6 +494,7 @@ class DpiVpnService : VpnService() {
                 
                 jniSetVpnService(null)
                 jniCleanup()
+                proxy.cleanup()
             }
 
             try {

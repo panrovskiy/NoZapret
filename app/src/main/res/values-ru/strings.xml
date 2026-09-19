@@ -336,4 +336,6 @@
     <string name="error_no_sites_testing">Сайты не выбраны для тестирования</string>
     <string name="error_vpn_stop_failed">Не удалось остановить VPN для теста</string>
     <string name="error_invalid_domain">Некорректный домен</string>
+    <string name="btn_export_logs">Экспорт логов</string>
+    <string name="error_no_logs">Логи не найдены</string>
 </resources>
