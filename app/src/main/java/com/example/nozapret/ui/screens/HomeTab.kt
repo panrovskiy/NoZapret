@@ -44,6 +44,7 @@ fun HomeTab(
     committedStats: Map<String, Triple<Int, Int, Int>>,
     bypassedSitesCount: Int,
     onStrategySelected: (String) -> Unit,
+    onShowStrategyInfo: (String) -> Unit,
     // New states from MainViewModel
     isConnecting: Boolean = false,
     isDisconnecting: Boolean = false,
@@ -92,6 +93,7 @@ fun HomeTab(
                 onStrategySelected(it)
                 showStrategyDialog = false
             },
+            onShowInfo = onShowStrategyInfo,
             onDismiss = { showStrategyDialog = false }
         )
     }
@@ -265,6 +267,7 @@ fun StrategySelectionDialog(
     current: String,
     pinned: List<String>,
     onSelect: (String) -> Unit,
+    onShowInfo: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -290,7 +293,16 @@ fun StrategySelectionDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(getLocalizedStrategyName(strategy), fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = { onShowInfo(strategy) },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(Icons.Rounded.Info, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Text(getLocalizedStrategyName(strategy), fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                            }
                             if (isSelected) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
                         }
                     }

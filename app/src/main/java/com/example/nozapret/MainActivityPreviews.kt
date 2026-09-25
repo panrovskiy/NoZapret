@@ -50,7 +50,8 @@ fun PreviewHomeTabDisconnected() {
             globalMode = false,
             committedStats = emptyMap(),
             bypassedSitesCount = 0,
-            onStrategySelected = {}
+            onStrategySelected = {},
+            onShowStrategyInfo = {}
         )
     }
 }
@@ -71,7 +72,8 @@ fun PreviewHomeTabConnected() {
             globalMode = false,
             committedStats = emptyMap(),
             bypassedSitesCount = 0,
-            onStrategySelected = {}
+            onStrategySelected = {},
+            onShowStrategyInfo = {}
         )
     }
 }
@@ -114,7 +116,8 @@ fun PreviewHomeTabGlobal() {
             globalMode = true,
             committedStats = emptyMap(),
             bypassedSitesCount = 0,
-            onStrategySelected = {}
+            onStrategySelected = {},
+            onShowStrategyInfo = {}
         )
     }
 }

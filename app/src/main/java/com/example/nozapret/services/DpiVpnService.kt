@@ -201,7 +201,8 @@ class DpiVpnService : VpnService() {
         val port = try { portStr.toInt() } catch(_: Exception) { 1080 }
 
         val dnsServer = prefs[DataStoreManager.DNS_SERVER] ?: "1.1.1.1"
-        val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!)
+        val fakeSniPool = prefs[DataStoreManager.FAKE_SNI_POOL]?.toList() ?: listOf("www.google.com", "yandex.ru", "apple.com", "wikipedia.org")
+        val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!, fakeSniPool)
 
         try {
             var fd = -1
@@ -431,10 +432,10 @@ class DpiVpnService : VpnService() {
 
             misc:
               task-stack-size: 131072
-              connect-timeout: 5000
-              read-write-timeout: 60000
-              udp-read-write-timeout: 15000
-              max-session-count: 4096
+              connect-timeout: 10000
+              read-write-timeout: 300000
+              udp-read-write-timeout: 60000
+              max-session-count: 8192
               log-level: info
         """.trimIndent()
 

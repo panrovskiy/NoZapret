@@ -2,7 +2,9 @@ package com.example.nozapret.ui.screens
 
 
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
+import android.widget.Toast
 
 
 
@@ -39,14 +41,21 @@ import com.example.nozapret.ui.getLocalizedStrategyDesc
 import com.example.nozapret.ui.getPresetIcon
 import com.example.nozapret.R
 import com.example.nozapret.MainViewModel
-
 import com.example.nozapret.core.Config
+import com.example.nozapret.ui.components.PresetEditorDialog
 import com.example.nozapret.ui.components.AppPickerDialog
 import com.example.nozapret.ui.components.FadeEntrance
 import com.example.nozapret.ui.components.SettingsGroup
 import com.example.nozapret.ui.components.bouncingClickable
 
-
+enum class StrategySortMode {
+    PRESET,
+    PING_ASC,
+    PING_DESC,
+    SUCCESS_ASC,
+    SUCCESS_DESC,
+    DEFAULT
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,6 +127,17 @@ fun SettingsTab(
     onPasteCustomArgs: () -> Unit,
     onClearCustomArgs: () -> Unit,
     onExportLogs: () -> Unit,
+    getPresetDomains: (String) -> List<String>,
+    onAddDomainToPreset: (String, String) -> Result<Unit>,
+    onRemoveDomainFromPreset: (String, String) -> Unit,
+    onEditDomainInPreset: (String, String, String) -> Result<Unit>,
+    onClearPresetDomains: (String) -> Unit,
+    onResetPresetDomainsToDefault: (String) -> Unit,
+    fakeSniPool: List<String>,
+    onAddFakeSniHost: (String) -> Result<Unit>,
+    onRemoveFakeSniHost: (String) -> Unit,
+    onEditFakeSniHost: (String, String) -> Result<Unit>,
+    onResetFakeSniPoolToDefault: () -> Unit,
 ) {
     val context = LocalContext.current
     var showAppPicker by remember { mutableStateOf(false) }
@@ -204,12 +224,23 @@ fun SettingsTab(
                                         expanded = strategyExpanded,
                                         onDismissRequest = { strategyExpanded = false }
                                     ) {
-                                        Config.STRATEGIES.forEach { (name, desc) ->
+                                        Config.STRATEGIES_DATA.forEach { strat ->
+                                            val name = strat.name
+                                            val desc = strat.description
                                             DropdownMenuItem(
                                                 text = {
-                                                    Column {
-                                                        Text(getLocalizedStrategyName(name), fontWeight = FontWeight.Bold)
-                                                        Text(getLocalizedStrategyDesc(name, desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        IconButton(
+                                                            onClick = { onShowStrategyArgsInfo(name) },
+                                                            modifier = Modifier.size(24.dp)
+                                                        ) {
+                                                            Icon(Icons.Rounded.Info, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                                        }
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Column {
+                                                            Text(getLocalizedStrategyName(name), fontWeight = FontWeight.Bold)
+                                                            Text(getLocalizedStrategyDesc(name, desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        }
                                                     }
                                                 },
                                                 onClick = {
@@ -224,11 +255,6 @@ fun SettingsTab(
                                                             contentDescription = null,
                                                             tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                                         )
-                                                    }
-                                                },
-                                                trailingIcon = {
-                                                    IconButton(onClick = { onShowStrategyArgsInfo(name) }) {
-                                                        Icon(Icons.Rounded.Info, null, modifier = Modifier.size(20.dp))
                                                     }
                                                 },
                                                 contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
@@ -269,6 +295,22 @@ fun SettingsTab(
                             animationSpec = tween(durationMillis = 500),
                             label = "presets_highlight"
                         )
+
+                        var editingPreset by remember { mutableStateOf<String?>(null) }
+                        if (editingPreset != null) {
+                            val pName = editingPreset!!
+                            PresetEditorDialog(
+                                presetName = pName,
+                                domains = getPresetDomains(pName),
+                                onAddDomain = { onAddDomainToPreset(pName, it) },
+                                onRemoveDomain = { onRemoveDomainFromPreset(pName, it) },
+                                onEditDomain = { old, new -> onEditDomainInPreset(pName, old, new) },
+                                onClearDomains = { onClearPresetDomains(pName) },
+                                onRestoreDefaults = { onResetPresetDomainsToDefault(pName) },
+                                onDismiss = { editingPreset = null }
+                            )
+                        }
+
                         FadeEntrance(index = 1) {
                             SettingsGroup(
                                 title = stringResource(R.string.section_presets),
@@ -277,11 +319,18 @@ fun SettingsTab(
                             ) {
                                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
                                     Config.PRESETS.forEach { (name, _) ->
+                                        val siteCount = getPresetDomains(name).size
                                         ListItem(
                                             headlineContent = { Text(getLocalizedPresetName(name)) },
+                                            supportingContent = { Text(stringResource(R.string.preset_sites_count, siteCount)) },
                                             leadingContent = { Icon(getPresetIcon(name), null) },
                                             trailingContent = { 
-                                                Switch(checked = selectedPresets.contains(name), onCheckedChange = { onPresetToggle(name, it) }) 
+                                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    IconButton(onClick = { editingPreset = name }) {
+                                                        Icon(Icons.Rounded.Edit, stringResource(R.string.btn_edit_preset), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                                    }
+                                                    Switch(checked = selectedPresets.contains(name), onCheckedChange = { onPresetToggle(name, it) }) 
+                                                }
                                             },
                                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                             modifier = Modifier.bouncingClickable { onPresetToggle(name, !selectedPresets.contains(name)) }
@@ -459,6 +508,7 @@ fun SettingsTab(
                                                 "ru" -> stringResource(R.string.lang_ru)
                                                 "uk" -> stringResource(R.string.lang_uk)
                                                 "kk" -> stringResource(R.string.lang_kk)
+                                                "tr" -> stringResource(R.string.lang_tr)
                                                 else -> stringResource(R.string.lang_system)
                                             },
                                             onValueChange = {},
@@ -470,7 +520,7 @@ fun SettingsTab(
                                             shape = MaterialTheme.shapes.medium
                                         )
                                         ExposedDropdownMenu(expanded = langExpanded, onDismissRequest = { langExpanded = false }) {
-                                            listOf("System", "en", "ru", "uk", "kk").forEach { lang ->
+                                            listOf("System", "en", "ru", "uk", "kk", "tr").forEach { lang ->
                                                 DropdownMenuItem(
                                                     text = { 
                                                         Text(when(lang) {
@@ -478,6 +528,7 @@ fun SettingsTab(
                                                             "ru" -> stringResource(R.string.lang_ru)
                                                             "uk" -> stringResource(R.string.lang_uk)
                                                             "kk" -> stringResource(R.string.lang_kk)
+                                                            "tr" -> stringResource(R.string.lang_tr)
                                                             else -> stringResource(R.string.lang_system)
                                                         })
                                                     },
@@ -636,9 +687,21 @@ fun SettingsTab(
                                                 text = { Text(stringResource(R.string.tester_strategy_none)) },
                                                 onClick = { onQuickTestStrategyChange("None"); testUrlExpanded = false }
                                             )
-                                            Config.STRATEGIES.forEach { (stratName, _) ->
+                                            Config.STRATEGIES_DATA.forEach { strat ->
+                                                val stratName = strat.name
                                                 DropdownMenuItem(
-                                                    text = { Text(getLocalizedStrategyName(stratName)) },
+                                                    text = {
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            IconButton(
+                                                                onClick = { onShowStrategyArgsInfo(stratName) },
+                                                                modifier = Modifier.size(24.dp)
+                                                            ) {
+                                                                Icon(Icons.Rounded.Info, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                                            }
+                                                            Spacer(Modifier.width(8.dp))
+                                                            Text(getLocalizedStrategyName(stratName))
+                                                        }
+                                                    },
                                                     onClick = { onQuickTestStrategyChange(stratName); testUrlExpanded = false }
                                                 )
                                             }
@@ -745,13 +808,180 @@ fun SettingsTab(
                             }
                         }
 
+                        FadeEntrance(index = 7) {
+                            SettingsGroup(
+                                title = stringResource(R.string.section_fake_sni),
+                                icon = Icons.Rounded.Security
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = stringResource(R.string.fake_sni_subtitle),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                    )
+
+                                    var newFakeSniInput by remember { mutableStateOf("") }
+                                    var fakeSniError by remember { mutableStateOf<String?>(null) }
+                                    var editingFakeSniHost by remember { mutableStateOf<String?>(null) }
+                                    var editFakeSniInput by remember { mutableStateOf("") }
+
+                                    val localContext = context
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = newFakeSniInput,
+                                            onValueChange = {
+                                                newFakeSniInput = it
+                                                fakeSniError = null
+                                            },
+                                            label = { Text(stringResource(R.string.label_add_fake_sni)) },
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true,
+                                            shape = MaterialTheme.shapes.medium
+                                        )
+                                        IconButton(
+                                            onClick = {
+                                                if (newFakeSniInput.isNotBlank()) {
+                                                    val res = onAddFakeSniHost(newFakeSniInput)
+                                                    if (res.isSuccess) {
+                                                        newFakeSniInput = ""
+                                                        fakeSniError = null
+                                                    } else {
+                                                        fakeSniError = res.exceptionOrNull()?.message ?: localContext.getString(R.string.error_invalid_domain)
+                                                    }
+                                                }
+                                            },
+                                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                        ) {
+                                            Icon(Icons.Rounded.Add, null)
+                                        }
+                                    }
+
+                                    fakeSniError?.let { err ->
+                                        Text(text = err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                                    }
+
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                        shape = MaterialTheme.shapes.medium,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            fakeSniPool.forEach { host ->
+                                                ListItem(
+                                                    headlineContent = { Text(host, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium) },
+                                                    trailingContent = {
+                                                        Row {
+                                                            IconButton(onClick = {
+                                                                editingFakeSniHost = host
+                                                                editFakeSniInput = host
+                                                            }) {
+                                                                Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                                            }
+                                                            if (fakeSniPool.size > 1) {
+                                                                IconButton(onClick = { onRemoveFakeSniHost(host) }) {
+                                                                    Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onResetFakeSniPoolToDefault,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(stringResource(R.string.btn_restore_defaults))
+                                    }
+
+                                    val invalidDomainText = stringResource(R.string.error_invalid_domain)
+                                    editingFakeSniHost?.let { oldHost ->
+                                        AlertDialog(
+                                            onDismissRequest = { editingFakeSniHost = null },
+                                            title = { Text(stringResource(R.string.title_edit_domain)) },
+                                            text = {
+                                                OutlinedTextField(
+                                                    value = editFakeSniInput,
+                                                    onValueChange = { editFakeSniInput = it },
+                                                    label = { Text(stringResource(R.string.label_domain)) },
+                                                    singleLine = true,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            },
+                                            confirmButton = {
+                                                Button(onClick = {
+                                                    val res = onEditFakeSniHost(oldHost, editFakeSniInput)
+                                                    if (res.isSuccess) {
+                                                        editingFakeSniHost = null
+                                                    } else {
+                                                        Toast.makeText(context, res.exceptionOrNull()?.message ?: invalidDomainText, Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }) {
+                                                    Text(stringResource(R.string.btn_save))
+                                                }
+                                            },
+                                            dismissButton = {
+                                                TextButton(onClick = { editingFakeSniHost = null }) {
+                                                    Text(stringResource(R.string.btn_cancel))
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        FadeEntrance(index = 8) {
+                            SettingsGroup(title = stringResource(R.string.section_about), icon = Icons.Rounded.Info) {
+                                Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    val pkgInfo = try { context.packageManager.getPackageInfo(context.packageName, 0) } catch (_: Exception) { null }
+                                    val appVer = pkgInfo?.versionName ?: "2.3.5"
+
+                                    ListItem(
+                                        headlineContent = { Text(stringResource(R.string.app_version)) },
+                                        supportingContent = { Text("v$appVer") },
+                                        trailingContent = { Icon(Icons.Rounded.Launch, null) },
+                                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                        modifier = Modifier.bouncingClickable {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/panrovskiy/NoZapret"))
+                                            context.startActivity(intent)
+                                        }
+                                    )
+                                    ListItem(
+                                        headlineContent = { Text(stringResource(R.string.byedpi_version)) },
+                                        supportingContent = { Text("v0.17.3") },
+                                        trailingContent = { Icon(Icons.Rounded.Launch, null) },
+                                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                        modifier = Modifier.bouncingClickable {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/hufrea/byedpi"))
+                                            context.startActivity(intent)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(100.dp))
                     }
                 } else {
                     // Tests Tab
-                    val allStrats = Config.STRATEGIES.sortedWith { a, b ->
-                        val aName = a.first
-                        val bName = b.first
+                    var sortMode by remember { mutableStateOf(StrategySortMode.DEFAULT) }
+                    var filterPreset by remember { mutableStateOf("All") }
+                    var showSortMenu by remember { mutableStateOf(false) }
+
+                    val allStrats = Config.STRATEGIES_DATA.filter { strat ->
+                        filterPreset == "All" || strat.category == filterPreset
+                    }.sortedWith { a, b ->
+                        val aName = a.name
+                        val bName = b.name
                         
                         val aTesting = currentlyTesting.contains(aName)
                         val bTesting = currentlyTesting.contains(bName)
@@ -764,17 +994,40 @@ fun SettingsTab(
                         val aStat = stats[aName] ?: committedStats[aName] ?: Triple(0, 0, 0)
                         val bStat = stats[bName] ?: committedStats[bName] ?: Triple(0, 0, 0)
 
-                        // 2. Sort by successful sites count descending
+                        val aResults = testResults[aName] ?: emptyMap()
+                        val bResults = testResults[bName] ?: emptyMap()
+                        val aAvgPing = if (aResults.isNotEmpty()) aResults.values.mapNotNull { it.ping }.average() else Double.MAX_VALUE
+                        val bAvgPing = if (bResults.isNotEmpty()) bResults.values.mapNotNull { it.ping }.average() else Double.MAX_VALUE
+
+                        when (sortMode) {
+                            StrategySortMode.PRESET -> {
+                                val catComp = a.category.compareTo(b.category)
+                                if (catComp != 0) return@sortedWith catComp
+                            }
+                            StrategySortMode.PING_ASC -> {
+                                if (aAvgPing != bAvgPing) return@sortedWith aAvgPing.compareTo(bAvgPing)
+                            }
+                            StrategySortMode.PING_DESC -> {
+                                if (aAvgPing != bAvgPing) return@sortedWith bAvgPing.compareTo(aAvgPing)
+                            }
+                            StrategySortMode.SUCCESS_ASC -> {
+                                if (aStat.first != bStat.first) return@sortedWith aStat.first.compareTo(bStat.first)
+                            }
+                            StrategySortMode.SUCCESS_DESC -> {
+                                if (aStat.first != bStat.first) return@sortedWith bStat.first.compareTo(aStat.first)
+                            }
+                            StrategySortMode.DEFAULT -> {}
+                        }
+
+                        // Fallback/Secondary sort
                         if (aStat.first != bStat.first) {
                             return@sortedWith bStat.first.compareTo(aStat.first)
                         }
                         
-                        // 3. Sort by total tested count descending
                         if (aStat.second != bStat.second) {
                             return@sortedWith bStat.second.compareTo(aStat.second)
                         }
 
-                        // 4. Deterministic tie-breaker: raw name
                         aName.compareTo(bName)
                     }
 
@@ -785,12 +1038,69 @@ fun SettingsTab(
                     ) {
                         item {
                             FadeEntrance(index = 0) {
-                                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp), 
+                                    horizontalArrangement = Arrangement.SpaceBetween, 
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Column {
                                         Text(stringResource(R.string.title_verification), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                                         Text(stringResource(R.string.testing_sites_count, bypassedSitesCount), style = MaterialTheme.typography.bodySmall)
                                     }
-                                    Row {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box {
+                                            IconButton(onClick = { showSortMenu = true }) {
+                                                Icon(Icons.Rounded.Sort, null)
+                                            }
+                                            DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                                                Text(
+                                                    stringResource(R.string.label_sort_by), 
+                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(R.string.sort_preset)) },
+                                                    onClick = { sortMode = StrategySortMode.PRESET; showSortMenu = false },
+                                                    trailingIcon = { if (sortMode == StrategySortMode.PRESET) Icon(Icons.Rounded.Check, null) }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(R.string.sort_ping) + " (" + stringResource(R.string.sort_asc) + ")") },
+                                                    onClick = { sortMode = StrategySortMode.PING_ASC; showSortMenu = false },
+                                                    trailingIcon = { if (sortMode == StrategySortMode.PING_ASC) Icon(Icons.Rounded.Check, null) }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(R.string.sort_ping) + " (" + stringResource(R.string.sort_desc) + ")") },
+                                                    onClick = { sortMode = StrategySortMode.PING_DESC; showSortMenu = false },
+                                                    trailingIcon = { if (sortMode == StrategySortMode.PING_DESC) Icon(Icons.Rounded.Check, null) }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(R.string.sort_success) + " (" + stringResource(R.string.sort_asc) + ")") },
+                                                    onClick = { sortMode = StrategySortMode.SUCCESS_ASC; showSortMenu = false },
+                                                    trailingIcon = { if (sortMode == StrategySortMode.SUCCESS_ASC) Icon(Icons.Rounded.Check, null) }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(R.string.sort_success) + " (" + stringResource(R.string.sort_desc) + ")") },
+                                                    onClick = { sortMode = StrategySortMode.SUCCESS_DESC; showSortMenu = false },
+                                                    trailingIcon = { if (sortMode == StrategySortMode.SUCCESS_DESC) Icon(Icons.Rounded.Check, null) }
+                                                )
+                                                HorizontalDivider()
+                                                Text(
+                                                    stringResource(R.string.label_filter_sort), 
+                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                val categories = listOf("All") + Config.STRATEGIES_DATA.map { it.category }.distinct()
+                                                categories.forEach { cat ->
+                                                    DropdownMenuItem(
+                                                        text = { Text(cat) },
+                                                        onClick = { filterPreset = cat; showSortMenu = false },
+                                                        trailingIcon = { if (filterPreset == cat) Icon(Icons.Rounded.Check, null) }
+                                                    )
+                                                }
+                                            }
+                                        }
                                         IconButton(onClick = onTestAll) { Icon(if (currentlyTesting.isNotEmpty()) Icons.Rounded.Stop else Icons.Rounded.PlayArrow, null) }
                                         IconButton(onClick = onResetTests) { Icon(Icons.Rounded.Refresh, null) }
                                     }
@@ -798,8 +1108,9 @@ fun SettingsTab(
                             }
                         }
 
-                        items(allStrats.size, key = { i -> allStrats[i].first }) { i ->
-                            val (name, _) = allStrats[i]
+                        items(allStrats.size, key = { i -> allStrats[i].name }) { i ->
+                            val strat = allStrats[i]
+                            val name = strat.name
                             val isTesting = currentlyTesting.contains(name)
                             val stat = stats[name] ?: committedStats[name] ?: Triple(0, 0, bypassedSitesCount)
                             
@@ -809,24 +1120,53 @@ fun SettingsTab(
                                     .animateItem()
                                     .bouncingClickable { onShowDetails(name) }
                             ) {
-                                    ListItem(
-                                        headlineContent = { Text(getLocalizedStrategyName(name), fontWeight = FontWeight.Bold) },
-                                        supportingContent = {
-                                            Column {
-                                                LinearProgressIndicator(
-                                                    progress = { if (stat.third > 0) stat.second.toFloat() / stat.third else 0f },
-                                                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape)
+                                ListItem(
+                                    headlineContent = { 
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            IconButton(
+                                                onClick = { onShowStrategyArgsInfo(name) },
+                                                modifier = Modifier.size(32.dp).padding(end = 8.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Rounded.Info, 
+                                                    null, 
+                                                    modifier = Modifier.size(20.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
                                                 )
-                                                Spacer(Modifier.height(4.dp))
+                                            }
+                                            Text(getLocalizedStrategyName(name), fontWeight = FontWeight.Bold)
+                                        }
+                                    },
+                                    supportingContent = {
+                                        Column {
+                                            LinearProgressIndicator(
+                                                progress = { if (stat.third > 0) stat.second.toFloat() / stat.third else 0f },
+                                                modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape)
+                                            )
+                                            Spacer(Modifier.height(4.dp))
+                                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                                 Text(
                                                     stringResource(R.string.test_stat_format, stat.first, stat.second, stat.third),
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
+                                                
+                                                val results = testResults[name] ?: emptyMap()
+                                                if (results.isNotEmpty()) {
+                                                    val avgPing = results.values.mapNotNull { it.ping }.average()
+                                                    if (!avgPing.isNaN()) {
+                                                        Text(
+                                                            stringResource(R.string.tester_latency, avgPing.toInt()),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.secondary
+                                                        )
+                                                    }
+                                                }
                                             }
-                                        },
-                                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                                        trailingContent = {
+                                        }
+                                    },
+                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                    trailingContent = {
                                         if (isTesting) CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                                         else IconButton(onClick = { onTestStrategy(name) }) { Icon(Icons.Rounded.PlayArrow, null) }
                                     }

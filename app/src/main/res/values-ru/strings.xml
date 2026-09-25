@@ -338,4 +338,66 @@
     <string name="error_invalid_domain">Некорректный домен</string>
     <string name="btn_export_logs">Экспорт логов</string>
     <string name="error_no_logs">Логи не найдены</string>
+
+    <!-- New Strategy System Overhaul Strings -->
+    <string name="label_filter_sort">Фильтр и Сортировка</string>
+    <string name="label_sort_by">Сортировать по</string>
+    <string name="sort_preset">Пресету / Категории</string>
+    <string name="sort_ping">Задержке (Пинг)</string>
+    <string name="sort_success">Успешным сайтам</string>
+    <string name="sort_asc">По возрастанию</string>
+    <string name="sort_desc">По убыванию</string>
+    <string name="label_info">Информация</string>
+    <string name="label_strategy_id">ID Стратегии</string>
+    <string name="label_preset">Пресет</string>
+    <string name="label_status">Статус</string>
+    <string name="label_test_result">Результат теста</string>
+    <string name="btn_copy_args">Копировать аргументы</string>
+    <string name="error_arg_gen">Не удалось сгенерировать аргументы</string>
+    <string name="error_port_in_use">Порт 1081 занят. Проверьте, не запущен ли другой тест.</string>
+
+    <!-- New Discord Strategies -->
+    <string name="strategy_discord_intense">Discord UDP (Интенсивный)</string>
+    <string name="strategy_discord_intense_desc">Агрессивная стратегия для Discord с множественными фейковыми пакетами и многоуровневым беспорядком.</string>
+    <string name="strategy_discord_mobile">Discord Mobile (Оптимизированный)</string>
+    <string name="strategy_discord_mobile_desc">Легкий обход Discord, оптимизированный для мобильных сетей.</string>
+    <string name="strategy_fake_discord_intense">Simple Fake Discord Intense</string>
+    <string name="strategy_fake_discord_intense_desc">Простой вариант с фейк-пакетом для интенсивной стратегии Discord.</string>
+    <string name="strategy_fake_discord_mobile">Simple Fake Discord Mobile</string>
+    <string name="strategy_fake_discord_mobile_desc">Простой вариант с фейк-пакетом для мобильной стратегии Discord.</string>
+
+    <string name="status_not_tested">Не тестировалось</string>
+    <string name="status_testing">Тестирование…</string>
+    <string name="status_success">Успешно</string>
+    <string name="status_failed">Ошибка</string>
+
+    <string name="result_sites_format">Сайтов: %1$d / ОК: %2$d / Ошибка: %3$d</string>
+    <string name="label_ping_format">Пинг: %1$d мс</string>
+    <string name="label_unknown_ping">Пинг: Неизвестно</string>
+
+    <!-- Preset Editor & Fake SNI -->
+    <string name="preset_sites_count">%1$d сайтов</string>
+    <string name="label_add_domain">Добавить домен</string>
+    <string name="btn_add">Добавить</string>
+    <string name="label_search">Поиск…</string>
+    <string name="preset_empty_list">Список доменов пуст</string>
+    <string name="preset_no_matches">Совпадений не найдено</string>
+    <string name="btn_done">Готово</string>
+    <string name="btn_restore_defaults">Сбросить по умолчанию</string>
+    <string name="btn_clear_all">Очистить всё</string>
+    <string name="title_edit_domain">Изменить домен</string>
+    <string name="label_domain">Домен</string>
+    <string name="btn_edit_preset">Редактировать список</string>
+    <string name="section_fake_sni">Пул поддельных SNI (Fake SNI)</string>
+    <string name="fake_sni_subtitle">Доступные хосты для десинхронизации --fake-sni</string>
+    <string name="label_add_fake_sni">Добавить поддельный хост</string>
+
+    <!-- Language -->
+    <string name="lang_tr">Türkçe</string>
+
+    <!-- About Section -->
+    <string name="section_about">О приложении и версии</string>
+    <string name="app_version">Версия NoZapret</string>
+    <string name="byedpi_version">Версия движка ByeDPI</string>
+    <string name="about_open_github">Открыть страницу проекта</string>
 </resources>

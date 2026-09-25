@@ -4,9 +4,11 @@ import android.app.Application
 import android.util.Log
 import com.example.nozapret.MainViewModel
 import com.example.nozapret.core.AppLogger
+import com.example.nozapret.data.DataStoreManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Semaphore
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -36,6 +38,17 @@ class StrategyTester(private val application: Application) {
 
     private external fun jniCleanup()
 
+    private fun isPortAvailable(port: Int): Boolean {
+        return try {
+            Socket().use { s ->
+                s.connect(InetSocketAddress("127.0.0.1", port), 100)
+                false // If connect succeeds, port is NOT available
+            }
+        } catch (_: Exception) {
+            true // If connect fails, port is likely available
+        }
+    }
+
     suspend fun testStrategy(
         strategyName: String,
         bypassedSites: List<String>,
@@ -46,10 +59,43 @@ class StrategyTester(private val application: Application) {
             return@withContext runDirectTest(bypassedSites, onResult)
         }
 
+        val strategy = Config.getStrategyByName(strategyName)
+        if (strategy == null && strategyName != "Custom") {
+            AppLogger.e("TEST", "[TEST] Strategy $strategyName not found")
+            return@withContext false
+        }
+
         val sitesToTest = bypassedSites.filter { it.isNotBlank() && !it.contains("/") }
         if (sitesToTest.isEmpty()) {
             Log.w(TAG, "No sites to test for $strategyName")
             return@withContext true
+        }
+
+        val dataStoreManager = DataStoreManager(application)
+        val fakeSniSet = dataStoreManager.getSetting(DataStoreManager.FAKE_SNI_POOL, emptySet()).first()
+        val fakeSniPool = if (fakeSniSet.isNotEmpty()) fakeSniSet.toList() else listOf("www.google.com", "yandex.ru", "apple.com", "wikipedia.org")
+
+        val strategyArgs = try {
+            Config.getStrategyArgs(strategyName, customArgs, fakeSniPool)
+        } catch (e: Exception) {
+            AppLogger.e("TEST", "[TEST] Failed to generate args for $strategyName: ${e.message}")
+            return@withContext false
+        }
+
+        val validation = Config.validateStrategyArgs(strategyArgs)
+        if (validation.isFailure) {
+            AppLogger.e("TEST", "[TEST] Validation failed for $strategyName: ${validation.exceptionOrNull()?.message}")
+            return@withContext false
+        }
+
+        if (!isPortAvailable(1081)) {
+            AppLogger.e("TEST", "[TEST] Port 1081 is already in use")
+            // Try to force close once more
+            proxy.forceClose()
+            delay(200.milliseconds)
+            if (!isPortAvailable(1081)) {
+                return@withContext false
+            }
         }
 
         _isTesting.value = true
@@ -59,7 +105,6 @@ class StrategyTester(private val application: Application) {
 
         val startTime = System.currentTimeMillis()
         try {
-            val strategyArgs = Config.getStrategyArgs(strategyName, customArgs)
             val hostlistFile = File(application.cacheDir, "test_hostlist.txt")
             hostlistFile.writeText(sitesToTest.joinToString("\n"))
 

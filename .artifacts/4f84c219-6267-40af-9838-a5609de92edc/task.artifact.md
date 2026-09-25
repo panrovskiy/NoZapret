@@ -1,0 +1,6 @@
+- [x] Fix `MainActivity.kt` Scaffold and NavigationBar layout
+- [x] Fix `HomeTab.kt` vertical distribution and remove hardcoded paddings
+- [x] Adjust `AnimatedVpnButton.kt` footprint
+- [x] Optimize `StatusCard.kt` vertical height
+- [x] Verify responsive behavior and insets
+- [x] Optimize `ConfigCard` in `HomeTab.kt`

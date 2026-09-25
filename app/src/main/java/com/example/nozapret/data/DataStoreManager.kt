@@ -31,6 +31,8 @@ class DataStoreManager(context: Context) {
         val AUTO_CONNECT = booleanPreferencesKey("auto_connect")
         val ENABLE_IPV6 = booleanPreferencesKey("enable_ipv6")
         val RUN_MODE = stringPreferencesKey("run_mode") // VPN or Proxy
+        val PRESET_OVERRIDES = stringPreferencesKey("preset_overrides") // JSON object map
+        val FAKE_SNI_POOL = stringSetPreferencesKey("fake_sni_pool")
     }
 
     suspend fun <T> saveSetting(key: Preferences.Key<T>, value: T) {

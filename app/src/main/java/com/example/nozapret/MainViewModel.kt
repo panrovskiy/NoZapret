@@ -5,7 +5,9 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.net.ConnectivityManager
 import android.net.Uri
+import android.net.VpnService
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.material3.SnackbarHostState
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.collectLatest
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import kotlin.time.Duration.Companion.milliseconds
@@ -108,10 +111,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var isQuickTesting by mutableStateOf(false)
     var quickTestStrategy by mutableStateOf("None")
 
+    val fakeSniPool get() = settingsManager.fakeSniPool
+
+    fun getPresetDomains(name: String): List<String> = settingsManager.getPresetDomains(name)
+    fun addDomainToPreset(name: String, rawDomain: String): Result<Unit> = settingsManager.addDomainToPreset(name, rawDomain)
+    fun removeDomainFromPreset(name: String, domain: String) = settingsManager.removeDomainFromPreset(name, domain)
+    fun editDomainInPreset(name: String, oldDomain: String, newRawDomain: String): Result<Unit> = settingsManager.editDomainInPreset(name, oldDomain, newRawDomain)
+    fun clearPresetDomains(name: String) = settingsManager.clearPresetDomains(name)
+    fun resetPresetDomainsToDefault(name: String) = settingsManager.resetPresetDomainsToDefault(name)
+
+    fun addFakeSniHost(rawHost: String): Result<Unit> = settingsManager.addFakeSniHost(rawHost)
+    fun removeFakeSniHost(host: String) = settingsManager.removeFakeSniHost(host)
+    fun editFakeSniHost(oldHost: String, newRawHost: String): Result<Unit> = settingsManager.editFakeSniHost(oldHost, newRawHost)
+    fun resetFakeSniPoolToDefault() = settingsManager.resetFakeSniPoolToDefault()
+
     val bypassedSites: List<String>
         get() {
-            val presetsMap = Config.PRESETS.toMap()
-            val presetSites = selectedPresets.asSequence().filter { it != "Custom" }.flatMap { presetsMap[it] ?: emptyList() }.toList()
+            val presetSites = selectedPresets.asSequence()
+                .filter { it != "Custom" }
+                .flatMap { presetName -> settingsManager.getPresetDomains(presetName) }
+                .toList()
             val customSites = if (selectedPresets.contains("Custom") && customHostList.isNotBlank()) {
                 customHostList.split(Regex("[\\s,;]+")).filter { it.isNotBlank() }
             } else {
@@ -431,30 +450,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         showDiagnosticsDialog = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                addLog(R.string.diag_checking, DiagType.INFO, "Connectivity")
-                val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                // 1. Network Connectivity
+                val netCheckingMsg = getApplication<Application>().getString(R.string.diag_checking, "Network")
+                val netIndex = addLogItemAndReturnIndex(netCheckingMsg, DiagType.INFO, isChecking = true)
+                delay(400.milliseconds)
+                val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
                 val active = cm.activeNetwork
-                if (active != null) addLog(R.string.diag_network_connected, DiagType.PASSED, "OK")
-                else addLog(R.string.diag_network_disconnected, DiagType.FAILED)
+                val netMsg = if (active != null) getApplication<Application>().getString(R.string.diag_network_connected, "Active") else getApplication<Application>().getString(R.string.diag_network_disconnected)
+                updateLogItem(netIndex, netMsg, if (active != null) DiagType.PASSED else DiagType.FAILED)
 
-                addLog(R.string.diag_checking, DiagType.INFO, "Native Engine")
-                try {
+                // 2. Native Engine
+                delay(300.milliseconds)
+                val engineCheckingMsg = getApplication<Application>().getString(R.string.diag_checking, "Native Engine (ByeDPI)")
+                val engineIndex = addLogItemAndReturnIndex(engineCheckingMsg, DiagType.INFO, isChecking = true)
+                delay(400.milliseconds)
+                val engineOk = try {
                     System.loadLibrary("byedpi")
-                    addLog(R.string.diag_byedpi_load_success, DiagType.PASSED)
-                } catch (e: Exception) {
-                    addLog(R.string.diag_byedpi_load_failed, DiagType.FAILED)
+                    true
+                } catch (_: Exception) {
+                    false
                 }
-                
-                addLog(R.string.diag_checking, DiagType.INFO, "VPN Permission")
-                if (android.net.VpnService.prepare(getApplication()) == null) {
-                    addLog(R.string.diag_vpn_prepared, DiagType.PASSED)
-                } else {
-                    addLog(R.string.diag_vpn_not_prepared, DiagType.FAILED)
-                }
+                val engineMsg = if (engineOk) getApplication<Application>().getString(R.string.diag_byedpi_load_success) else getApplication<Application>().getString(R.string.diag_byedpi_load_failed)
+                updateLogItem(engineIndex, engineMsg, if (engineOk) DiagType.PASSED else DiagType.FAILED)
 
+                // 3. VPN Permission
+                delay(300.milliseconds)
+                val vpnCheckingMsg = getApplication<Application>().getString(R.string.diag_checking, "VPN Permission")
+                val vpnIndex = addLogItemAndReturnIndex(vpnCheckingMsg, DiagType.INFO, isChecking = true)
+                delay(400.milliseconds)
+                val vpnPrepared = VpnService.prepare(getApplication()) == null
+                val vpnMsg = if (vpnPrepared) getApplication<Application>().getString(R.string.diag_vpn_prepared) else getApplication<Application>().getString(R.string.diag_vpn_not_prepared)
+                updateLogItem(vpnIndex, vpnMsg, if (vpnPrepared) DiagType.PASSED else DiagType.WARNING)
+
+                // 4. DNS Server check
+                delay(300.milliseconds)
+                val dnsCheckingMsg = getApplication<Application>().getString(R.string.diag_checking, "DNS Resolution")
+                val dnsIndex = addLogItemAndReturnIndex(dnsCheckingMsg, DiagType.INFO, isChecking = true)
+                delay(400.milliseconds)
+                val dnsOk = try {
+                    val addr = InetAddress.getByName("google.com")
+                    addr != null
+                } catch (_: Exception) {
+                    false
+                }
+                val dnsMsg = if (dnsOk) getApplication<Application>().getString(R.string.diag_dns_server, dnsServer) else "DNS Resolution Failed"
+                updateLogItem(dnsIndex, dnsMsg, if (dnsOk) DiagType.PASSED else DiagType.FAILED)
+
+                // Finish
+                delay(300.milliseconds)
                 addLog(R.string.diag_finish, DiagType.PASSED)
             } finally {
                 isDiagnosing = false
+            }
+        }
+    }
+
+    private suspend fun addLogItemAndReturnIndex(msg: String, type: DiagType, isChecking: Boolean): Int {
+        return withContext(Dispatchers.Main) {
+            diagnosticsLog.add(DiagItem(msg, type, isChecking = isChecking))
+            diagnosticsLog.size - 1
+        }
+    }
+
+    private suspend fun updateLogItem(index: Int, msg: String, type: DiagType) {
+        withContext(Dispatchers.Main) {
+            if (index in diagnosticsLog.indices) {
+                diagnosticsLog[index] = DiagItem(msg, type, isChecking = false)
             }
         }
     }

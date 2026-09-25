@@ -2,9 +2,12 @@ package com.example.nozapret.data
 
 import android.app.Application
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.example.nozapret.core.Config
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Manages UI state and persistence for app settings.
@@ -31,6 +34,11 @@ class SettingsManager(private val application: Application, private val scope: C
     var customThemeBase by mutableStateOf("System")
     var runMode by mutableStateOf("VPN")
 
+    val presetDomains = mutableStateMapOf<String, SnapshotStateList<String>>()
+    val fakeSniPool = mutableStateListOf<String>()
+
+    private val defaultFakeSniList = listOf("www.google.com", "yandex.ru", "apple.com", "wikipedia.org")
+
     init {
         scope.launch {
             val prefs = dataStoreManager.getAllSettings().first()
@@ -55,8 +63,58 @@ class SettingsManager(private val application: Application, private val scope: C
             prefs[DataStoreManager.SELECTED_PRESETS]?.let { selectedPresets.addAll(it) } ?: run {
                 selectedPresets.addAll(listOf("YouTube", "Telegram"))
             }
+
+            // Load Fake SNI Pool
+            prefs[DataStoreManager.FAKE_SNI_POOL]?.let { set ->
+                if (set.isNotEmpty()) {
+                    fakeSniPool.clear()
+                    fakeSniPool.addAll(set)
+                } else {
+                    fakeSniPool.clear()
+                    fakeSniPool.addAll(defaultFakeSniList)
+                }
+            } ?: run {
+                fakeSniPool.clear()
+                fakeSniPool.addAll(defaultFakeSniList)
+            }
+
+            // Load Preset Overrides JSON
+            val defaultMap = Config.PRESETS.toMap()
+            val overridesJsonStr = prefs[DataStoreManager.PRESET_OVERRIDES]
+            val overridesMap = mutableMapOf<String, List<String>>()
+            if (!overridesJsonStr.isNullOrBlank()) {
+                try {
+                    val jsonObj = JSONObject(overridesJsonStr)
+                    val keys = jsonObj.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        val arr = jsonObj.getJSONArray(key)
+                        val list = mutableListOf<String>()
+                        for (i in 0 until arr.length()) {
+                            list.add(arr.getString(i))
+                        }
+                        overridesMap[key] = list
+                    }
+                } catch (_: Exception) {}
+            }
+
+            // Initialize presetDomains map for all known default presets plus any custom overridden presets
+            defaultMap.forEach { (name, defaultSites) ->
+                val list = mutableStateListOf<String>()
+                val loadedList = overridesMap[name] ?: defaultSites
+                list.addAll(loadedList)
+                presetDomains[name] = list
+            }
+            overridesMap.forEach { (name, list) ->
+                if (!presetDomains.containsKey(name)) {
+                    val stateList = mutableStateListOf<String>()
+                    stateList.addAll(list)
+                    presetDomains[name] = stateList
+                }
+            }
         }
     }
+
 
     fun updateSelectedStrategy(value: String) {
         selectedStrategy = value
@@ -152,6 +210,138 @@ class SettingsManager(private val application: Application, private val scope: C
         if (allowedApps.contains(pkg)) allowedApps.remove(pkg)
         else allowedApps.add(pkg)
         save(DataStoreManager.ALLOWED_APPS, allowedApps.toSet())
+    }
+
+    fun getPresetDomains(name: String): List<String> {
+        return presetDomains[name] ?: Config.PRESETS.toMap()[name] ?: emptyList()
+    }
+
+    fun addDomainToPreset(name: String, rawDomain: String): Result<Unit> {
+        val validated = Config.validateDomain(rawDomain)
+        if (validated.isFailure) return Result.failure(validated.exceptionOrNull()!!)
+        val domain = validated.getOrThrow()
+
+        val list = presetDomains[name] ?: mutableStateListOf<String>().also { presetDomains[name] = it }
+        if (list.contains(domain)) {
+            return Result.failure(IllegalArgumentException("Domain already exists in preset"))
+        }
+
+        list.add(domain)
+        savePresetOverrides()
+        return Result.success(Unit)
+    }
+
+    fun removeDomainFromPreset(name: String, domain: String) {
+        val list = presetDomains[name] ?: return
+        if (list.remove(domain)) {
+            savePresetOverrides()
+        }
+    }
+
+    fun editDomainInPreset(name: String, oldDomain: String, newRawDomain: String): Result<Unit> {
+        val validated = Config.validateDomain(newRawDomain)
+        if (validated.isFailure) return Result.failure(validated.exceptionOrNull()!!)
+        val newDomain = validated.getOrThrow()
+
+        val list = presetDomains[name] ?: mutableStateListOf<String>().also { presetDomains[name] = it }
+        if (newDomain != oldDomain && list.contains(newDomain)) {
+            return Result.failure(IllegalArgumentException("Domain already exists in preset"))
+        }
+
+        val idx = list.indexOf(oldDomain)
+        if (idx >= 0) {
+            list[idx] = newDomain
+        } else {
+            list.add(newDomain)
+        }
+        savePresetOverrides()
+        return Result.success(Unit)
+    }
+
+    fun clearPresetDomains(name: String) {
+        val list = presetDomains[name] ?: return
+        list.clear()
+        savePresetOverrides()
+    }
+
+    fun resetPresetDomainsToDefault(name: String) {
+        val defaultList = Config.PRESETS.toMap()[name] ?: emptyList()
+        val list = presetDomains[name] ?: mutableStateListOf<String>().also { presetDomains[name] = it }
+        list.clear()
+        list.addAll(defaultList)
+        savePresetOverrides()
+    }
+
+    fun addFakeSniHost(rawHost: String): Result<Unit> {
+        val validated = Config.validateDomain(rawHost)
+        if (validated.isFailure) return Result.failure(validated.exceptionOrNull()!!)
+        val host = validated.getOrThrow()
+
+        if (fakeSniPool.contains(host)) {
+            return Result.failure(IllegalArgumentException("Host already exists in Fake SNI pool"))
+        }
+
+        fakeSniPool.add(host)
+        saveFakeSniPool()
+        return Result.success(Unit)
+    }
+
+    fun removeFakeSniHost(host: String) {
+        if (fakeSniPool.size <= 1) {
+            return
+        }
+        if (fakeSniPool.remove(host)) {
+            saveFakeSniPool()
+        }
+    }
+
+    fun editFakeSniHost(oldHost: String, newRawHost: String): Result<Unit> {
+        val validated = Config.validateDomain(newRawHost)
+        if (validated.isFailure) return Result.failure(validated.exceptionOrNull()!!)
+        val newHost = validated.getOrThrow()
+
+        if (newHost != oldHost && fakeSniPool.contains(newHost)) {
+            return Result.failure(IllegalArgumentException("Host already exists in Fake SNI pool"))
+        }
+
+        val idx = fakeSniPool.indexOf(oldHost)
+        if (idx >= 0) {
+            fakeSniPool[idx] = newHost
+        } else {
+            fakeSniPool.add(newHost)
+        }
+        saveFakeSniPool()
+        return Result.success(Unit)
+    }
+
+    fun resetFakeSniPoolToDefault() {
+        fakeSniPool.clear()
+        fakeSniPool.addAll(defaultFakeSniList)
+        saveFakeSniPool()
+    }
+
+    private fun savePresetOverrides() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val jsonObj = JSONObject()
+                for (entry in presetDomains.entries) {
+                    val name = entry.key
+                    val domainList: List<String> = entry.value
+                    val arr = JSONArray()
+                    for (d in domainList) {
+                        arr.put(d)
+                    }
+                    jsonObj.put(name, arr)
+                }
+                dataStoreManager.saveSetting(DataStoreManager.PRESET_OVERRIDES, jsonObj.toString())
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun saveFakeSniPool() {
+        scope.launch(Dispatchers.IO) {
+            dataStoreManager.saveSetting(DataStoreManager.FAKE_SNI_POOL, fakeSniPool.toSet())
+        }
     }
 
     private fun <T> save(key: androidx.datastore.preferences.core.Preferences.Key<T>, value: T) {

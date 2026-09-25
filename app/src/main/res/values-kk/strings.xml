@@ -336,4 +336,66 @@
     <string name="error_no_sites_testing">Тест үшін сайттар таңдалмады</string>
     <string name="error_vpn_stop_failed">Тест үшін VPN тоқтату мүмкін болмады</string>
     <string name="error_invalid_domain">Қате домен</string>
+
+    <!-- New Strategy System Overhaul Strings -->
+    <string name="label_filter_sort">Сүзгі және Сұрыптау</string>
+    <string name="label_sort_by">Сұрыптау</string>
+    <string name="sort_preset">Пресет / Санат бойынша</string>
+    <string name="sort_ping">Кідіріс (Пинг) бойынша</string>
+    <string name="sort_success">Сәтті сайттар бойынша</string>
+    <string name="sort_asc">Өсу ретімен</string>
+    <string name="sort_desc">Кему ретімен</string>
+    <string name="label_info">Ақпарат</string>
+    <string name="label_strategy_id">Стратегия ID</string>
+    <string name="label_preset">Пресет</string>
+    <string name="label_status">Күйі</string>
+    <string name="label_test_result">Тест нәтижесі</string>
+    <string name="btn_copy_args">Аргументтерді көшіру</string>
+    <string name="error_arg_gen">Аргументтерді жасау мүмкін болмады</string>
+    <string name="error_port_in_use">1081 порты бос емес. Басқа тест жүріп жатқанын тексеріңіз.</string>
+
+    <!-- New Discord Strategies -->
+    <string name="strategy_discord_intense">Discord UDP (Қарқынды)</string>
+    <string name="strategy_discord_intense_desc">Көптеген фейк пакеттері және көп сатылы бұзылуы бар Discord үшін агрессивті стратегия.</string>
+    <string name="strategy_discord_mobile">Discord Mobile (Оңтайландырылған)</string>
+    <string name="strategy_discord_mobile_desc">Мобильді желілер үшін оңтайландырылған Discord-ты жеңіл айналып өту.</string>
+    <string name="strategy_fake_discord_intense">Simple Fake Discord Intense</string>
+    <string name="strategy_fake_discord_intense_desc">Discord-тың қарқынды стратегиясы үшін фейк пакеті бар қарапайым нұсқа.</string>
+    <string name="strategy_fake_discord_mobile">Simple Fake Discord Mobile</string>
+    <string name="strategy_fake_discord_mobile_desc">Discord-тың мобильді стратегиясы үшін фейк пакеті бар қарапайым нұсқа.</string>
+
+    <string name="status_not_tested">Тестіленбеген</string>
+    <string name="status_testing">Тестілеу…</string>
+    <string name="status_success">Сәтті</string>
+    <string name="status_failed">Қате</string>
+
+    <string name="result_sites_format">Сайттар: %1$d / OK: %2$d / Қате: %3$d</string>
+    <string name="label_ping_format">Пинг: %1$d мс</string>
+    <string name="label_unknown_ping">Пинг: Белгісіз</string>
+
+    <!-- Preset Editor & Fake SNI -->
+    <string name="preset_sites_count">%1$d сайт</string>
+    <string name="label_add_domain">Домен қосу</string>
+    <string name="btn_add">Қосу</string>
+    <string name="label_search">Іздеу…</string>
+    <string name="preset_empty_list">Домендер тізімі бос</string>
+    <string name="preset_no_matches">Сәйкестіктер табылмады</string>
+    <string name="btn_done">Дайын</string>
+    <string name="btn_restore_defaults">Әдепкі қалпына келтіру</string>
+    <string name="btn_clear_all">Барлығын тазалау</string>
+    <string name="title_edit_domain">Доменді өзгерту</string>
+    <string name="label_domain">Домен</string>
+    <string name="btn_edit_preset">Тізімді өңдеу</string>
+    <string name="section_fake_sni">Жалған SNI пулы (Fake SNI)</string>
+    <string name="fake_sni_subtitle">--fake-sni десинхронизациясы үшін қолжетімді хосттар</string>
+    <string name="label_add_fake_sni">Жалған хост қосу</string>
+
+    <!-- Language -->
+    <string name="lang_tr">Türkçe</string>
+
+    <!-- About Section -->
+    <string name="section_about">Қолданба және нұсқа туралы</string>
+    <string name="app_version">NoZapret нұсқасы</string>
+    <string name="byedpi_version">ByeDPI қозғалтқышының нұсқасы</string>
+    <string name="about_open_github">Жоба бетін ашу</string>
 </resources>

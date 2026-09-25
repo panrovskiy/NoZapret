@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,7 +29,8 @@ fun TestDetailsView(
     results: Map<String, MainViewModel.TlsTestResult>,
     onBack: () -> Unit,
     onApply: (String) -> Unit,
-    onUseAsCustom: (String) -> Unit
+    onUseAsCustom: (String) -> Unit,
+    onShowInfo: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth().heightIn(max = 600.dp)) {
         Row(
@@ -36,11 +38,24 @@ fun TestDetailsView(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                getLocalizedStrategyName(strategyName), 
-                style = MaterialTheme.typography.headlineSmall, 
-                fontWeight = FontWeight.ExtraBold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { onShowInfo(strategyName) },
+                    modifier = Modifier.size(32.dp).padding(end = 8.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Info,
+                        null, 
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Text(
+                    getLocalizedStrategyName(strategyName), 
+                    style = MaterialTheme.typography.headlineSmall, 
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
             IconButton(
                 onClick = onBack,
                 colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)

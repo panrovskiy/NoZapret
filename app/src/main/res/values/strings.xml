@@ -338,4 +338,66 @@
     <string name="error_invalid_domain">Invalid domain</string>
     <string name="btn_export_logs">Export Logs</string>
     <string name="error_no_logs">No logs found</string>
+
+    <!-- New Strategy System Overhaul Strings -->
+    <string name="label_filter_sort">Filter &amp; Sort</string>
+    <string name="label_sort_by">Sort by</string>
+    <string name="sort_preset">Preset / Category</string>
+    <string name="sort_ping">Latency (Ping)</string>
+    <string name="sort_success">Successful Sites</string>
+    <string name="sort_asc">Ascending</string>
+    <string name="sort_desc">Descending</string>
+    <string name="label_info">Information</string>
+    <string name="label_strategy_id">Strategy ID</string>
+    <string name="label_preset">Preset</string>
+    <string name="label_status">Status</string>
+    <string name="label_test_result">Test Result</string>
+    <string name="btn_copy_args">Copy Arguments</string>
+    <string name="error_arg_gen">Unable to generate arguments</string>
+    <string name="error_port_in_use">Port 1081 is in use. Please check if another test is running.</string>
+
+    <!-- New Discord Strategies -->
+    <string name="strategy_discord_intense">Discord UDP (Intense)</string>
+    <string name="strategy_discord_intense_desc">Aggressive Discord strategy with multiple fake packets and multi-stage disorder.</string>
+    <string name="strategy_discord_mobile">Discord Mobile (Optimized)</string>
+    <string name="strategy_discord_mobile_desc">Lightweight Discord bypass optimized for mobile networks.</string>
+    <string name="strategy_fake_discord_intense">Simple Fake Discord Intense</string>
+    <string name="strategy_fake_discord_intense_desc">Simple fake variant of the Intense Discord strategy.</string>
+    <string name="strategy_fake_discord_mobile">Simple Fake Discord Mobile</string>
+    <string name="strategy_fake_discord_mobile_desc">Simple fake variant of the Mobile Discord strategy.</string>
+
+    <string name="status_not_tested">Not tested</string>
+    <string name="status_testing">Testing…</string>
+    <string name="status_success">Success</string>
+    <string name="status_failed">Failed</string>
+
+    <string name="result_sites_format">Sites: %1$d / OK: %2$d / Fail: %3$d</string>
+    <string name="label_ping_format">Ping: %1$d ms</string>
+    <string name="label_unknown_ping">Ping: Unknown</string>
+
+    <!-- Preset Editor & Fake SNI -->
+    <string name="preset_sites_count">%1$d sites</string>
+    <string name="label_add_domain">Add Domain</string>
+    <string name="btn_add">Add</string>
+    <string name="label_search">Search…</string>
+    <string name="preset_empty_list">Domain list is empty</string>
+    <string name="preset_no_matches">No matching domains found</string>
+    <string name="btn_done">Done</string>
+    <string name="btn_restore_defaults">Restore Defaults</string>
+    <string name="btn_clear_all">Clear All</string>
+    <string name="title_edit_domain">Edit Domain</string>
+    <string name="label_domain">Domain</string>
+    <string name="btn_edit_preset">Edit List</string>
+    <string name="section_fake_sni">Fake SNI Decoy Pool</string>
+    <string name="fake_sni_subtitle">Reachable hosts used for --fake-sni desync</string>
+    <string name="label_add_fake_sni">Add Decoy Host</string>
+
+    <!-- Language -->
+    <string name="lang_tr">Türkçe</string>
+
+    <!-- About Section -->
+    <string name="section_about">About &amp; Versions</string>
+    <string name="app_version">NoZapret Version</string>
+    <string name="byedpi_version">ByeDPI Engine Version</string>
+    <string name="about_open_github">Open Official Project Page</string>
 </resources>

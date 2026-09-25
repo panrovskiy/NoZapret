@@ -67,6 +67,7 @@ import android.util.Log
 import com.example.nozapret.core.Config
 import com.example.nozapret.core.VpnController
 import com.example.nozapret.services.DpiVpnService
+import com.example.nozapret.ui.components.StrategyInfoDialog
 import com.example.nozapret.ui.getLocalizedStrategyName
 import com.example.nozapret.ui.screens.HomeTab
 import com.example.nozapret.ui.screens.LogViewer
@@ -534,6 +535,7 @@ fun MainScreen(viewModel: MainViewModel) {
                             committedStats = viewModel.committedStats,
                             bypassedSitesCount = viewModel.sitesToTestCount,
                             onStrategySelected = viewModel::applyStrategy,
+                            onShowStrategyInfo = { strategyForArgsInfo = it },
                             isConnecting = viewModel.isConnecting,
                             isDisconnecting = viewModel.isDisconnecting,
                             isError = viewModel.isError,
@@ -616,7 +618,18 @@ fun MainScreen(viewModel: MainViewModel) {
                                 onImportConfig = { configImportLauncher.launch("application/json") },
                                 onPasteCustomArgs = viewModel::onPasteCustomArgs,
                                 onClearCustomArgs = viewModel::onClearCustomArgs,
-                                onExportLogs = { viewModel.exportLogs(context) }
+                                onExportLogs = { viewModel.exportLogs(context) },
+                                getPresetDomains = viewModel::getPresetDomains,
+                                onAddDomainToPreset = viewModel::addDomainToPreset,
+                                onRemoveDomainFromPreset = viewModel::removeDomainFromPreset,
+                                onEditDomainInPreset = viewModel::editDomainInPreset,
+                                onClearPresetDomains = viewModel::clearPresetDomains,
+                                onResetPresetDomainsToDefault = viewModel::resetPresetDomainsToDefault,
+                                fakeSniPool = viewModel.fakeSniPool,
+                                onAddFakeSniHost = viewModel::addFakeSniHost,
+                                onRemoveFakeSniHost = viewModel::removeFakeSniHost,
+                                onEditFakeSniHost = viewModel::editFakeSniHost,
+                                onResetFakeSniPoolToDefault = viewModel::resetFakeSniPoolToDefault
                             )
                         }
 
@@ -632,33 +645,15 @@ fun MainScreen(viewModel: MainViewModel) {
         }
 
         if (strategyForArgsInfo != null) {
-            AlertDialog(
-                onDismissRequest = { strategyForArgsInfo = null },
-                icon = { Icon(Icons.Rounded.Info, null) },
-                title = { Text(getLocalizedStrategyName(strategyForArgsInfo!!)) },
-                text = {
-                    val args = Config.getStrategyArgs(strategyForArgsInfo!!, viewModel.customArgs).joinToString(" ")
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.label_strategy_arguments), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            shape = MaterialTheme.shapes.medium,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = args.ifEmpty { stringResource(R.string.no_args_set) },
-                                modifier = Modifier.padding(12.dp),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { strategyForArgsInfo = null }) {
-                        Text(stringResource(R.string.btn_dismiss))
-                    }
-                }
+            val name = strategyForArgsInfo!!
+            StrategyInfoDialog(
+                strategyName = name,
+                customArgs = viewModel.customArgs,
+                testStat = viewModel.stats[name] ?: viewModel.committedStats[name],
+                testResults = viewModel.testResults[name],
+                isTesting = viewModel.currentlyTesting.contains(name),
+                fakeSniPool = viewModel.fakeSniPool,
+                onDismiss = { strategyForArgsInfo = null }
             )
         }
 
@@ -703,6 +698,9 @@ fun MainScreen(viewModel: MainViewModel) {
                             selectedTestStrategyForDetails = null
                         }
                     },
+                    onShowInfo = { strategy ->
+                        strategyForArgsInfo = strategy
+                    }
                 )
             }
         }

@@ -11,14 +11,14 @@ android {
         applicationId = "com.example.nozapret"
         minSdk = 30
         targetSdk = 37
-        versionCode = 15
-        versionName = "2.3.3"
+        versionCode = 17
+        versionName = "2.3.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Keep supported languages for per-app language settings
         androidResources {
-            localeFilters += listOf("en", "ru", "uk", "kk")
+            localeFilters += listOf("en", "ru", "uk", "kk", "tr")
         }
 
         ndk {
