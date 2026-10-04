@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Semaphore
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONObject
 import java.io.File
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -20,6 +21,8 @@ import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 import kotlin.time.Duration.Companion.milliseconds
 
 class StrategyTester(private val application: Application) {
@@ -72,11 +75,16 @@ class StrategyTester(private val application: Application) {
         }
 
         val dataStoreManager = DataStoreManager(application)
-        val fakeSniSet = dataStoreManager.getSetting(DataStoreManager.FAKE_SNI_POOL, emptySet()).first()
-        val fakeSniPool = if (fakeSniSet.isNotEmpty()) fakeSniSet.toList() else listOf("www.google.com", "yandex.ru", "apple.com", "wikipedia.org")
+        val mapJsonStr = dataStoreManager.getSetting(DataStoreManager.STRATEGY_FAKE_SNI_MAP, "").first()
+        val customFakeSni = if (mapJsonStr.isNotBlank()) {
+            try {
+                val obj = JSONObject(mapJsonStr)
+                if (obj.has(strategyName)) obj.getString(strategyName) else null
+            } catch (_: Exception) { null }
+        } else null
 
         val strategyArgs = try {
-            Config.getStrategyArgs(strategyName, customArgs, fakeSniPool)
+            Config.getStrategyArgs(strategyName, customArgs, customFakeSni)
         } catch (e: Exception) {
             AppLogger.e("TEST", "[TEST] Failed to generate args for $strategyName: ${e.message}")
             return@withContext false
@@ -215,12 +223,6 @@ class StrategyTester(private val application: Application) {
             false
         } finally {
             _isTesting.value = false
-            try {
-                jniCleanup()
-                Log.d(TAG, "[CLEANUP] Native JNI cleanup performed")
-            } catch (e: Exception) {
-                Log.e(TAG, "[CLEANUP] Native JNI cleanup failed", e)
-            }
             Log.d(TAG, "[CLEANUP] Test state reset for $strategyName")
         }
     }
@@ -269,39 +271,39 @@ class StrategyTester(private val application: Application) {
     private suspend fun fastTlsCheck(domain: String, direct: Boolean): MainViewModel.TlsTestResult {
         return withContext(Dispatchers.IO) {
             val start = System.currentTimeMillis()
+            var rawSocket: Socket? = null
+            var sslSocket: SSLSocket? = null
             try {
-                val proxyAddr = if (direct) java.net.Proxy.NO_PROXY else java.net.Proxy(java.net.Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", 1081))
-                val socket = Socket(proxyAddr)
+                val proxyAddr = if (direct) Proxy.NO_PROXY else Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", 1081))
+                rawSocket = Socket(proxyAddr)
                 
-                // Use cached IP if available to speed up connection setup
                 val targetAddr = if (direct) {
                     val ip = dnsCache.getOrPut(domain) { InetAddress.getByName(domain).hostAddress!! }
                     InetSocketAddress(ip, 443)
                 } else {
-                    // When proxying, let the proxy handle resolution if it supports it, 
-                    // or use unresolved to pass hostname through SOCKS5
                     InetSocketAddress.createUnresolved(domain, 443)
                 }
 
-                socket.connect(targetAddr, 3000)
-                socket.soTimeout = 3000
+                rawSocket.connect(targetAddr, 3000)
+                rawSocket.soTimeout = 3000
                 
-                val sslSocketFactory = javax.net.ssl.SSLSocketFactory.getDefault() as javax.net.ssl.SSLSocketFactory
-                val sslSocket = sslSocketFactory.createSocket(socket, domain, 443, true) as javax.net.ssl.SSLSocket
+                val sslSocketFactory = SSLSocketFactory.getDefault() as SSLSocketFactory
+                sslSocket = sslSocketFactory.createSocket(rawSocket, domain, 443, true) as SSLSocket
                 
                 sslSocket.startHandshake()
                 val ping = System.currentTimeMillis() - start
                 val session = sslSocket.session
-                val result = MainViewModel.TlsTestResult(
+                MainViewModel.TlsTestResult(
                     success = true,
                     ping = ping,
                     protocol = session.protocol,
                     cipherSuite = session.cipherSuite
                 )
-                sslSocket.close()
-                result
             } catch (e: Exception) {
                 MainViewModel.TlsTestResult(false, error = e.message ?: "TLS Handshake failed")
+            } finally {
+                try { sslSocket?.close() } catch (_: Exception) {}
+                try { rawSocket?.close() } catch (_: Exception) {}
             }
         }
     }

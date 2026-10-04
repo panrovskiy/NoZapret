@@ -270,6 +270,9 @@
     <string name="update_dialog_version">Версія %1$s доступна для завантаження</string>
     <string name="btn_update_now">Оновити зараз</string>
     <string name="update_downloading">Завантаження оновлення…</string>
+    <string name="update_verifying">Перевірка пакета оновлення…</string>
+    <string name="update_installing">Підготовка до встановлення…</string>
+    <string name="btn_retry">Повторити</string>
     <string name="msg_latest_version">У вас встановлена остання версія</string>
     <string name="error_update_check">Помилка перевірки оновлень: %1$s</string>
     <string name="error_download_failed">Помилка завантаження: %1$s</string>
@@ -368,6 +371,7 @@
     <string name="status_testing">Тестування…</string>
     <string name="status_success">Успішно</string>
     <string name="status_failed">Помилка</string>
+    <string name="status_disabled">Вимкнено</string>
 
     <string name="result_sites_format">Сайтів: %1$d / ОК: %2$d / Помилка: %3$d</string>
     <string name="label_ping_format">Пінг: %1$d мс</string>

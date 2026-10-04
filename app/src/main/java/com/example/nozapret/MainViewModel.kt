@@ -125,6 +125,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun editFakeSniHost(oldHost: String, newRawHost: String): Result<Unit> = settingsManager.editFakeSniHost(oldHost, newRawHost)
     fun resetFakeSniPoolToDefault() = settingsManager.resetFakeSniPoolToDefault()
 
+    fun getFakeSniForStrategy(strategyName: String): String? = settingsManager.getFakeSniForStrategy(strategyName)
+    fun setFakeSniForStrategy(strategyName: String, rawFakeSni: String?): Result<Unit> = settingsManager.setFakeSniForStrategy(strategyName, rawFakeSni)
+    fun resetFakeSniForStrategy(strategyName: String) = settingsManager.resetFakeSniForStrategy(strategyName)
+
     val bypassedSites: List<String>
         get() {
             val presetSites = selectedPresets.asSequence()
@@ -261,6 +265,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateCustomThemeBase(b: String) = settingsManager.updateCustomThemeBase(b)
     fun updateRunMode(m: String) = settingsManager.updateRunMode(m)
 
+    fun getBestStrategy(): String {
+        val candidateStats = Config.STRATEGIES_DATA
+            .filter { it.name != "Auto (Recommended)" && it.name != "Custom" }
+            .mapNotNull { strat ->
+                val name = strat.name
+                val stat = committedStats[name] ?: stats[name]
+                if (stat != null && stat.first > 0) {
+                    val results = testResults[name] ?: emptyMap()
+                    val pings = results.values.mapNotNull { it.ping }
+                    val avgPing = if (pings.isNotEmpty()) pings.average() else Double.MAX_VALUE
+                    Triple(name, stat.first, avgPing)
+                } else null
+            }
+
+        if (candidateStats.isEmpty()) {
+            return "Modern Ultra"
+        }
+
+        return candidateStats.sortedWith(
+            compareByDescending<Triple<String, Int, Double>> { it.second }
+                .thenBy { it.third }
+        ).first().first
+    }
+
     private fun observeTestingService() {
         var lastReportedStrategy = ""
         viewModelScope.launch {
@@ -268,29 +296,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val strategy = status.strategyName
                 if (strategy.isEmpty()) return@collectLatest
                 
-                if (status.isRunning) {
-                    if (lastReportedStrategy.isNotEmpty() && lastReportedStrategy != strategy) {
-                        // Previous strategy in batch finished
-                        currentlyTesting.remove(lastReportedStrategy)
-                        committedStats[lastReportedStrategy] = stats[lastReportedStrategy] ?: Triple(0, 0, 0)
+                withContext(Dispatchers.Main) {
+                    if (status.isRunning) {
+                        if (lastReportedStrategy.isNotEmpty() && lastReportedStrategy != strategy) {
+                            currentlyTesting.remove(lastReportedStrategy)
+                            committedStats[lastReportedStrategy] = stats[lastReportedStrategy] ?: Triple(0, 0, 0)
+                        }
+                        
+                        if (!currentlyTesting.contains(strategy)) currentlyTesting.add(strategy)
+                        stats[strategy] = Triple(status.success, status.tested, status.total)
+                        lastReportedStrategy = strategy
+                        
+                        status.lastResult?.let { result ->
+                            val currentMap = testResults[strategy] ?: emptyMap()
+                            testResults[strategy] = currentMap + (status.lastSite to result)
+                        }
+                    } else {
+                        currentlyTesting.forEach { name ->
+                            committedStats[name] = stats[name] ?: Triple(0, 0, 0)
+                        }
+                        currentlyTesting.clear()
+                        lastReportedStrategy = ""
+                        saveTestResults()
                     }
-                    
-                    if (!currentlyTesting.contains(strategy)) currentlyTesting.add(strategy)
-                    stats[strategy] = Triple(status.success, status.tested, status.total)
-                    lastReportedStrategy = strategy
-                    
-                    status.lastResult?.let { result ->
-                        val currentMap = testResults[strategy] ?: emptyMap()
-                        testResults[strategy] = currentMap + (status.lastSite to result)
-                    }
-                } else {
-                    // Batch or single test finished
-                    currentlyTesting.forEach { name ->
-                        committedStats[name] = stats[name] ?: Triple(0, 0, 0)
-                    }
-                    currentlyTesting.clear()
-                    lastReportedStrategy = ""
-                    saveTestResults()
                 }
             }
         }
@@ -396,16 +424,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    val updateState get() = updateManager.updateState
+    val updateDownloadBytesFormatted get() = updateManager.downloadBytesFormatted
+    val updateError get() = updateManager.updateError
+
+    fun cancelUpdateDownload() {
+        updateManager.cancelDownload()
+        isDownloadingUpdate = false
+    }
+
     fun checkForUpdates(manual: Boolean = true) {
         if (isCheckingUpdates) return
         isCheckingUpdates = true
+        updateManager.resetState()
         viewModelScope.launch {
             val info = updateManager.checkForUpdates()
             if (info != null) {
                 updateInfo = info
                 showUpdateDialog = true
             } else if (manual) {
-                snackbarHostState.showSnackbar(getApplication<Application>().getString(R.string.msg_latest_version))
+                val err = updateManager.updateError.value
+                if (err != null) {
+                    snackbarHostState.showSnackbar(getApplication<Application>().getString(R.string.error_update_check, err))
+                } else {
+                    snackbarHostState.showSnackbar(getApplication<Application>().getString(R.string.msg_latest_version))
+                }
             }
             isCheckingUpdates = false
         }
@@ -415,12 +458,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val info = updateInfo ?: return
         viewModelScope.launch {
             isDownloadingUpdate = true
-            updateManager.downloadProgress.collectLatest { updateDownloadProgress = it }
-            val success = updateManager.downloadAndInstall(info)
-            if (!success) {
-                snackbarHostState.showSnackbar(getApplication<Application>().getString(R.string.error_download_failed, "Unknown error"))
+            val progressJob = launch {
+                updateManager.downloadProgress.collectLatest { updateDownloadProgress = it }
             }
+            val success = updateManager.downloadAndInstall(info)
+            progressJob.cancel()
             isDownloadingUpdate = false
+            if (!success && updateManager.updateState.value == UpdateState.FAILED) {
+                val err = updateManager.updateError.value ?: "Download failed"
+                snackbarHostState.showSnackbar(getApplication<Application>().getString(R.string.error_download_failed, err))
+            }
         }
     }
 

@@ -53,7 +53,7 @@ object Config {
     fun getStrategyById(id: String): Strategy? = STRATEGIES_DATA.find { it.id == id }
     fun getStrategyByName(name: String): Strategy? = STRATEGIES_DATA.find { it.name == name }
 
-    fun getStrategyArgs(name: String, customArgs: String = "", fakeSniPool: List<String> = emptyList()): Array<String> {
+    fun getStrategyArgs(name: String, customArgs: String = "", fakeSni: String? = null): Array<String> {
         val baseArgs = when (name) {
             "Auto (Recommended)" -> arrayOf(
                 "--tlsrec", "1+s",
@@ -71,9 +71,9 @@ object Config {
             "Modern Ultra" -> arrayOf(
                 "--tlsrec", "1+s",
                 "--disorder", "1",
-                "--oob", "1",
                 "--split", "2",
-                "--wait-send",
+                "--fake-sni", "www.google.com",
+                "--fake-tls-mod", "orig",
                 "--udp-fake", "5",
                 "--drop-sack",
                 "--auto", "t,r,s,c",
@@ -82,17 +82,13 @@ object Config {
             "YouTube/Google Fix" -> arrayOf(
                 "--tlsrec", "1+s",
                 "--disorder", "1",
-                "--oob", "1",
                 "--split", "2",
                 "--fake-sni", "www.google.com",
-                "--fake-sni", "www.youtube.com",
-                "--fake-sni", "yandex.ru",
                 "--fake-tls-mod", "orig",
                 "--mod-http", "h,d",
-                "--udp-fake", "15",
+                "--udp-fake", "10",
                 "--drop-sack",
                 "--wait-send",
-                "--await-int", "20",
                 "--auto", "t,r,s,c",
                 "--block-quic"
             )
@@ -110,7 +106,14 @@ object Config {
                 "--block-quic"
             )
             "YouTube TLS Split" -> parseCustomArgs("--tlsrec 1+s --split 1 --wait-send --block-quic")
-            "RU Discord (Alt)" -> arrayOf("--disorder", "1", "--split", "1", "--wait-send", "--udp-fake", "5")
+            "RU Discord (Alt)" -> arrayOf(
+                "--disorder", "1",
+                "--split", "1",
+                "--fake-sni", "google.com",
+                "--wait-send",
+                "--udp-fake", "5",
+                "--drop-sack"
+            )
             "RU Universal (Powerful)" -> arrayOf(
                 "--tlsrec", "1+s",
                 "--disorder", "1",
@@ -124,7 +127,15 @@ object Config {
             "Simple Split" -> arrayOf("--split", "1", "--wait-send")
             "Simple Fake" -> arrayOf("--tlsrec", "1+s", "--fake-sni", "yandex.ru")
             "Torrent/P2P Fix" -> arrayOf("--split", "1", "--udp-fake", "10", "--wait-send", "--drop-sack")
-            "RU Discord (Alt 2)" -> arrayOf("--disorder", "1", "--oob", "1", "--udp-fake", "20", "--wait-send")
+            "RU Discord (Alt 2)" -> arrayOf(
+                "--disorder", "1",
+                "--oob", "1",
+                "--split", "2",
+                "--fake-sni", "max.ru",
+                "--udp-fake", "15",
+                "--wait-send",
+                "--drop-sack"
+            )
             "Discord UDP (Intense)" -> arrayOf(
                 "--disorder", "1",
                 "--oob", "1",
@@ -168,32 +179,30 @@ object Config {
             else -> emptyArray()
         }
 
-        if (fakeSniPool.isEmpty() || !baseArgs.contains("--fake-sni")) {
-            return baseArgs
+        val activeFakeSni = fakeSni?.trim()
+
+        if (activeFakeSni != null) {
+            val resultList = mutableListOf<String>()
+            var i = 0
+            while (i < baseArgs.size) {
+                val arg = baseArgs[i]
+                if (arg == "--fake-sni") {
+                    if (i + 1 < baseArgs.size && !baseArgs[i + 1].startsWith("-")) {
+                        i++
+                    }
+                } else {
+                    resultList.add(arg)
+                }
+                i++
+            }
+            if (activeFakeSni.isNotEmpty()) {
+                resultList.add("--fake-sni")
+                resultList.add(activeFakeSni)
+            }
+            return resultList.toTypedArray()
         }
 
-        val resultList = mutableListOf<String>()
-        var i = 0
-        var injectedPool = false
-        while (i < baseArgs.size) {
-            val arg = baseArgs[i]
-            if (arg == "--fake-sni") {
-                if (!injectedPool) {
-                    for (host in fakeSniPool) {
-                        resultList.add("--fake-sni")
-                        resultList.add(host)
-                    }
-                    injectedPool = true
-                }
-                if (i + 1 < baseArgs.size && !baseArgs[i + 1].startsWith("-")) {
-                    i++
-                }
-            } else {
-                resultList.add(arg)
-            }
-            i++
-        }
-        return resultList.toTypedArray()
+        return baseArgs
     }
 
     fun validateStrategyArgs(args: Array<String>): Result<Unit> {

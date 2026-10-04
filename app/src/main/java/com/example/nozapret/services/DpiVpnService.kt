@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.json.JSONObject
 import java.io.File
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -201,8 +202,15 @@ class DpiVpnService : VpnService() {
         val port = try { portStr.toInt() } catch(_: Exception) { 1080 }
 
         val dnsServer = prefs[DataStoreManager.DNS_SERVER] ?: "1.1.1.1"
-        val fakeSniPool = prefs[DataStoreManager.FAKE_SNI_POOL]?.toList() ?: listOf("www.google.com", "yandex.ru", "apple.com", "wikipedia.org")
-        val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!, fakeSniPool)
+        val mapJsonStr = prefs[DataStoreManager.STRATEGY_FAKE_SNI_MAP]
+        val customFakeSni = if (!mapJsonStr.isNullOrBlank()) {
+            try {
+                val obj = JSONObject(mapJsonStr)
+                if (obj.has(lastStrategy!!)) obj.getString(lastStrategy!!) else null
+            } catch (_: Exception) { null }
+        } else null
+
+        val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!, customFakeSni)
 
         try {
             var fd = -1

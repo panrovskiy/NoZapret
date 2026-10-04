@@ -270,6 +270,9 @@
     <string name="update_dialog_version">Версия %1$s доступна для загрузки</string>
     <string name="btn_update_now">Обновить сейчас</string>
     <string name="update_downloading">Загрузка обновления…</string>
+    <string name="update_verifying">Проверка пакета обновления…</string>
+    <string name="update_installing">Подготовка к установке…</string>
+    <string name="btn_retry">Повторить</string>
     <string name="msg_latest_version">У вас установлена последняя версия</string>
     <string name="error_update_check">Ошибка проверки обновлений: %1$s</string>
     <string name="error_download_failed">Ошибка загрузки: %1$s</string>
@@ -370,6 +373,7 @@
     <string name="status_testing">Тестирование…</string>
     <string name="status_success">Успешно</string>
     <string name="status_failed">Ошибка</string>
+    <string name="status_disabled">Отключено</string>
 
     <string name="result_sites_format">Сайтов: %1$d / ОК: %2$d / Ошибка: %3$d</string>
     <string name="label_ping_format">Пинг: %1$d мс</string>

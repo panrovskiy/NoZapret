@@ -112,8 +112,23 @@ class SettingsManager(private val application: Application, private val scope: C
                     presetDomains[name] = stateList
                 }
             }
+
+            // Load Strategy Fake SNI Map JSON
+            val strategyFakeSniJsonStr = prefs[DataStoreManager.STRATEGY_FAKE_SNI_MAP]
+            if (!strategyFakeSniJsonStr.isNullOrBlank()) {
+                try {
+                    val jsonObj = JSONObject(strategyFakeSniJsonStr)
+                    val keys = jsonObj.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        strategyFakeSniMap[key] = jsonObj.getString(key)
+                    }
+                } catch (_: Exception) {}
+            }
         }
     }
+
+    val strategyFakeSniMap = mutableStateMapOf<String, String>()
 
 
     fun updateSelectedStrategy(value: String) {
@@ -318,6 +333,50 @@ class SettingsManager(private val application: Application, private val scope: C
         fakeSniPool.clear()
         fakeSniPool.addAll(defaultFakeSniList)
         saveFakeSniPool()
+    }
+
+    fun getFakeSniForStrategy(strategyName: String): String? {
+        val customValue = strategyFakeSniMap[strategyName]
+        if (customValue != null) {
+            return if (customValue.isBlank()) null else customValue
+        }
+        val defaultArgs = Config.getStrategyArgs(strategyName)
+        val idx = defaultArgs.indexOf("--fake-sni")
+        return if (idx >= 0 && idx + 1 < defaultArgs.size) defaultArgs[idx + 1] else null
+    }
+
+    fun setFakeSniForStrategy(strategyName: String, rawFakeSni: String?): Result<Unit> {
+        val trimmed = rawFakeSni?.trim() ?: ""
+        if (trimmed.isEmpty()) {
+            strategyFakeSniMap[strategyName] = ""
+            saveStrategyFakeSniMap()
+            return Result.success(Unit)
+        }
+
+        val validated = Config.validateDomain(trimmed)
+        if (validated.isFailure) return Result.failure(validated.exceptionOrNull()!!)
+        val domain = validated.getOrThrow()
+
+        strategyFakeSniMap[strategyName] = domain
+        saveStrategyFakeSniMap()
+        return Result.success(Unit)
+    }
+
+    fun resetFakeSniForStrategy(strategyName: String) {
+        strategyFakeSniMap.remove(strategyName)
+        saveStrategyFakeSniMap()
+    }
+
+    private fun saveStrategyFakeSniMap() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val jsonObj = JSONObject()
+                strategyFakeSniMap.forEach { (name, domain) ->
+                    jsonObj.put(name, domain)
+                }
+                dataStoreManager.saveSetting(DataStoreManager.STRATEGY_FAKE_SNI_MAP, jsonObj.toString())
+            } catch (_: Exception) {}
+        }
     }
 
     private fun savePresetOverrides() {

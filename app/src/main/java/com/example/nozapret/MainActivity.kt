@@ -16,6 +16,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.appcompat.app.AppCompatActivity
+import com.example.nozapret.core.UpdateState
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -652,7 +653,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 testStat = viewModel.stats[name] ?: viewModel.committedStats[name],
                 testResults = viewModel.testResults[name],
                 isTesting = viewModel.currentlyTesting.contains(name),
-                fakeSniPool = viewModel.fakeSniPool,
+                fakeSni = viewModel.getFakeSniForStrategy(name),
                 onDismiss = { strategyForArgsInfo = null }
             )
         }
@@ -829,13 +830,23 @@ fun MainScreen(viewModel: MainViewModel) {
             )
         }
 
+        val updateState by viewModel.updateState.collectAsState()
+        val bytesFormatted by viewModel.updateDownloadBytesFormatted.collectAsState()
+        val updateError by viewModel.updateError.collectAsState()
+
         if (viewModel.showUpdateDialog && (viewModel.updateInfo != null)) {
             UpdateDialog(
                 info = viewModel.updateInfo!!,
-                isDownloading = viewModel.isDownloadingUpdate,
+                updateState = updateState,
                 progress = viewModel.updateDownloadProgress,
+                bytesFormatted = bytesFormatted,
+                updateError = updateError,
                 onDownload = { viewModel.downloadAndInstallUpdate() },
-                onDismiss = { viewModel.showUpdateDialog = false }
+                onCancel = { viewModel.cancelUpdateDownload() },
+                onDismiss = {
+                    viewModel.cancelUpdateDownload()
+                    viewModel.showUpdateDialog = false
+                }
             )
         }
     }
@@ -844,11 +855,19 @@ fun MainScreen(viewModel: MainViewModel) {
 @Composable
 fun UpdateDialog(
     info: MainViewModel.UpdateInfo,
-    isDownloading: Boolean,
+    updateState: UpdateState,
     progress: Float,
+    bytesFormatted: String,
+    updateError: String?,
     onDownload: () -> Unit,
+    onCancel: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val isDownloading = updateState == UpdateState.CONNECTING ||
+            updateState == UpdateState.DOWNLOADING ||
+            updateState == UpdateState.VERIFYING ||
+            updateState == UpdateState.INSTALLING
+
     AlertDialog(
         onDismissRequest = { if (!isDownloading) onDismiss() },
         modifier = Modifier.fillMaxWidth(0.95f),
@@ -863,7 +882,22 @@ fun UpdateDialog(
                 ) {
                     Icon(Icons.Rounded.Download, null)
                     Spacer(Modifier.width(12.dp))
-                    Text(stringResource(R.string.btn_update_now), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                    Text(
+                        if (updateState == UpdateState.FAILED) stringResource(R.string.btn_retry) else stringResource(R.string.btn_update_now),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp
+                    )
+                }
+            } else {
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Rounded.Cancel, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.btn_cancel), fontWeight = FontWeight.Bold)
                 }
             }
         },
@@ -937,7 +971,7 @@ fun UpdateDialog(
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 240.dp),
+                            .heightIn(max = 200.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                         shape = RoundedCornerShape(20.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
@@ -957,6 +991,27 @@ fun UpdateDialog(
                     }
                 }
 
+                if (updateState == UpdateState.FAILED && updateError != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Rounded.Error, null, tint = MaterialTheme.colorScheme.error)
+                            Text(
+                                text = updateError,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+
                 if (isDownloading) {
                     Column(
                         modifier = Modifier
@@ -970,27 +1025,46 @@ fun UpdateDialog(
                             animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
                             label = "DownloadProgress"
                         )
-                        
+
+                        val statusText = when (updateState) {
+                            UpdateState.CONNECTING -> stringResource(R.string.notification_connecting)
+                            UpdateState.DOWNLOADING -> stringResource(R.string.update_downloading)
+                            UpdateState.VERIFYING -> stringResource(R.string.update_verifying)
+                            UpdateState.INSTALLING -> stringResource(R.string.update_installing)
+                            else -> stringResource(R.string.update_downloading)
+                        }
+
                         Text(
-                            stringResource(R.string.update_downloading),
+                            statusText,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        
+
                         Box(contentAlignment = Alignment.Center) {
-                            LinearProgressIndicator(
-                                progress = { animatedProgress },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(12.dp)
-                                    .clip(CircleShape),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.primaryContainer
-                            )
+                            if (updateState == UpdateState.CONNECTING || updateState == UpdateState.VERIFYING || (progress == 0f && updateState == UpdateState.DOWNLOADING)) {
+                                LinearProgressIndicator(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(12.dp)
+                                        .clip(CircleShape),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            } else {
+                                LinearProgressIndicator(
+                                    progress = { animatedProgress },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(12.dp)
+                                        .clip(CircleShape),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            }
                         }
-                        
+
                         Text(
-                            "${(progress * 100).toInt()}%",
+                            text = if (bytesFormatted.isNotEmpty()) "$bytesFormatted (${(progress * 100).toInt()}%)" else "${(progress * 100).toInt()}%",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary

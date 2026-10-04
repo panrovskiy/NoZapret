@@ -34,13 +34,13 @@ fun StrategyInfoDialog(
     testStat: Triple<Int, Int, Int>? = null,
     testResults: Map<String, MainViewModel.TlsTestResult>? = null,
     isTesting: Boolean = false,
-    fakeSniPool: List<String> = emptyList(),
+    fakeSni: String? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val strategy = Config.getStrategyByName(strategyName)
     val resolvedArgs = try {
-        Config.getStrategyArgs(strategyName, customArgs, fakeSniPool).joinToString(" ")
+        Config.getStrategyArgs(strategyName, customArgs, fakeSni).joinToString(" ")
     } catch (_: Exception) {
         null
     }
@@ -67,6 +67,10 @@ fun StrategyInfoDialog(
 
                 // Preset/Category Section
                 InfoSection(label = stringResource(R.string.label_preset), value = strategy?.category ?: "Custom")
+
+                // Fake SNI Section
+                val displayFakeSni = if (!fakeSni.isNullOrBlank()) fakeSni else stringResource(R.string.status_disabled)
+                InfoSection(label = "Fake SNI", value = displayFakeSni)
 
                 // Description Section
                 InfoSection(
@@ -97,13 +101,14 @@ fun StrategyInfoDialog(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
                         )
-                        if (resolvedArgs != null && resolvedArgs.isNotEmpty()) {
+                        val copiedMsg = stringResource(R.string.msg_logs_copied)
+                        if (!resolvedArgs.isNullOrEmpty()) {
                             IconButton(
                                 onClick = {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                     val clip = ClipData.newPlainText("Strategy Arguments", resolvedArgs)
                                     clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, context.getString(R.string.msg_logs_copied), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.size(24.dp)
                             ) {

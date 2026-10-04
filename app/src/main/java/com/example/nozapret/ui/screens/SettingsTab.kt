@@ -977,27 +977,31 @@ fun SettingsTab(
                     var filterPreset by remember { mutableStateOf("All") }
                     var showSortMenu by remember { mutableStateOf(false) }
 
+                    val currentTestingList = currentlyTesting.toList()
+                    val currentStats = stats.toMap()
+                    val currentCommitted = committedStats.toMap()
+                    val currentResults = testResults.toMap()
+
                     val allStrats = Config.STRATEGIES_DATA.filter { strat ->
                         filterPreset == "All" || strat.category == filterPreset
                     }.sortedWith { a, b ->
                         val aName = a.name
                         val bName = b.name
                         
-                        val aTesting = currentlyTesting.contains(aName)
-                        val bTesting = currentlyTesting.contains(bName)
+                        val aTesting = currentTestingList.contains(aName)
+                        val bTesting = currentTestingList.contains(bName)
                         
-                        // 1. Testing strategies always at the top
                         if (aTesting != bTesting) {
                             return@sortedWith if (aTesting) -1 else 1
                         }
                         
-                        val aStat = stats[aName] ?: committedStats[aName] ?: Triple(0, 0, 0)
-                        val bStat = stats[bName] ?: committedStats[bName] ?: Triple(0, 0, 0)
+                        val aStat = currentStats[aName] ?: currentCommitted[aName] ?: Triple(0, 0, 0)
+                        val bStat = currentStats[bName] ?: currentCommitted[bName] ?: Triple(0, 0, 0)
 
-                        val aResults = testResults[aName] ?: emptyMap()
-                        val bResults = testResults[bName] ?: emptyMap()
-                        val aAvgPing = if (aResults.isNotEmpty()) aResults.values.mapNotNull { it.ping }.average() else Double.MAX_VALUE
-                        val bAvgPing = if (bResults.isNotEmpty()) bResults.values.mapNotNull { it.ping }.average() else Double.MAX_VALUE
+                        val aRes = currentResults[aName] ?: emptyMap()
+                        val bRes = currentResults[bName] ?: emptyMap()
+                        val aAvgPing = if (aRes.isNotEmpty()) aRes.values.mapNotNull { it.ping }.average() else Double.MAX_VALUE
+                        val bAvgPing = if (bRes.isNotEmpty()) bRes.values.mapNotNull { it.ping }.average() else Double.MAX_VALUE
 
                         when (sortMode) {
                             StrategySortMode.PRESET -> {

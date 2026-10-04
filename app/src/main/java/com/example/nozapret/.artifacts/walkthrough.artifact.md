@@ -1,4 +1,4 @@
-# Walkthrough: NoZapret Production Enhancements
+# Walkthrough: Strategy Test Stability & Per-Strategy Fake SNI Improvements
 
 All planned features and bugfixes have been successfully implemented and verified with a clean build (`app:assembleDebug`).
 
@@ -6,35 +6,22 @@ All planned features and bugfixes have been successfully implemented and verifie
 
 ## Changes Made
 
-### 1. Editable Preset Management System
-- **Domain Validation & Normalization (`Config.kt`):** Added robust hostname sanitization and validation (`Config.validateDomain`) that strips protocol prefixes (`http://`, `https://`), trailing slashes, paths, and ports, while preventing duplicates and malformed entries.
-- **Persistence (`DataStoreManager.kt` & `SettingsManager.kt`):** Added `PRESET_OVERRIDES` storage to persist user modifications for every preset (YouTube, Discord, Telegram, Cloudflare, Socials, Torrent/Tools, etc.).
-- **Editor UI (`PresetEditorDialog.kt` & `SettingsTab.kt`):** Created a unified preset domain editor supporting Add, Edit, Remove, Clear List, and Restore Defaults with live domain counts.
-- **Testing Integration (`MainViewModel.kt`):** Updated `bypassedSites` to seamlessly incorporate user-edited preset lists so Strategy and Site tests immediately evaluate modified domains.
+### 1. Critical Strategy Test Stability & Crash Fixes
+- **Socket Leak Fix (`StrategyTester.kt`):** Wrapped raw TCP and SSL sockets in `try-finally` blocks in `fastTlsCheck` to ensure sockets are immediately closed on both success and error, eliminating File Descriptor (`EMFILE` / "Too many open files") exhaustion during batch test runs.
+- **Native Memory Lifecycle Fix (`StrategyTester.kt`):** Removed premature `jniCleanup()` calls from per-test `finally` blocks in `StrategyTester.kt` that were freeing `byedpi` C pointers while background native threads were still shutting down, eliminating `SIGSEGV` native crashes.
+- **State Race Condition Fix (`MainViewModel.kt` & `SettingsTab.kt`):** Enforced state modifications on `Dispatchers.Main` and used defensive immutable state snapshots (`stats.toMap()`, `testResults.toMap()`, `currentlyTesting.toList()`) during list sorting and Compose rendering in `SettingsTab.kt`.
 
-### 2. Configurable Decoy Fake SNI Pool
-- **Separation of Concerns:** Separated target domains from Fake SNI decoy hosts.
-- **Configurable Pool:** Managed via `SettingsManager` and persisted in DataStore (`FAKE_SNI_POOL`), defaulting to `www.google.com`, `yandex.ru`, `apple.com`, `wikipedia.org`.
-- **Strategy Integration (`Config.kt`):** Strategies using Fake SNI dynamically inject the configured pool, while strategies without Fake SNI remain untouched.
-- **Info Dialog & Testing:** `StrategyInfoDialog`, `StrategyTester`, and `DpiVpnService` reflect exact execution arguments.
+### 2. Per-Strategy Fake SNI (0 or 1 Domain)
+- **Data Model & Persistence:** Configured per-strategy Fake SNI stored in DataStore (`STRATEGY_FAKE_SNI_MAP`).
+- **Single-Domain Validation:** Enforced strictly 0 or 1 domain per strategy (`getFakeSniForStrategy` & `setFakeSniForStrategy`). Comma/newline/space multi-domain strings are rejected as invalid input.
+- **Strategy Isolation:** Updating Fake SNI for Strategy A only affects Strategy A and never overwrites Strategy B.
+- **Info Dialog:** Displays `Fake SNI: <domain>` or `Fake SNI: Disabled` and passes the strategy's resolved Fake SNI to `Config.getStrategyArgs` so displayed arguments match execution.
 
-### 3. AndroidManifest & Lint Cleanup
-- Removed unused `RECEIVE_BOOT_COMPLETED` permission.
-- Added `tools:targetApi="33"` on `localeConfig` to resolve SDK min/target level warnings.
-- Added `"tr"` to `localeFilters` in `app/build.gradle.kts`.
-
-### 4. Turkish (`tr`) Localization
-- Registered `tr` locale in `locales_config.xml` and added complete Turkish translations in `values-tr/strings.xml`.
-- Audited and added missing string keys across English, Russian, Kazakh, and Ukrainian locales.
-
-### 5. App Theme Selection & System/Light/Dark
-- Preserved Material 3 theme modes (System, Light, Dark) with immediate reactivity and persistence.
-
-### 6. About & Version Section in Settings
-- Added an About section at the end of Settings displaying NoZapret version (`2.3.5` from `BuildConfig.VERSION_NAME`) and ByeDPI engine version (`17.3`), with direct links opening official GitHub repositories (`https://github.com/panrovskiy/NoZapret` and `https://github.com/hagil/byedpi`).
-
-### 7. YouTube Long-Run Connection Stability
-- Updated `tunnel.yaml` in `DpiVpnService.kt` to increase `read-write-timeout` to 300,000ms (5 minutes) and `udp-read-write-timeout` to 60,000ms, preventing `hev-socks5-tunnel` from abruptly tearing down idle TCP/QUIC sessions during YouTube buffering pauses.
+### 3. Core Strategy Quality Overhaul
+- **Modern Ultra:** Updated to aggressive, valid `byedpi` parameters combining TLS record fragmentation (`--tlsrec 1+s`), desync disorder (`--disorder 1`), TCP split (`--split 2`), fake SNI (`www.google.com`), and QUIC block.
+- **Auto:** Implemented deterministic `getBestStrategy()` selection logic in `MainViewModel.kt` prioritizing highest successful site count, lowest average ping tie-break, and excluding failed strategies.
+- **YouTube/Google Fix:** Streamlined to valid single Fake SNI (`www.google.com`) with TCP split, TLS fragment, and QUIC block.
+- **Discord ALT & ALT2:** Meaningfully distinguished `ru_discord_alt` (TCP split 1, disorder, `--fake-sni discord.com`, UDP fake 5) from `ru_discord_alt2` (OOB split 2, disorder, `--fake-sni discord.gg`, UDP fake 15).
 
 ---
 

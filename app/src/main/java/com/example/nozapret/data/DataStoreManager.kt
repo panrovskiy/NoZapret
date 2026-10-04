@@ -33,6 +33,7 @@ class DataStoreManager(context: Context) {
         val RUN_MODE = stringPreferencesKey("run_mode") // VPN or Proxy
         val PRESET_OVERRIDES = stringPreferencesKey("preset_overrides") // JSON object map
         val FAKE_SNI_POOL = stringSetPreferencesKey("fake_sni_pool")
+        val STRATEGY_FAKE_SNI_MAP = stringPreferencesKey("strategy_fake_sni_map")
     }
 
     suspend fun <T> saveSetting(key: Preferences.Key<T>, value: T) {

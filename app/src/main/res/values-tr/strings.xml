@@ -270,6 +270,9 @@
     <string name="update_dialog_version">Sürüm %1$s mevcut</string>
     <string name="btn_update_now">Şimdi Güncelle</string>
     <string name="update_downloading">Güncelleme indiriliyor…</string>
+    <string name="update_verifying">Güncelleme paketi doğrulanıyor…</string>
+    <string name="update_installing">Yükleme hazırlanıyor…</string>
+    <string name="btn_retry">Tekrar Dene</string>
     <string name="msg_latest_version">En son sürümü kullanıyorsunuz</string>
     <string name="error_update_check">Güncellemeler kontrol edilemedi: %1$s</string>
     <string name="error_download_failed">İndirme başarısız: %1$s</string>
@@ -370,6 +373,7 @@
     <string name="status_testing">Test ediliyor…</string>
     <string name="status_success">Başarılı</string>
     <string name="status_failed">Başarısız</string>
+    <string name="status_disabled">Devre Dışı</string>
 
     <string name="result_sites_format">Siteler: %1$d / Başarılı: %2$d / Hata: %3$d</string>
     <string name="label_ping_format">Ping: %1$d ms</string>
