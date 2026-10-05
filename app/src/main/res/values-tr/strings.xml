@@ -392,9 +392,14 @@
     <string name="title_edit_domain">Alan Adını Düzenle</string>
     <string name="label_domain">Alan Adı</string>
     <string name="btn_edit_preset">Listeyi Düzenle</string>
-    <string name="section_fake_sni">Sahte SNI Havuzu (Fake SNI)</string>
-    <string name="fake_sni_subtitle">--fake-sni desenkronizasyonu için erişilebilir sunucular</string>
-    <string name="label_add_fake_sni">Sahte Sunucu Ekle</string>
+    <string name="section_fake_sni">Sahte SNI Yapılandırması</string>
+    <string name="fake_sni_subtitle">Desenkronizasyon stratejileri için kullanılacak sahte SNI alan adını yapılandırın</string>
+    <string name="label_use_per_strategy_fake_sni">Seçilen strateji için alan adları</string>
+    <string name="subtitle_use_per_strategy_fake_sni">Her strateji için ayrı bir Sahte SNI alan adı yapılandırın</string>
+    <string name="label_global_fake_sni">Genel Sahte SNI Alan Adı</string>
+    <string name="label_strategy_fake_sni">Strateji Sahte SNI Alan Adı</string>
+    <string name="msg_fake_sni_saved">Sahte SNI kaydedildi: %1$s</string>
+    <string name="error_single_domain_required">Tam olarak bir alan adı gereklidir (URL, boşluk veya liste olmadan)</string>
 
     <!-- Language -->
     <string name="lang_tr">Türkçe</string>

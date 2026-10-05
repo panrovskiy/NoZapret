@@ -202,15 +202,26 @@ class DpiVpnService : VpnService() {
         val port = try { portStr.toInt() } catch(_: Exception) { 1080 }
 
         val dnsServer = prefs[DataStoreManager.DNS_SERVER] ?: "1.1.1.1"
+        val globalFakeSni = prefs[DataStoreManager.GLOBAL_FAKE_SNI] ?: "yandex.ru"
+        val usePerStrategy = prefs[DataStoreManager.USE_PER_STRATEGY_FAKE_SNI] ?: false
         val mapJsonStr = prefs[DataStoreManager.STRATEGY_FAKE_SNI_MAP]
-        val customFakeSni = if (!mapJsonStr.isNullOrBlank()) {
+        val perStrategyMap = mutableMapOf<String, String>()
+        if (!mapJsonStr.isNullOrBlank()) {
             try {
                 val obj = JSONObject(mapJsonStr)
-                if (obj.has(lastStrategy!!)) obj.getString(lastStrategy!!) else null
-            } catch (_: Exception) { null }
-        } else null
+                val keys = obj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val valStr = obj.getString(key)
+                    if (valStr.isNotBlank()) perStrategyMap[key] = valStr
+                }
+            } catch (_: Exception) {}
+        }
+        val resolvedFakeSni = Config.resolveFakeSni(lastStrategy!!, globalFakeSni, usePerStrategy, perStrategyMap)
+        val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!, resolvedFakeSni)
 
-        val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!, customFakeSni)
+        AppLogger.i("YT", "[YT][NETWORK] connection started. Strategy: $lastStrategy, Mode: $runMode, Global: $lastGlobal, Resolved Fake SNI: $resolvedFakeSni")
+        AppLogger.i("FAKE_SNI", "[FAKE_SNI] global/per-strategy mode: usePerStrategy=$usePerStrategy, resolved domain: $resolvedFakeSni")
 
         try {
             var fd = -1
@@ -267,12 +278,7 @@ class DpiVpnService : VpnService() {
                 
                 finalArgs.addAll(strategyArgs)
                 
-                if (lastGlobal == false) {
-                    finalArgs.add("-A")
-                    finalArgs.add("none")
-                }
-                
-                Log.d("DpiVpnService", "Starting ByeDPI with: ${finalArgs.joinToString(" ")}")
+                AppLogger.d("VPN", "[VPN] Final ByeDPI args: ${finalArgs.joinToString(" ")}")
 
                 val proxyLaunch = launch {
                     val res = proxy.start(finalArgs.toTypedArray())
@@ -441,7 +447,7 @@ class DpiVpnService : VpnService() {
             misc:
               task-stack-size: 131072
               connect-timeout: 10000
-              read-write-timeout: 300000
+              tcp-read-write-timeout: 86400000
               udp-read-write-timeout: 60000
               max-session-count: 8192
               log-level: info

@@ -34,6 +34,9 @@ class DataStoreManager(context: Context) {
         val PRESET_OVERRIDES = stringPreferencesKey("preset_overrides") // JSON object map
         val FAKE_SNI_POOL = stringSetPreferencesKey("fake_sni_pool")
         val STRATEGY_FAKE_SNI_MAP = stringPreferencesKey("strategy_fake_sni_map")
+        val GLOBAL_FAKE_SNI = stringPreferencesKey("global_fake_sni")
+        val USE_PER_STRATEGY_FAKE_SNI = booleanPreferencesKey("use_per_strategy_fake_sni")
+        val STRATEGY_TEST_RESULTS = stringPreferencesKey("strategy_test_results")
     }
 
     suspend fun <T> saveSetting(key: Preferences.Key<T>, value: T) {

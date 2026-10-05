@@ -53,6 +53,22 @@ object Config {
     fun getStrategyById(id: String): Strategy? = STRATEGIES_DATA.find { it.id == id }
     fun getStrategyByName(name: String): Strategy? = STRATEGIES_DATA.find { it.name == name }
 
+    fun resolveFakeSni(
+        strategyName: String,
+        globalFakeSni: String,
+        usePerStrategyMode: Boolean,
+        perStrategyMap: Map<String, String>
+    ): String? {
+        val rawDomain = if (usePerStrategyMode) {
+            val custom = perStrategyMap[strategyName]
+            if (!custom.isNullOrBlank()) custom else globalFakeSni
+        } else {
+            globalFakeSni
+        }
+        val validated = validateDomain(rawDomain)
+        return if (validated.isSuccess) validated.getOrNull() else null
+    }
+
     fun getStrategyArgs(name: String, customArgs: String = "", fakeSni: String? = null): Array<String> {
         val baseArgs = when (name) {
             "Auto (Recommended)" -> arrayOf(
@@ -124,7 +140,7 @@ object Config {
                 "--drop-sack",
                 "--block-quic"
             )
-            "Simple Split" -> arrayOf("--split", "1", "--wait-send")
+            "Simple Split" -> arrayOf("--split", "2", "--wait-send")
             "Simple Fake" -> arrayOf("--tlsrec", "1+s", "--fake-sni", "yandex.ru")
             "Torrent/P2P Fix" -> arrayOf("--split", "1", "--udp-fake", "10", "--wait-send", "--drop-sack")
             "RU Discord (Alt 2)" -> arrayOf(
@@ -150,8 +166,8 @@ object Config {
                 "--wait-send",
                 "--auto", "s"
             )
-            "Simple Fake Discord Intense" -> arrayOf("--tlsrec", "1+s", "--fake-sni", "discord.com", "--udp-fake", "10")
-            "Simple Fake Discord Mobile" -> arrayOf("--tlsrec", "1+s", "--fake-sni", "discord.gg")
+            "Simple Fake Discord Intense" -> arrayOf("--tlsrec", "1+s", "--fake-sni", "yandex.ru", "--udp-fake", "10")
+            "Simple Fake Discord Mobile" -> arrayOf("--tlsrec", "1+s", "--fake-sni", "yandex.ru")
             "Modern YouTube (Extreme)" -> arrayOf(
                 "--tlsrec", "1+s",
                 "--disorder", "1",

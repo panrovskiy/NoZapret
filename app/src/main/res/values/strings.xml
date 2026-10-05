@@ -392,9 +392,14 @@
     <string name="title_edit_domain">Edit Domain</string>
     <string name="label_domain">Domain</string>
     <string name="btn_edit_preset">Edit List</string>
-    <string name="section_fake_sni">Fake SNI Decoy Pool</string>
-    <string name="fake_sni_subtitle">Reachable hosts used for --fake-sni desync</string>
-    <string name="label_add_fake_sni">Add Decoy Host</string>
+    <string name="section_fake_sni">Fake SNI Configuration</string>
+    <string name="fake_sni_subtitle">Configure fake SNI domain used for desync strategies</string>
+    <string name="label_use_per_strategy_fake_sni">Domains for selected strategy</string>
+    <string name="subtitle_use_per_strategy_fake_sni">Configure a separate Fake SNI domain for each strategy</string>
+    <string name="label_global_fake_sni">Global Fake SNI Domain</string>
+    <string name="label_strategy_fake_sni">Per-Strategy Fake SNI Domain</string>
+    <string name="msg_fake_sni_saved">Fake SNI saved: %1$s</string>
+    <string name="error_single_domain_required">Exactly one domain required (no URLs, spaces, or lists)</string>
 
     <!-- Language -->
     <string name="lang_tr">Türkçe</string>

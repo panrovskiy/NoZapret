@@ -626,11 +626,13 @@ fun MainScreen(viewModel: MainViewModel) {
                                 onEditDomainInPreset = viewModel::editDomainInPreset,
                                 onClearPresetDomains = viewModel::clearPresetDomains,
                                 onResetPresetDomainsToDefault = viewModel::resetPresetDomainsToDefault,
-                                fakeSniPool = viewModel.fakeSniPool,
-                                onAddFakeSniHost = viewModel::addFakeSniHost,
-                                onRemoveFakeSniHost = viewModel::removeFakeSniHost,
-                                onEditFakeSniHost = viewModel::editFakeSniHost,
-                                onResetFakeSniPoolToDefault = viewModel::resetFakeSniPoolToDefault
+                                globalFakeSni = viewModel.globalFakeSni,
+                                onGlobalFakeSniChange = viewModel::updateGlobalFakeSni,
+                                usePerStrategyFakeSni = viewModel.usePerStrategyFakeSni,
+                                onUsePerStrategyFakeSniChange = viewModel::updateUsePerStrategyFakeSni,
+                                getFakeSniForStrategy = viewModel::getFakeSniForStrategy,
+                                onSetFakeSniForStrategy = viewModel::setFakeSniForStrategy,
+                                onResetFakeSniForStrategy = viewModel::resetFakeSniForStrategy
                             )
                         }
 
@@ -653,7 +655,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 testStat = viewModel.stats[name] ?: viewModel.committedStats[name],
                 testResults = viewModel.testResults[name],
                 isTesting = viewModel.currentlyTesting.contains(name),
-                fakeSni = viewModel.getFakeSniForStrategy(name),
+                fakeSni = viewModel.getResolvedFakeSni(name),
                 onDismiss = { strategyForArgsInfo = null }
             )
         }

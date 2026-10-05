@@ -392,9 +392,14 @@
     <string name="title_edit_domain">Изменить домен</string>
     <string name="label_domain">Домен</string>
     <string name="btn_edit_preset">Редактировать список</string>
-    <string name="section_fake_sni">Пул поддельных SNI (Fake SNI)</string>
-    <string name="fake_sni_subtitle">Доступные хосты для десинхронизации --fake-sni</string>
-    <string name="label_add_fake_sni">Добавить поддельный хост</string>
+    <string name="section_fake_sni">Настройка Fake SNI</string>
+    <string name="fake_sni_subtitle">Настройка поддельного домена SNI для стратегий десинхронизации</string>
+    <string name="label_use_per_strategy_fake_sni">Домены для выбранной стратегии</string>
+    <string name="subtitle_use_per_strategy_fake_sni">Настроить отдельный домен Fake SNI для каждой стратегии</string>
+    <string name="label_global_fake_sni">Глобальный домен Fake SNI</string>
+    <string name="label_strategy_fake_sni">Домен Fake SNI для стратегии</string>
+    <string name="msg_fake_sni_saved">Fake SNI сохранен: %1$s</string>
+    <string name="error_single_domain_required">Требуется ровно один домен (без URL, пробелов или списков)</string>
 
     <!-- Language -->
     <string name="lang_tr">Türkçe</string>

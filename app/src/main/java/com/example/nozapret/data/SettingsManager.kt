@@ -3,6 +3,7 @@ package com.example.nozapret.data
 import android.app.Application
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.datastore.preferences.core.Preferences
 import com.example.nozapret.core.Config
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
@@ -34,10 +35,12 @@ class SettingsManager(private val application: Application, private val scope: C
     var customThemeBase by mutableStateOf("System")
     var runMode by mutableStateOf("VPN")
 
-    val presetDomains = mutableStateMapOf<String, SnapshotStateList<String>>()
-    val fakeSniPool = mutableStateListOf<String>()
+    // Fake SNI state
+    var globalFakeSni by mutableStateOf("yandex.ru")
+    var usePerStrategyFakeSni by mutableStateOf(false)
+    val strategyFakeSniMap = mutableStateMapOf<String, String>()
 
-    private val defaultFakeSniList = listOf("www.google.com", "yandex.ru", "apple.com", "wikipedia.org")
+    val presetDomains = mutableStateMapOf<String, SnapshotStateList<String>>()
 
     init {
         scope.launch {
@@ -58,24 +61,13 @@ class SettingsManager(private val application: Application, private val scope: C
             customThemeBase = prefs[DataStoreManager.CUSTOM_THEME_BASE] ?: "System"
             runMode = prefs[DataStoreManager.RUN_MODE] ?: "VPN"
 
+            globalFakeSni = prefs[DataStoreManager.GLOBAL_FAKE_SNI] ?: "yandex.ru"
+            usePerStrategyFakeSni = prefs[DataStoreManager.USE_PER_STRATEGY_FAKE_SNI] ?: false
+
             prefs[DataStoreManager.PINNED_STRATEGIES]?.let { pinnedStrategies.addAll(it) }
             prefs[DataStoreManager.ALLOWED_APPS]?.let { allowedApps.addAll(it) }
             prefs[DataStoreManager.SELECTED_PRESETS]?.let { selectedPresets.addAll(it) } ?: run {
                 selectedPresets.addAll(listOf("YouTube", "Telegram"))
-            }
-
-            // Load Fake SNI Pool
-            prefs[DataStoreManager.FAKE_SNI_POOL]?.let { set ->
-                if (set.isNotEmpty()) {
-                    fakeSniPool.clear()
-                    fakeSniPool.addAll(set)
-                } else {
-                    fakeSniPool.clear()
-                    fakeSniPool.addAll(defaultFakeSniList)
-                }
-            } ?: run {
-                fakeSniPool.clear()
-                fakeSniPool.addAll(defaultFakeSniList)
             }
 
             // Load Preset Overrides JSON
@@ -121,15 +113,15 @@ class SettingsManager(private val application: Application, private val scope: C
                     val keys = jsonObj.keys()
                     while (keys.hasNext()) {
                         val key = keys.next()
-                        strategyFakeSniMap[key] = jsonObj.getString(key)
+                        val valStr = jsonObj.getString(key)
+                        if (valStr.isNotBlank()) {
+                            strategyFakeSniMap[key] = valStr
+                        }
                     }
                 } catch (_: Exception) {}
             }
         }
     }
-
-    val strategyFakeSniMap = mutableStateMapOf<String, String>()
-
 
     fun updateSelectedStrategy(value: String) {
         selectedStrategy = value
@@ -287,68 +279,39 @@ class SettingsManager(private val application: Application, private val scope: C
         savePresetOverrides()
     }
 
-    fun addFakeSniHost(rawHost: String): Result<Unit> {
-        val validated = Config.validateDomain(rawHost)
+    // --- Fake SNI Management ---
+
+    fun updateGlobalFakeSni(rawDomain: String): Result<Unit> {
+        val validated = Config.validateDomain(rawDomain)
         if (validated.isFailure) return Result.failure(validated.exceptionOrNull()!!)
-        val host = validated.getOrThrow()
-
-        if (fakeSniPool.contains(host)) {
-            return Result.failure(IllegalArgumentException("Host already exists in Fake SNI pool"))
-        }
-
-        fakeSniPool.add(host)
-        saveFakeSniPool()
+        val domain = validated.getOrThrow()
+        globalFakeSni = domain
+        save(DataStoreManager.GLOBAL_FAKE_SNI, domain)
         return Result.success(Unit)
     }
 
-    fun removeFakeSniHost(host: String) {
-        if (fakeSniPool.size <= 1) {
-            return
-        }
-        if (fakeSniPool.remove(host)) {
-            saveFakeSniPool()
-        }
+    fun updateUsePerStrategyFakeSni(enabled: Boolean) {
+        usePerStrategyFakeSni = enabled
+        save(DataStoreManager.USE_PER_STRATEGY_FAKE_SNI, enabled)
     }
 
-    fun editFakeSniHost(oldHost: String, newRawHost: String): Result<Unit> {
-        val validated = Config.validateDomain(newRawHost)
-        if (validated.isFailure) return Result.failure(validated.exceptionOrNull()!!)
-        val newHost = validated.getOrThrow()
-
-        if (newHost != oldHost && fakeSniPool.contains(newHost)) {
-            return Result.failure(IllegalArgumentException("Host already exists in Fake SNI pool"))
-        }
-
-        val idx = fakeSniPool.indexOf(oldHost)
-        if (idx >= 0) {
-            fakeSniPool[idx] = newHost
-        } else {
-            fakeSniPool.add(newHost)
-        }
-        saveFakeSniPool()
-        return Result.success(Unit)
-    }
-
-    fun resetFakeSniPoolToDefault() {
-        fakeSniPool.clear()
-        fakeSniPool.addAll(defaultFakeSniList)
-        saveFakeSniPool()
+    fun getResolvedFakeSni(strategyName: String): String? {
+        return Config.resolveFakeSni(strategyName, globalFakeSni, usePerStrategyFakeSni, strategyFakeSniMap)
     }
 
     fun getFakeSniForStrategy(strategyName: String): String? {
-        val customValue = strategyFakeSniMap[strategyName]
-        if (customValue != null) {
-            return if (customValue.isBlank()) null else customValue
+        val custom = strategyFakeSniMap[strategyName]
+        if (!custom.isNullOrBlank()) {
+            val validated = Config.validateDomain(custom)
+            if (validated.isSuccess) return validated.getOrNull()
         }
-        val defaultArgs = Config.getStrategyArgs(strategyName)
-        val idx = defaultArgs.indexOf("--fake-sni")
-        return if (idx >= 0 && idx + 1 < defaultArgs.size) defaultArgs[idx + 1] else null
+        return globalFakeSni
     }
 
     fun setFakeSniForStrategy(strategyName: String, rawFakeSni: String?): Result<Unit> {
         val trimmed = rawFakeSni?.trim() ?: ""
         if (trimmed.isEmpty()) {
-            strategyFakeSniMap[strategyName] = ""
+            strategyFakeSniMap.remove(strategyName)
             saveStrategyFakeSniMap()
             return Result.success(Unit)
         }
@@ -397,13 +360,7 @@ class SettingsManager(private val application: Application, private val scope: C
         }
     }
 
-    private fun saveFakeSniPool() {
-        scope.launch(Dispatchers.IO) {
-            dataStoreManager.saveSetting(DataStoreManager.FAKE_SNI_POOL, fakeSniPool.toSet())
-        }
-    }
-
-    private fun <T> save(key: androidx.datastore.preferences.core.Preferences.Key<T>, value: T) {
+    private fun <T> save(key: Preferences.Key<T>, value: T) {
         scope.launch(Dispatchers.IO) {
             dataStoreManager.saveSetting(key, value)
         }

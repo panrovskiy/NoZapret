@@ -390,9 +390,14 @@
     <string name="title_edit_domain">Доменді өзгерту</string>
     <string name="label_domain">Домен</string>
     <string name="btn_edit_preset">Тізімді өңдеу</string>
-    <string name="section_fake_sni">Жалған SNI пулы (Fake SNI)</string>
-    <string name="fake_sni_subtitle">--fake-sni десинхронизациясы үшін қолжетімді хосттар</string>
-    <string name="label_add_fake_sni">Жалған хост қосу</string>
+    <string name="section_fake_sni">Fake SNI баптауы</string>
+    <string name="fake_sni_subtitle">Десинхронизация стратегиялары үшін жалған SNI доменін баптау</string>
+    <string name="label_use_per_strategy_fake_sni">Тандалған стратегия үшін домендер</string>
+    <string name="subtitle_use_per_strategy_fake_sni">Әр стратегия үшін жеке Fake SNI доменін баптау</string>
+    <string name="label_global_fake_sni">Глобальды Fake SNI домені</string>
+    <string name="label_strategy_fake_sni">Стратегия үшін Fake SNI домені</string>
+    <string name="msg_fake_sni_saved">Fake SNI сақталды: %1$s</string>
+    <string name="error_single_domain_required">Дәл бір домен қажет (URL, бос орын немесе тізімсіз)</string>
 
     <!-- Language -->
     <string name="lang_tr">Türkçe</string>

@@ -111,8 +111,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var isQuickTesting by mutableStateOf(false)
     var quickTestStrategy by mutableStateOf("None")
 
-    val fakeSniPool get() = settingsManager.fakeSniPool
-
     fun getPresetDomains(name: String): List<String> = settingsManager.getPresetDomains(name)
     fun addDomainToPreset(name: String, rawDomain: String): Result<Unit> = settingsManager.addDomainToPreset(name, rawDomain)
     fun removeDomainFromPreset(name: String, domain: String) = settingsManager.removeDomainFromPreset(name, domain)
@@ -120,14 +118,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearPresetDomains(name: String) = settingsManager.clearPresetDomains(name)
     fun resetPresetDomainsToDefault(name: String) = settingsManager.resetPresetDomainsToDefault(name)
 
-    fun addFakeSniHost(rawHost: String): Result<Unit> = settingsManager.addFakeSniHost(rawHost)
-    fun removeFakeSniHost(host: String) = settingsManager.removeFakeSniHost(host)
-    fun editFakeSniHost(oldHost: String, newRawHost: String): Result<Unit> = settingsManager.editFakeSniHost(oldHost, newRawHost)
-    fun resetFakeSniPoolToDefault() = settingsManager.resetFakeSniPoolToDefault()
+    var globalFakeSni by settingsManager::globalFakeSni
+    var usePerStrategyFakeSni by settingsManager::usePerStrategyFakeSni
+
+    fun updateGlobalFakeSni(domain: String): Result<Unit> = settingsManager.updateGlobalFakeSni(domain)
+    fun updateUsePerStrategyFakeSni(enabled: Boolean) = settingsManager.updateUsePerStrategyFakeSni(enabled)
+    fun getResolvedFakeSni(strategyName: String): String? = settingsManager.getResolvedFakeSni(strategyName)
 
     fun getFakeSniForStrategy(strategyName: String): String? = settingsManager.getFakeSniForStrategy(strategyName)
     fun setFakeSniForStrategy(strategyName: String, rawFakeSni: String?): Result<Unit> = settingsManager.setFakeSniForStrategy(strategyName, rawFakeSni)
     fun resetFakeSniForStrategy(strategyName: String) = settingsManager.resetFakeSniForStrategy(strategyName)
+
+    fun getStrategyAveragePing(strategyName: String): Double? {
+        val results = testResults[strategyName] ?: return null
+        val validPings = results.values.filter { it.success && it.ping != null && it.ping > 0 }.mapNotNull { it.ping }
+        if (validPings.isEmpty()) return null
+        val avg = validPings.average()
+        return if (avg.isNaN() || avg <= 0) null else avg
+    }
 
     val bypassedSites: List<String>
         get() {
@@ -579,12 +587,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val root = JSONObject()
                 committedStats.forEach { (name, triple) ->
-                    val stat = JSONObject().apply {
+                    val statObj = JSONObject().apply {
                         put("success", triple.first)
                         put("tested", triple.second)
                         put("total", triple.third)
+
+                        val stratResults = testResults[name]
+                        if (stratResults != null && stratResults.isNotEmpty()) {
+                            val resultsObj = JSONObject()
+                            stratResults.forEach { (site, res) ->
+                                val resObj = JSONObject().apply {
+                                    put("success", res.success)
+                                    res.ping?.let { put("ping", it) }
+                                    res.protocol?.let { put("protocol", it) }
+                                    res.cipherSuite?.let { put("cipherSuite", it) }
+                                    res.error?.let { put("error", it) }
+                                    put("httpSuccess", res.httpSuccess)
+                                    res.httpError?.let { put("httpError", it) }
+                                }
+                                resultsObj.put(site, resObj)
+                            }
+                            put("results", resultsObj)
+                        }
                     }
-                    root.put(name, stat)
+                    root.put(name, statObj)
                 }
                 sharedPrefs.edit { putString("committed_stats", root.toString()) }
             } catch (e: Exception) {
@@ -600,8 +626,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val root = JSONObject(statsStr)
                 root.keys().forEach { name ->
                     val stat = root.getJSONObject(name)
-                    committedStats[name] = Triple(stat.getInt("success"), stat.getInt("tested"), stat.getInt("total"))
-                    stats[name] = committedStats[name]!!
+                    val success = stat.getInt("success")
+                    val tested = stat.getInt("tested")
+                    val total = stat.getInt("total")
+                    committedStats[name] = Triple(success, tested, total)
+                    stats[name] = Triple(success, tested, total)
+
+                    if (stat.has("results")) {
+                        val resultsObj = stat.getJSONObject("results")
+                        val resultMap = mutableMapOf<String, TlsTestResult>()
+                        resultsObj.keys().forEach { site ->
+                            val r = resultsObj.getJSONObject(site)
+                            val res = TlsTestResult(
+                                success = r.getBoolean("success"),
+                                ping = if (r.has("ping")) r.getLong("ping") else null,
+                                protocol = if (r.has("protocol")) r.getString("protocol") else null,
+                                cipherSuite = if (r.has("cipherSuite")) r.getString("cipherSuite") else null,
+                                error = if (r.has("error")) r.getString("error") else null,
+                                httpSuccess = if (r.has("httpSuccess")) r.getBoolean("httpSuccess") else false,
+                                httpError = if (r.has("httpError")) r.getString("httpError") else null
+                            )
+                            resultMap[site] = res
+                        }
+                        testResults[name] = resultMap
+                    }
                 }
             }
         } catch (e: Exception) {

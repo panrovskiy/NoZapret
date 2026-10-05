@@ -390,9 +390,14 @@
     <string name="title_edit_domain">Змінити домен</string>
     <string name="label_domain">Домен</string>
     <string name="btn_edit_preset">Редагувати список</string>
-    <string name="section_fake_sni">Пул фейкових SNI (Fake SNI)</string>
-    <string name="fake_sni_subtitle">Доступні хости для десинхронізації --fake-sni</string>
-    <string name="label_add_fake_sni">Додати фейковий хост</string>
+    <string name="section_fake_sni">Налаштування Fake SNI</string>
+    <string name="fake_sni_subtitle">Налаштування фейкового домену SNI для стратегій десинхронізації</string>
+    <string name="label_use_per_strategy_fake_sni">Домени для вибраної стратегії</string>
+    <string name="subtitle_use_per_strategy_fake_sni">Налаштувати окремий домен Fake SNI для кожної стратегії</string>
+    <string name="label_global_fake_sni">Глобальний домен Fake SNI</string>
+    <string name="label_strategy_fake_sni">Домен Fake SNI для стратегії</string>
+    <string name="msg_fake_sni_saved">Fake SNI збережено: %1$s</string>
+    <string name="error_single_domain_required">Потрібен рівно один домен (без URL, пробілів або списків)</string>
 
     <!-- Language -->
     <string name="lang_tr">Türkçe</string>

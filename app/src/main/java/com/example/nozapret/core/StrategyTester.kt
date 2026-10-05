@@ -75,16 +75,25 @@ class StrategyTester(private val application: Application) {
         }
 
         val dataStoreManager = DataStoreManager(application)
+        val globalFakeSni = dataStoreManager.getSetting(DataStoreManager.GLOBAL_FAKE_SNI, "yandex.ru").first()
+        val usePerStrategy = dataStoreManager.getSetting(DataStoreManager.USE_PER_STRATEGY_FAKE_SNI, false).first()
         val mapJsonStr = dataStoreManager.getSetting(DataStoreManager.STRATEGY_FAKE_SNI_MAP, "").first()
-        val customFakeSni = if (mapJsonStr.isNotBlank()) {
+        val perStrategyMap = mutableMapOf<String, String>()
+        if (mapJsonStr.isNotBlank()) {
             try {
                 val obj = JSONObject(mapJsonStr)
-                if (obj.has(strategyName)) obj.getString(strategyName) else null
-            } catch (_: Exception) { null }
-        } else null
+                val keys = obj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val valStr = obj.getString(key)
+                    if (valStr.isNotBlank()) perStrategyMap[key] = valStr
+                }
+            } catch (_: Exception) {}
+        }
+        val resolvedFakeSni = Config.resolveFakeSni(strategyName, globalFakeSni, usePerStrategy, perStrategyMap)
 
         val strategyArgs = try {
-            Config.getStrategyArgs(strategyName, customArgs, customFakeSni)
+            Config.getStrategyArgs(strategyName, customArgs, resolvedFakeSni)
         } catch (e: Exception) {
             AppLogger.e("TEST", "[TEST] Failed to generate args for $strategyName: ${e.message}")
             return@withContext false
@@ -120,8 +129,6 @@ class StrategyTester(private val application: Application) {
             finalArgs.add("--hosts")
             finalArgs.add(hostlistFile.absolutePath)
             finalArgs.addAll(strategyArgs)
-            finalArgs.add("-A")
-            finalArgs.add("none")
             finalArgs.add("-P")
             finalArgs.add("protect")
 
