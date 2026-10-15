@@ -133,13 +133,16 @@ fun SettingsTab(
     onEditDomainInPreset: (String, String, String) -> Result<Unit>,
     onClearPresetDomains: (String) -> Unit,
     onResetPresetDomainsToDefault: (String) -> Unit,
-    globalFakeSni: String,
-    onGlobalFakeSniChange: (String) -> Result<Unit>,
-    usePerStrategyFakeSni: Boolean,
-    onUsePerStrategyFakeSniChange: (Boolean) -> Unit,
-    getFakeSniForStrategy: (String) -> String?,
-    onSetFakeSniForStrategy: (String, String?) -> Result<Unit>,
-    onResetFakeSniForStrategy: (String) -> Unit,
+    fakeSniPool: List<String> = emptyList(),
+    onAddFakeSniHost: (String) -> Result<Unit> = { Result.success(Unit) },
+    onRemoveFakeSniHost: (String) -> Unit = {},
+    onEditFakeSniHost: (String, String) -> Result<Unit> = { _, _ -> Result.success(Unit) },
+    onResetFakeSniPoolToDefault: () -> Unit = {},
+    customStrategies: List<Config.CustomStrategy> = emptyList(),
+    onAddCustomStrategy: (Config.CustomStrategy) -> Result<Unit> = { Result.success(Unit) },
+    onUpdateCustomStrategy: (Config.CustomStrategy) -> Result<Unit> = { Result.success(Unit) },
+    onDeleteCustomStrategy: (String) -> Unit = {},
+    onDuplicateCustomStrategy: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     var showAppPicker by remember { mutableStateOf(false) }
@@ -815,7 +818,7 @@ fun SettingsTab(
                                 title = stringResource(R.string.section_fake_sni),
                                 icon = Icons.Rounded.Security
                             ) {
-                                Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text(
                                         text = stringResource(R.string.fake_sni_subtitle),
                                         style = MaterialTheme.typography.bodySmall,
@@ -823,174 +826,119 @@ fun SettingsTab(
                                         modifier = Modifier.padding(horizontal = 4.dp)
                                     )
 
-                                    // Per-strategy switch
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                            Text(
-                                                stringResource(R.string.label_use_per_strategy_fake_sni),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Text(
-                                                stringResource(R.string.subtitle_use_per_strategy_fake_sni),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                        Switch(
-                                            checked = usePerStrategyFakeSni,
-                                            onCheckedChange = { onUsePerStrategyFakeSniChange(it) }
-                                        )
-                                    }
+                                    var newFakeSniInput by remember { mutableStateOf("") }
+                                    var fakeSniError by remember { mutableStateOf<String?>(null) }
+                                    var editingFakeSniHost by remember { mutableStateOf<String?>(null) }
+                                    var editFakeSniInput by remember { mutableStateOf("") }
 
-                                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                                    // Global Fake SNI domain field
-                                    var globalInput by remember(globalFakeSni) { mutableStateOf(globalFakeSni) }
-                                    var globalError by remember { mutableStateOf<String?>(null) }
-
-                                    Text(
-                                        stringResource(R.string.label_global_fake_sni),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold
-                                    )
-
-                                    val defaultErr = stringResource(R.string.error_invalid_domain)
-                                    val savedMsg = stringResource(R.string.msg_fake_sni_saved)
-
+                                    val localContext = context
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         OutlinedTextField(
-                                            value = globalInput,
+                                            value = newFakeSniInput,
                                             onValueChange = {
-                                                globalInput = it
-                                                globalError = null
+                                                newFakeSniInput = it
+                                                fakeSniError = null
                                             },
-                                            label = { Text(stringResource(R.string.label_global_fake_sni)) },
+                                            label = { Text(stringResource(R.string.label_add_fake_sni)) },
                                             modifier = Modifier.weight(1f),
                                             singleLine = true,
-                                            shape = MaterialTheme.shapes.medium,
-                                            isError = globalError != null
+                                            shape = MaterialTheme.shapes.medium
                                         )
-                                        Button(
+                                        IconButton(
                                             onClick = {
-                                                val res = onGlobalFakeSniChange(globalInput)
-                                                if (res.isFailure) {
-                                                    globalError = res.exceptionOrNull()?.message ?: defaultErr
-                                                } else {
-                                                    globalError = null
-                                                    Toast.makeText(context, String.format(savedMsg, globalInput.trim()), Toast.LENGTH_SHORT).show()
+                                                if (newFakeSniInput.isNotBlank()) {
+                                                    val res = onAddFakeSniHost(newFakeSniInput)
+                                                    if (res.isSuccess) {
+                                                        newFakeSniInput = ""
+                                                        fakeSniError = null
+                                                    } else {
+                                                        fakeSniError = res.exceptionOrNull()?.message ?: localContext.getString(R.string.error_invalid_domain)
+                                                    }
                                                 }
                                             },
-                                            shape = MaterialTheme.shapes.medium
+                                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary)
                                         ) {
-                                            Text(stringResource(R.string.btn_save))
+                                            Icon(Icons.Rounded.Add, null)
                                         }
                                     }
-                                    globalError?.let { err ->
+
+                                    fakeSniError?.let { err ->
                                         Text(text = err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                                     }
 
-                                    // Per-strategy configuration section if enabled
-                                    if (usePerStrategyFakeSni) {
-                                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                                        Text(
-                                            stringResource(R.string.label_strategy_fake_sni),
-                                            style = MaterialTheme.typography.labelLarge,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Bold
-                                        )
-
-                                        var selectedStrategyForSni by remember { mutableStateOf("Auto (Recommended)") }
-                                        var strategySniExpanded by remember { mutableStateOf(false) }
-                                        val currentStratSni = getFakeSniForStrategy(selectedStrategyForSni) ?: globalFakeSni
-                                        var stratSniInput by remember(selectedStrategyForSni, currentStratSni) { mutableStateOf(currentStratSni) }
-                                        var stratSniError by remember { mutableStateOf<String?>(null) }
-
-                                        ExposedDropdownMenuBox(
-                                            expanded = strategySniExpanded,
-                                            onExpandedChange = { strategySniExpanded = it }
-                                        ) {
-                                            OutlinedTextField(
-                                                value = getLocalizedStrategyName(selectedStrategyForSni),
-                                                onValueChange = {},
-                                                readOnly = true,
-                                                label = { Text(stringResource(R.string.title_select_strategy)) },
-                                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = strategySniExpanded) },
-                                                modifier = Modifier.menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-                                                shape = MaterialTheme.shapes.medium
-                                            )
-                                            ExposedDropdownMenu(
-                                                expanded = strategySniExpanded,
-                                                onDismissRequest = { strategySniExpanded = false }
-                                            ) {
-                                                Config.STRATEGIES_DATA.forEach { strat ->
-                                                    DropdownMenuItem(
-                                                        text = { Text(getLocalizedStrategyName(strat.name)) },
-                                                        onClick = {
-                                                            selectedStrategyForSni = strat.name
-                                                            strategySniExpanded = false
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                        shape = MaterialTheme.shapes.medium,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            fakeSniPool.forEach { host ->
+                                                ListItem(
+                                                    headlineContent = { Text(host, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium) },
+                                                    trailingContent = {
+                                                        Row {
+                                                            IconButton(onClick = {
+                                                                editingFakeSniHost = host
+                                                                editFakeSniInput = host
+                                                            }) {
+                                                                Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                                            }
+                                                            if (fakeSniPool.size > 1) {
+                                                                IconButton(onClick = { onRemoveFakeSniHost(host) }) {
+                                                                    Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                                                                }
+                                                            }
                                                         }
-                                                    )
+                                                    },
+                                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onResetFakeSniPoolToDefault,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(stringResource(R.string.btn_restore_defaults))
+                                    }
+
+                                    val invalidDomainText = stringResource(R.string.error_invalid_domain)
+                                    editingFakeSniHost?.let { oldHost ->
+                                        AlertDialog(
+                                            onDismissRequest = { editingFakeSniHost = null },
+                                            title = { Text(stringResource(R.string.title_edit_domain)) },
+                                            text = {
+                                                OutlinedTextField(
+                                                    value = editFakeSniInput,
+                                                    onValueChange = { editFakeSniInput = it },
+                                                    label = { Text(stringResource(R.string.label_domain)) },
+                                                    singleLine = true,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            },
+                                            confirmButton = {
+                                                Button(onClick = {
+                                                    val res = onEditFakeSniHost(oldHost, editFakeSniInput)
+                                                    if (res.isSuccess) {
+                                                        editingFakeSniHost = null
+                                                    } else {
+                                                        Toast.makeText(context, res.exceptionOrNull()?.message ?: invalidDomainText, Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }) {
+                                                    Text(stringResource(R.string.btn_save))
+                                                }
+                                            },
+                                            dismissButton = {
+                                                TextButton(onClick = { editingFakeSniHost = null }) {
+                                                    Text(stringResource(R.string.btn_cancel))
                                                 }
                                             }
-                                        }
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            OutlinedTextField(
-                                                value = stratSniInput,
-                                                onValueChange = {
-                                                    stratSniInput = it
-                                                    stratSniError = null
-                                                },
-                                                label = { Text("Fake SNI for $selectedStrategyForSni") },
-                                                modifier = Modifier.weight(1f),
-                                                singleLine = true,
-                                                shape = MaterialTheme.shapes.medium,
-                                                isError = stratSniError != null
-                                            )
-                                            Button(
-                                                onClick = {
-                                                    val res = onSetFakeSniForStrategy(selectedStrategyForSni, stratSniInput)
-                                                    if (res.isFailure) {
-                                                        stratSniError = res.exceptionOrNull()?.message ?: defaultErr
-                                                    } else {
-                                                        stratSniError = null
-                                                        Toast.makeText(context, String.format(savedMsg, stratSniInput.trim()), Toast.LENGTH_SHORT).show()
-                                                    }
-                                                },
-                                                shape = MaterialTheme.shapes.medium
-                                            ) {
-                                                Text(stringResource(R.string.btn_save))
-                                            }
-                                        }
-                                        stratSniError?.let { err ->
-                                            Text(text = err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                                        }
-
-                                        OutlinedButton(
-                                            onClick = {
-                                                onResetFakeSniForStrategy(selectedStrategyForSni)
-                                                stratSniInput = globalFakeSni
-                                                Toast.makeText(context, "Reset to global default", Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text(stringResource(R.string.btn_restore_defaults))
-                                        }
+                                        )
                                     }
                                 }
                             }

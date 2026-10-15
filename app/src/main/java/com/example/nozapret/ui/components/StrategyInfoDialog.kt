@@ -13,7 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -27,6 +27,7 @@ import com.example.nozapret.core.Config
 import com.example.nozapret.ui.getLocalizedStrategyDesc
 import com.example.nozapret.ui.getLocalizedStrategyName
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StrategyInfoDialog(
     strategyName: String,
@@ -35,6 +36,8 @@ fun StrategyInfoDialog(
     testResults: Map<String, MainViewModel.TlsTestResult>? = null,
     isTesting: Boolean = false,
     fakeSni: String? = null,
+    fakeSniPool: List<String> = emptyList(),
+    onSetFakeSni: ((String, String?) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -69,8 +72,64 @@ fun StrategyInfoDialog(
                 InfoSection(label = stringResource(R.string.label_preset), value = strategy?.category ?: "Custom")
 
                 // Fake SNI Section
-                val displayFakeSni = if (!fakeSni.isNullOrBlank()) fakeSni else stringResource(R.string.status_disabled)
-                InfoSection(label = "Fake SNI", value = displayFakeSni)
+                val supportsSni = Config.supportsFakeSni(strategyName)
+                val displayFakeSni = if (!supportsSni) {
+                    stringResource(R.string.status_not_supported)
+                } else if (!fakeSni.isNullOrBlank()) {
+                    fakeSni
+                } else {
+                    stringResource(R.string.status_disabled)
+                }
+
+                if (supportsSni && onSetFakeSni != null && fakeSniPool.isNotEmpty()) {
+                    var sniExpanded by remember { mutableStateOf(false) }
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            "Fake SNI",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        ExposedDropdownMenuBox(
+                            expanded = sniExpanded,
+                            onExpandedChange = { sniExpanded = it },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = displayFakeSni,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sniExpanded) },
+                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                modifier = Modifier.menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+                                shape = MaterialTheme.shapes.medium
+                            )
+                            ExposedDropdownMenu(
+                                expanded = sniExpanded,
+                                onDismissRequest = { sniExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.status_disabled)) },
+                                    onClick = {
+                                        onSetFakeSni(strategyName, "")
+                                        sniExpanded = false
+                                    }
+                                )
+                                fakeSniPool.forEach { host ->
+                                    DropdownMenuItem(
+                                        text = { Text(host) },
+                                        onClick = {
+                                            onSetFakeSni(strategyName, host)
+                                            sniExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    InfoSection(label = "Fake SNI", value = displayFakeSni)
+                }
 
                 // Description Section
                 InfoSection(

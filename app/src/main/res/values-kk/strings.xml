@@ -398,6 +398,9 @@
     <string name="label_strategy_fake_sni">Стратегия үшін Fake SNI домені</string>
     <string name="msg_fake_sni_saved">Fake SNI сақталды: %1$s</string>
     <string name="error_single_domain_required">Дәл бір домен қажет (URL, бос орын немесе тізімсіз)</string>
+    <string name="status_not_supported">Қолдау көрсетілмейді</string>
+    <string name="btn_create_custom_strategy">Өз стратегиясын жасау</string>
+    <string name="label_add_fake_sni">Жалған хост қосу</string>
 
     <!-- Language -->
     <string name="lang_tr">Türkçe</string>

@@ -17,6 +17,18 @@ object Config {
         val defaultArgs: String = ""
     )
 
+    data class CustomStrategy(
+        val id: String,
+        val name: String,
+        val description: String = "",
+        val backend: String = "ByeDPI",
+        val userArgs: String = "",
+        val fakeSni: String? = null,
+        val category: String = "User Custom",
+        val createdAt: Long = System.currentTimeMillis(),
+        val updatedAt: Long = System.currentTimeMillis()
+    )
+
     val STRATEGIES_DATA = listOf(
         Strategy("auto", "Auto (Recommended)", "Adaptive multi-stage bypass (Split, Disorder, TLS Fragment, Fake SNI).", "General"),
         Strategy("modern_ultra", "Modern Ultra", "Aggressive combination of TLS fragmentation and multi-stage desync.", "Modern"),
@@ -53,20 +65,45 @@ object Config {
     fun getStrategyById(id: String): Strategy? = STRATEGIES_DATA.find { it.id == id }
     fun getStrategyByName(name: String): Strategy? = STRATEGIES_DATA.find { it.name == name }
 
+    fun supportsFakeSni(name: String): Boolean {
+        val fakeSniStrategies = setOf(
+            "Auto (Recommended)",
+            "Modern Ultra",
+            "YouTube/Google Fix",
+            "RU Discord (Alt)",
+            "Simple Fake",
+            "Simple Fake Discord Intense",
+            "Simple Fake Discord Mobile"
+        )
+        if (fakeSniStrategies.contains(name)) return true
+        val strat = getStrategyByName(name)
+        if (strat != null && (strat.category == "Simple Fake" || strat.category == "Fake")) return true
+        if (name == "Custom" || name.startsWith("custom_")) return true
+        return false
+    }
+
     fun resolveFakeSni(
         strategyName: String,
-        globalFakeSni: String,
-        usePerStrategyMode: Boolean,
-        perStrategyMap: Map<String, String>
+        strategyFakeSniMap: Map<String, String>,
+        fakeSniPool: List<String>,
+        globalMode: Boolean
     ): String? {
-        val rawDomain = if (usePerStrategyMode) {
-            val custom = perStrategyMap[strategyName]
-            if (!custom.isNullOrBlank()) custom else globalFakeSni
-        } else {
-            globalFakeSni
+        if (!supportsFakeSni(strategyName)) {
+            return null
         }
-        val validated = validateDomain(rawDomain)
-        return if (validated.isSuccess) validated.getOrNull() else null
+        val mappedValue = strategyFakeSniMap[strategyName]
+        if (mappedValue != null) {
+            return mappedValue.trim().ifEmpty { null }
+        }
+        if (globalMode && fakeSniPool.isNotEmpty()) {
+            return fakeSniPool.firstOrNull()?.trim()?.ifEmpty { null }
+        }
+        val defaultArgs = getStrategyArgs(strategyName)
+        val idx = defaultArgs.indexOf("--fake-sni")
+        if (idx >= 0 && idx + 1 < defaultArgs.size) {
+            return defaultArgs[idx + 1].trim().ifEmpty { null }
+        }
+        return null
     }
 
     fun getStrategyArgs(name: String, customArgs: String = "", fakeSni: String? = null): Array<String> {
@@ -197,12 +234,12 @@ object Config {
 
         val activeFakeSni = fakeSni?.trim()
 
-        if (activeFakeSni != null) {
+        if (activeFakeSni != null && supportsFakeSni(name)) {
             val resultList = mutableListOf<String>()
             var i = 0
             while (i < baseArgs.size) {
                 val arg = baseArgs[i]
-                if (arg == "--fake-sni") {
+                if (arg == "--fake-sni" || arg == "-n") {
                     if (i + 1 < baseArgs.size && !baseArgs[i + 1].startsWith("-")) {
                         i++
                     }
@@ -278,7 +315,7 @@ object Config {
         return Result.success(domainName)
     }
 
-    private fun parseCustomArgs(args: String): Array<String> {
+    fun parseCustomArgs(args: String): Array<String> {
         val result = mutableListOf<String>()
         val current = StringBuilder()
         var inQuotes = false

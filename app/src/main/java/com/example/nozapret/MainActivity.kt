@@ -626,13 +626,16 @@ fun MainScreen(viewModel: MainViewModel) {
                                 onEditDomainInPreset = viewModel::editDomainInPreset,
                                 onClearPresetDomains = viewModel::clearPresetDomains,
                                 onResetPresetDomainsToDefault = viewModel::resetPresetDomainsToDefault,
-                                globalFakeSni = viewModel.globalFakeSni,
-                                onGlobalFakeSniChange = viewModel::updateGlobalFakeSni,
-                                usePerStrategyFakeSni = viewModel.usePerStrategyFakeSni,
-                                onUsePerStrategyFakeSniChange = viewModel::updateUsePerStrategyFakeSni,
-                                getFakeSniForStrategy = viewModel::getFakeSniForStrategy,
-                                onSetFakeSniForStrategy = viewModel::setFakeSniForStrategy,
-                                onResetFakeSniForStrategy = viewModel::resetFakeSniForStrategy
+                                fakeSniPool = viewModel.fakeSniPool,
+                                onAddFakeSniHost = viewModel::addFakeSniHost,
+                                onRemoveFakeSniHost = viewModel::removeFakeSniHost,
+                                onEditFakeSniHost = viewModel::editFakeSniHost,
+                                onResetFakeSniPoolToDefault = viewModel::resetFakeSniPoolToDefault,
+                                customStrategies = viewModel.customStrategies,
+                                onAddCustomStrategy = viewModel::addCustomStrategy,
+                                onUpdateCustomStrategy = viewModel::updateCustomStrategy,
+                                onDeleteCustomStrategy = viewModel::deleteCustomStrategy,
+                                onDuplicateCustomStrategy = viewModel::duplicateCustomStrategy
                             )
                         }
 
@@ -655,7 +658,9 @@ fun MainScreen(viewModel: MainViewModel) {
                 testStat = viewModel.stats[name] ?: viewModel.committedStats[name],
                 testResults = viewModel.testResults[name],
                 isTesting = viewModel.currentlyTesting.contains(name),
-                fakeSni = viewModel.getResolvedFakeSni(name),
+                fakeSni = viewModel.getFakeSniForStrategy(name),
+                fakeSniPool = viewModel.fakeSniPool,
+                onSetFakeSni = { stratName, sni -> viewModel.setFakeSniForStrategy(stratName, sni) },
                 onDismiss = { strategyForArgsInfo = null }
             )
         }

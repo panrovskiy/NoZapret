@@ -400,6 +400,9 @@
     <string name="label_strategy_fake_sni">Домен Fake SNI для стратегии</string>
     <string name="msg_fake_sni_saved">Fake SNI сохранен: %1$s</string>
     <string name="error_single_domain_required">Требуется ровно один домен (без URL, пробелов или списков)</string>
+    <string name="status_not_supported">Не поддерживается</string>
+    <string name="btn_create_custom_strategy">Создать свою стратегию</string>
+    <string name="label_add_fake_sni">Добавить поддельный хост</string>
 
     <!-- Language -->
     <string name="lang_tr">Türkçe</string>

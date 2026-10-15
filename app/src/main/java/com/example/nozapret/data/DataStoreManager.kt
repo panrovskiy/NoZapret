@@ -37,6 +37,7 @@ class DataStoreManager(context: Context) {
         val GLOBAL_FAKE_SNI = stringPreferencesKey("global_fake_sni")
         val USE_PER_STRATEGY_FAKE_SNI = booleanPreferencesKey("use_per_strategy_fake_sni")
         val STRATEGY_TEST_RESULTS = stringPreferencesKey("strategy_test_results")
+        val CUSTOM_STRATEGIES_JSON = stringPreferencesKey("custom_strategies_json")
     }
 
     suspend fun <T> saveSetting(key: Preferences.Key<T>, value: T) {

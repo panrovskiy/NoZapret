@@ -202,10 +202,8 @@ class DpiVpnService : VpnService() {
         val port = try { portStr.toInt() } catch(_: Exception) { 1080 }
 
         val dnsServer = prefs[DataStoreManager.DNS_SERVER] ?: "1.1.1.1"
-        val globalFakeSni = prefs[DataStoreManager.GLOBAL_FAKE_SNI] ?: "yandex.ru"
-        val usePerStrategy = prefs[DataStoreManager.USE_PER_STRATEGY_FAKE_SNI] ?: false
         val mapJsonStr = prefs[DataStoreManager.STRATEGY_FAKE_SNI_MAP]
-        val perStrategyMap = mutableMapOf<String, String>()
+        val strategyFakeSniMap = mutableMapOf<String, String>()
         if (!mapJsonStr.isNullOrBlank()) {
             try {
                 val obj = JSONObject(mapJsonStr)
@@ -213,15 +211,18 @@ class DpiVpnService : VpnService() {
                 while (keys.hasNext()) {
                     val key = keys.next()
                     val valStr = obj.getString(key)
-                    if (valStr.isNotBlank()) perStrategyMap[key] = valStr
+                    if (valStr.isNotBlank()) strategyFakeSniMap[key] = valStr
                 }
             } catch (_: Exception) {}
         }
-        val resolvedFakeSni = Config.resolveFakeSni(lastStrategy!!, globalFakeSni, usePerStrategy, perStrategyMap)
+        val globalMode = prefs[DataStoreManager.GLOBAL_MODE] ?: false
+        val fakeSniPool = prefs[DataStoreManager.FAKE_SNI_POOL]?.toList() ?: listOf("www.google.com", "yandex.ru")
+
+        val resolvedFakeSni = Config.resolveFakeSni(lastStrategy!!, strategyFakeSniMap, fakeSniPool, globalMode)
         val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!, resolvedFakeSni)
 
         AppLogger.i("YT", "[YT][NETWORK] connection started. Strategy: $lastStrategy, Mode: $runMode, Global: $lastGlobal, Resolved Fake SNI: $resolvedFakeSni")
-        AppLogger.i("FAKE_SNI", "[FAKE_SNI] global/per-strategy mode: usePerStrategy=$usePerStrategy, resolved domain: $resolvedFakeSni")
+        AppLogger.i("FAKE_SNI", "[FAKE_SNI] mode: globalMode=$globalMode, resolved domain: $resolvedFakeSni")
 
         try {
             var fd = -1

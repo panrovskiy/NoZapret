@@ -118,16 +118,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearPresetDomains(name: String) = settingsManager.clearPresetDomains(name)
     fun resetPresetDomainsToDefault(name: String) = settingsManager.resetPresetDomainsToDefault(name)
 
-    var globalFakeSni by settingsManager::globalFakeSni
-    var usePerStrategyFakeSni by settingsManager::usePerStrategyFakeSni
+    val fakeSniPool get() = settingsManager.fakeSniPool
+    val customStrategies get() = settingsManager.customStrategies
 
-    fun updateGlobalFakeSni(domain: String): Result<Unit> = settingsManager.updateGlobalFakeSni(domain)
-    fun updateUsePerStrategyFakeSni(enabled: Boolean) = settingsManager.updateUsePerStrategyFakeSni(enabled)
-    fun getResolvedFakeSni(strategyName: String): String? = settingsManager.getResolvedFakeSni(strategyName)
+    fun addFakeSniHost(rawHost: String): Result<Unit> = settingsManager.addFakeSniHost(rawHost)
+    fun removeFakeSniHost(host: String) = settingsManager.removeFakeSniHost(host)
+    fun editFakeSniHost(oldHost: String, newRawHost: String): Result<Unit> = settingsManager.editFakeSniHost(oldHost, newRawHost)
+    fun resetFakeSniPoolToDefault() = settingsManager.resetFakeSniPoolToDefault()
 
     fun getFakeSniForStrategy(strategyName: String): String? = settingsManager.getFakeSniForStrategy(strategyName)
     fun setFakeSniForStrategy(strategyName: String, rawFakeSni: String?): Result<Unit> = settingsManager.setFakeSniForStrategy(strategyName, rawFakeSni)
     fun resetFakeSniForStrategy(strategyName: String) = settingsManager.resetFakeSniForStrategy(strategyName)
+
+    fun addCustomStrategy(strategy: Config.CustomStrategy): Result<Unit> = settingsManager.addCustomStrategy(strategy)
+    fun updateCustomStrategy(strategy: Config.CustomStrategy): Result<Unit> = settingsManager.updateCustomStrategy(strategy)
+    fun deleteCustomStrategy(id: String) = settingsManager.deleteCustomStrategy(id)
+    fun duplicateCustomStrategy(id: String): Config.CustomStrategy? = settingsManager.duplicateCustomStrategy(id)
+    fun getCustomStrategyById(id: String): Config.CustomStrategy? = settingsManager.getCustomStrategyById(id)
+    fun getCustomStrategyByName(name: String): Config.CustomStrategy? = settingsManager.getCustomStrategyByName(name)
 
     fun getStrategyAveragePing(strategyName: String): Double? {
         val results = testResults[strategyName] ?: return null

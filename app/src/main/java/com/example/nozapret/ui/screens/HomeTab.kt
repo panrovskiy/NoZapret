@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -21,6 +22,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.nozapret.R
+import com.example.nozapret.core.Config
+import com.example.nozapret.core.Config.CustomStrategy
 import com.example.nozapret.ui.components.AnimatedVpnButton
 import com.example.nozapret.ui.components.StatusCard
 import com.example.nozapret.ui.components.VpnButtonState
@@ -49,7 +52,9 @@ fun HomeTab(
     isConnecting: Boolean = false,
     isDisconnecting: Boolean = false,
     isError: Boolean = false,
-    dnsServer: String = "1.1.1.1"
+    dnsServer: String = "1.1.1.1",
+    customStrategies: List<CustomStrategy> = emptyList(),
+    onCreateCustomStrategy: () -> Unit = {}
 ) {
     var showStrategyDialog by remember { mutableStateOf(value = false) }
     var uptimeMillis by remember { mutableLongStateOf(0L) }
@@ -89,11 +94,13 @@ fun HomeTab(
         StrategySelectionDialog(
             current = selectedStrategy,
             pinned = pinnedStrategies,
+            customStrategies = customStrategies,
             onSelect = {
                 onStrategySelected(it)
                 showStrategyDialog = false
             },
             onShowInfo = onShowStrategyInfo,
+            onCreateCustomStrategy = onCreateCustomStrategy,
             onDismiss = { showStrategyDialog = false }
         )
     }
@@ -266,20 +273,40 @@ fun ConfigCard(
 fun StrategySelectionDialog(
     current: String,
     pinned: List<String>,
+    customStrategies: List<CustomStrategy> = emptyList(),
     onSelect: (String) -> Unit,
     onShowInfo: (String) -> Unit,
+    onCreateCustomStrategy: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.title_select_strategy)) },
         text = {
-            val strategies = if (pinned.isNotEmpty()) pinned else com.example.nozapret.core.Config.STRATEGIES.map { it.first }
-            androidx.compose.foundation.lazy.LazyColumn(
+            val builtInNames = if (pinned.isNotEmpty()) pinned else Config.STRATEGIES.map { it.first }
+            val customNames = customStrategies.map { it.name }
+            val allStrategyNames = (builtInNames + customNames).distinct()
+
+            LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.heightIn(max = 400.dp)
             ) {
-                items(strategies) { strategy ->
+                item {
+                    OutlinedButton(
+                        onClick = {
+                            onDismiss()
+                            onCreateCustomStrategy()
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                    ) {
+                        Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.btn_create_custom_strategy), fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                items(allStrategyNames) { strategy ->
                     val isSelected = strategy == current
                     Surface(
                         onClick = { onSelect(strategy) },
