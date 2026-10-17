@@ -85,6 +85,7 @@ fun SettingsTab(
     stats: Map<String, Triple<Int, Int, Int>>,
     committedStats: Map<String, Triple<Int, Int, Int>>,
     currentlyTesting: List<String>,
+    isSubmittingTest: Boolean = false,
     onTestStrategy: (String) -> Unit,
     onShowDetails: (String) -> Unit,
     onShowStrategyArgsInfo: (String) -> Unit,
@@ -414,9 +415,14 @@ fun SettingsTab(
                                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                                             IconButton(
                                                                 onClick = { onTestStrategy(customStrat.name) },
+                                                                enabled = !isSubmittingTest,
                                                                 modifier = Modifier.size(32.dp)
                                                             ) {
-                                                                Icon(Icons.Rounded.PlayArrow, stringResource(R.string.tester_btn_test), modifier = Modifier.size(18.dp))
+                                                                if (isSubmittingTest) {
+                                                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                                                } else {
+                                                                    Icon(Icons.Rounded.PlayArrow, stringResource(R.string.tester_btn_test), modifier = Modifier.size(18.dp))
+                                                                }
                                                             }
                                                             IconButton(
                                                                 onClick = { onShowStrategyArgsInfo(customStrat.name) },

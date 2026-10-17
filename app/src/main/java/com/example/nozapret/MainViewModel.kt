@@ -355,6 +355,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    var isSubmittingTest by mutableStateOf(false)
+        private set
+
+    fun testCustomStrategyFromUi(strategyName: String) {
+        if (isSubmittingTest) return
+        isSubmittingTest = true
+
+        try {
+            // Always switch to Strategy Test tab (settingsTab = 1)
+            settingsTab = 1
+
+            if (currentlyTesting.contains(strategyName)) {
+                return
+            }
+
+            testStrategy(strategyName)
+        } finally {
+            viewModelScope.launch {
+                delay(300.milliseconds)
+                isSubmittingTest = false
+            }
+        }
+    }
+
     fun testStrategy(strategyName: String) {
         if (currentlyTesting.contains(strategyName)) {
             stopTest(strategyName)
@@ -404,6 +428,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun applyStrategy(name: String) {
         updateSelectedStrategy(name)
+        val customStrat = getCustomStrategyByName(name)
+        val args = customStrat?.userArgs ?: customArgs
+
+        if (DpiVpnService.isRunning) {
+            VpnController.startVpn(
+                getApplication(),
+                name,
+                args,
+                globalMode,
+                bypassedSites
+            )
+        }
+
         viewModelScope.launch {
             snackbarHostState.showSnackbar(getApplication<Application>().getString(R.string.msg_strategy_applied, name))
         }

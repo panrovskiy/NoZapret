@@ -41,6 +41,18 @@ class HevSocks5Tunnel {
         return if (isLoaded) jniIsRunning() else false
     }
 
+    fun getStats(): LongArray {
+        return if (isLoaded) {
+            try {
+                TProxyGetStats()
+            } catch (_: Exception) {
+                longArrayOf(0L, 0L)
+            }
+        } else {
+            longArrayOf(0L, 0L)
+        }
+    }
+
     private external fun TProxyStartService(configPath: String, fd: Int): Int
     private external fun TProxyStopService()
     private external fun TProxyGetStats(): LongArray

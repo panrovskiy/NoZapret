@@ -160,24 +160,37 @@ class DpiVpnService : VpnService() {
 
         serviceScope.launch {
             vpnLock.withLock {
-                if (isRunning && !isPaused) {
-                    Log.d("DpiVpnService", "VPN already running, updating UI")
+                val newStrategy = strategy ?: lastStrategy
+                val newArgs = args ?: lastArgs
+                val newGlobal = global ?: lastGlobal
+                val newSites = bypassedSites ?: lastBypassedSites
+
+                val configChanged = isRunning && (
+                    newStrategy != lastStrategy ||
+                    newArgs != lastArgs ||
+                    newGlobal != lastGlobal ||
+                    newSites != lastBypassedSites
+                )
+
+                if (isRunning && !isPaused && !configChanged) {
+                    Log.d("DpiVpnService", "VPN already running with same config")
                     updateVpnState(isRunning, isPaused, isConnecting, isDisconnecting, isError, startTime)
                     return@withLock
                 }
 
-                if (isPaused) {
-                    resumeVpn()
-                } else {
-                    isError = false
-                    isConnecting = true
-                    updateVpnState(false, false, true, false, false, 0L)
-
-                    withContext(Dispatchers.IO) {
-                        jniSetVpnService(this@DpiVpnService)
-                    }
-                    startVpnInternal(strategy, args, global, bypassedSites)
+                if (isRunning || isPaused || vpnInterface != null || proxy.isRunning() || tunnel.isRunning()) {
+                    Log.d("DpiVpnService", "Restarting VPN engine for strategy/config change: $newStrategy")
+                    stopVpnInternal("Strategy change")
                 }
+
+                isError = false
+                isConnecting = true
+                updateVpnState(false, false, true, false, false, 0L)
+
+                withContext(Dispatchers.IO) {
+                    jniSetVpnService(this@DpiVpnService)
+                }
+                startVpnInternal(newStrategy, newArgs, newGlobal, newSites)
             }
         }
     }
@@ -343,12 +356,24 @@ class DpiVpnService : VpnService() {
         healthCheckJob = serviceScope.launch(Dispatchers.IO) {
             while (isActive) {
                 delay(5000)
-                if (isRunning && !isPaused) {
-                    if (!proxy.isRunning() || !tunnel.isRunning()) {
-                        Log.w("DpiVpnService", "Health check failed: proxy=${proxy.isRunning()}, tunnel=${tunnel.isRunning()}")
+                if (isRunning && !isPaused && !isStopping.get()) {
+                    val proxyAlive = proxy.isRunning()
+                    val tunnelAlive = tunnel.isRunning()
+
+                    if (!proxyAlive || !tunnelAlive) {
+                        Log.w("DpiVpnService", "Health check failed: proxy=$proxyAlive, tunnel=$tunnelAlive")
                         isError = true
                         stopVpnAsync("Health check failure")
                         break
+                    }
+
+                    try {
+                        val stats = tunnel.getStats()
+                        if (stats.size >= 2) {
+                            AppLogger.d("VPN", "[TRAFFIC] Rx: ${stats[0]} bytes, Tx: ${stats[1]} bytes (Proxy: OK, Tunnel: OK)")
+                        }
+                    } catch (e: Exception) {
+                        Log.w("DpiVpnService", "Error reading traffic stats: ${e.message}")
                     }
                 }
             }
@@ -448,8 +473,8 @@ class DpiVpnService : VpnService() {
             misc:
               task-stack-size: 131072
               connect-timeout: 10000
-              tcp-read-write-timeout: 86400000
-              udp-read-write-timeout: 60000
+              tcp-read-write-timeout: 300000
+              udp-read-write-timeout: 10000
               max-session-count: 8192
               log-level: info
         """.trimIndent()
@@ -463,6 +488,47 @@ class DpiVpnService : VpnService() {
         serviceScope.launch {
             stopVpnAsync(reason)
         }
+    }
+
+    private suspend fun stopVpnInternal(reason: String) {
+        Log.d("DpiVpnService", "stopVpnInternal: reason=$reason")
+        healthCheckJob?.cancel()
+        healthCheckJob = null
+        
+        vpnWorkJob?.cancel()
+        vpnWorkJob = null
+
+        withContext(Dispatchers.IO) {
+            tunnel.stop()
+            proxy.stop()
+            
+            var wait = 0
+            while ((proxy.isRunning() || tunnel.isRunning()) && wait < 30) {
+                delay(100)
+                wait++
+            }
+            
+            if (proxy.isRunning()) {
+                Log.w("DpiVpnService", "Proxy still running, forcing close")
+                proxy.forceClose()
+            }
+            
+            jniSetVpnService(null)
+            jniCleanup()
+            proxy.cleanup()
+        }
+
+        try {
+            vpnInterface?.close()
+        } catch (e: Exception) {
+            Log.e("DpiVpnService", "Error closing vpnInterface: ${e.message}")
+        }
+        vpnInterface = null
+
+        isRunning = false
+        isPaused = false
+        isConnecting = false
+        isDisconnecting = false
     }
 
     private suspend fun stopVpnAsync(reason: String) {
@@ -487,43 +553,8 @@ class DpiVpnService : VpnService() {
             isDisconnecting = true
             updateVpnState(isRunning, isPaused, isConnecting, true, isError, startTime)
             
-            healthCheckJob?.cancel()
-            healthCheckJob = null
-            
-            vpnWorkJob?.cancel()
-            vpnWorkJob = null
+            stopVpnInternal(reason)
 
-            withContext(Dispatchers.IO) {
-                tunnel.stop()
-                proxy.stop()
-                
-                var wait = 0
-                while ((proxy.isRunning() || tunnel.isRunning()) && wait < 50) {
-                    delay(100)
-                    wait++
-                }
-                
-                if (proxy.isRunning()) {
-                    Log.w("DpiVpnService", "Proxy still running, forcing close")
-                    proxy.forceClose()
-                }
-                
-                jniSetVpnService(null)
-                jniCleanup()
-                proxy.cleanup()
-            }
-
-            try {
-                vpnInterface?.close()
-            } catch (e: Exception) {
-                Log.e("DpiVpnService", "Error closing vpnInterface: ${e.message}")
-            }
-            vpnInterface = null
-
-            isRunning = false
-            isPaused = false
-            isConnecting = false
-            isDisconnecting = false
             updateVpnState(false, false, false, false, isError, 0L)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()

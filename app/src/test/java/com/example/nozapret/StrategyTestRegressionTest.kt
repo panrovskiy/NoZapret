@@ -52,4 +52,19 @@ class StrategyTestRegressionTest {
         val resolved = Config.resolveFakeSni("Auto (Recommended)", map, listOf("default.com"), false)
         assertEquals("myfakesni.com", resolved)
     }
+
+    @Test
+    fun testStrategySwitchingAndArgResolution() {
+        val ytArgs = Config.getStrategyArgs("YouTube/Google Fix")
+        val discordArgs = Config.getStrategyArgs("Discord/UDP Fix")
+        assertFalse(ytArgs.contentEquals(discordArgs))
+        assertTrue(ytArgs.contains("--block-quic"))
+        assertFalse(discordArgs.contains("--block-quic"))
+    }
+
+    @Test
+    fun testFakeSniSupportForCustomStrategies() {
+        assertTrue(Config.supportsFakeSni("Auto (Recommended)"))
+        assertTrue(Config.supportsFakeSni("My User Custom Strategy"))
+    }
 }

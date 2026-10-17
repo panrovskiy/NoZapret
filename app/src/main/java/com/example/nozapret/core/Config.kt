@@ -78,7 +78,7 @@ object Config {
         if (fakeSniStrategies.contains(name)) return true
         val strat = getStrategyByName(name)
         if (strat != null && (strat.category == "Simple Fake" || strat.category == "Fake")) return true
-        if (name == "Custom" || name.startsWith("custom_")) return true
+        if (strat == null || name == "Custom" || name.startsWith("custom_")) return true
         return false
     }
 
