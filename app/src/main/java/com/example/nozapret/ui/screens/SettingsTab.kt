@@ -13,6 +13,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 
 import androidx.compose.foundation.shape.CircleShape
 
@@ -30,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 
 import androidx.compose.ui.text.input.KeyboardType
 
@@ -37,6 +39,7 @@ import androidx.compose.ui.unit.dp
 
 import com.example.nozapret.ui.getLocalizedPresetName
 import com.example.nozapret.ui.getLocalizedStrategyName
+import com.example.nozapret.ui.components.CustomStrategyEditorDialog
 import com.example.nozapret.ui.getLocalizedStrategyDesc
 import com.example.nozapret.ui.getPresetIcon
 import com.example.nozapret.R
@@ -146,12 +149,32 @@ fun SettingsTab(
 ) {
     val context = LocalContext.current
     var showAppPicker by remember { mutableStateOf(false) }
+    var strategyToEdit by remember { mutableStateOf<Config.CustomStrategy?>(null) }
+    var showCustomEditorDialog by remember { mutableStateOf(false) }
 
     if (showAppPicker) {
         AppPickerDialog(
             selectedApps = allowedApps,
             onToggleApp = onToggleAllowedApp,
             onDismiss = { showAppPicker = false }
+        )
+    }
+
+    if (showCustomEditorDialog) {
+        CustomStrategyEditorDialog(
+            strategyToEdit = strategyToEdit,
+            existingStrategies = customStrategies,
+            onSave = { newStrat ->
+                if (strategyToEdit != null) {
+                    onUpdateCustomStrategy(newStrat)
+                } else {
+                    onAddCustomStrategy(newStrat)
+                }
+            },
+            onDismiss = {
+                showCustomEditorDialog = false
+                strategyToEdit = null
+            }
         )
     }
     
@@ -229,9 +252,11 @@ fun SettingsTab(
                                         expanded = strategyExpanded,
                                         onDismissRequest = { strategyExpanded = false }
                                     ) {
-                                        Config.STRATEGIES_DATA.forEach { strat ->
-                                            val name = strat.name
-                                            val desc = strat.description
+                                        val builtInItems = Config.STRATEGIES_DATA.map { it.name to it.description }
+                                        val customItems = customStrategies.map { it.name to (it.description.ifBlank { it.userArgs }) }
+                                        val allDropdownItems = builtInItems + customItems
+
+                                        allDropdownItems.forEach { (name, desc) ->
                                             DropdownMenuItem(
                                                 text = {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -291,6 +316,141 @@ fun SettingsTab(
                                             }
                                         }
                                     )
+                                }
+                            }
+                        }
+
+                        FadeEntrance(index = 1) {
+                            SettingsGroup(
+                                title = stringResource(R.string.title_custom_strategies),
+                                icon = Icons.Rounded.Build
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.desc_custom_strategies),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                        )
+                                        Button(
+                                            onClick = {
+                                                strategyToEdit = null
+                                                showCustomEditorDialog = true
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                            shape = MaterialTheme.shapes.medium
+                                        ) {
+                                            Icon(Icons.Rounded.Add, null, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(stringResource(R.string.btn_create_custom_strategy), style = MaterialTheme.typography.labelMedium)
+                                        }
+                                    }
+
+                                    if (customStrategies.isEmpty()) {
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                            shape = MaterialTheme.shapes.medium,
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(16.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Rounded.Tune,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.outline,
+                                                    modifier = Modifier.size(32.dp)
+                                                )
+                                                Text(
+                                                    stringResource(R.string.msg_no_custom_strategies),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.outline
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            customStrategies.forEach { customStrat ->
+                                                Surface(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = MaterialTheme.shapes.medium,
+                                                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(12.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Column(modifier = Modifier.weight(1f)) {
+                                                            Text(
+                                                                customStrat.name,
+                                                                fontWeight = FontWeight.Bold,
+                                                                style = MaterialTheme.typography.titleSmall
+                                                            )
+                                                            val descText = if (customStrat.description.isNotBlank()) customStrat.description else customStrat.userArgs
+                                                            if (descText.isNotBlank()) {
+                                                                Text(
+                                                                    descText,
+                                                                    style = MaterialTheme.typography.bodySmall,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                    maxLines = 1,
+                                                                    overflow = TextOverflow.Ellipsis
+                                                                )
+                                                            }
+                                                        }
+
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            IconButton(
+                                                                onClick = { onTestStrategy(customStrat.name) },
+                                                                modifier = Modifier.size(32.dp)
+                                                            ) {
+                                                                Icon(Icons.Rounded.PlayArrow, stringResource(R.string.tester_btn_test), modifier = Modifier.size(18.dp))
+                                                            }
+                                                            IconButton(
+                                                                onClick = { onShowStrategyArgsInfo(customStrat.name) },
+                                                                modifier = Modifier.size(32.dp)
+                                                            ) {
+                                                                Icon(Icons.Rounded.Info, stringResource(R.string.label_info), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                                            }
+                                                            IconButton(
+                                                                onClick = {
+                                                                    strategyToEdit = customStrat
+                                                                    showCustomEditorDialog = true
+                                                                },
+                                                                modifier = Modifier.size(32.dp)
+                                                            ) {
+                                                                Icon(Icons.Rounded.Edit, stringResource(R.string.btn_edit), modifier = Modifier.size(18.dp))
+                                                            }
+                                                            IconButton(
+                                                                onClick = { onDuplicateCustomStrategy(customStrat.id) },
+                                                                modifier = Modifier.size(32.dp)
+                                                            ) {
+                                                                Icon(Icons.Rounded.ContentCopy, stringResource(R.string.btn_duplicate), modifier = Modifier.size(18.dp))
+                                                            }
+                                                            IconButton(
+                                                                onClick = { onDeleteCustomStrategy(customStrat.id) },
+                                                                modifier = Modifier.size(32.dp)
+                                                            ) {
+                                                                Icon(Icons.Rounded.Delete, stringResource(R.string.btn_delete), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -987,7 +1147,18 @@ fun SettingsTab(
                     val currentCommitted = committedStats.toMap()
                     val currentResults = testResults.toMap()
 
-                    val allStrats = Config.STRATEGIES_DATA.filter { strat ->
+                    val builtInStrats = Config.STRATEGIES_DATA
+                    val customStratsData = customStrategies.map { cs ->
+                        Config.Strategy(
+                            id = cs.id,
+                            name = cs.name,
+                            description = cs.description.ifBlank { cs.userArgs },
+                            category = cs.category
+                        )
+                    }
+                    val totalStratsData = builtInStrats + customStratsData
+
+                    val allStrats = totalStratsData.filter { strat ->
                         filterPreset == "All" || strat.category == filterPreset
                     }.sortedWith { a, b ->
                         val aName = a.name
@@ -1122,7 +1293,7 @@ fun SettingsTab(
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.primary
                                                 )
-                                                val categories = listOf("All") + Config.STRATEGIES_DATA.map { it.category }.distinct()
+                                                val categories = listOf("All") + totalStratsData.map { it.category }.distinct()
                                                 categories.forEach { cat ->
                                                     DropdownMenuItem(
                                                         text = { Text(cat) },
@@ -1139,8 +1310,7 @@ fun SettingsTab(
                             }
                         }
 
-                        items(allStrats.size, key = { i -> allStrats[i].name }) { i ->
-                            val strat = allStrats[i]
+                        items(items = allStrats, key = { it.name }) { strat ->
                             val name = strat.name
                             val isTesting = currentlyTesting.contains(name)
                             val stat = stats[name] ?: committedStats[name] ?: Triple(0, 0, bypassedSitesCount)

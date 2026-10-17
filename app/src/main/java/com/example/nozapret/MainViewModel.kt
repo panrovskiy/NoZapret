@@ -324,10 +324,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         lastReportedStrategy = strategy
                         
                         status.lastResult?.let { result ->
-                            val currentMap = testResults[strategy] ?: emptyMap()
-                            testResults[strategy] = currentMap + (status.lastSite to result)
+                            if (status.lastSite.isNotEmpty()) {
+                                val currentMap = testResults[strategy] ?: emptyMap()
+                                testResults[strategy] = currentMap + (status.lastSite to result)
+                            }
                         }
                     } else {
+                        if (strategy.isNotEmpty()) {
+                            stats[strategy] = Triple(status.success, status.tested, status.total)
+                            status.lastResult?.let { result ->
+                                if (status.lastSite.isNotEmpty()) {
+                                    val currentMap = testResults[strategy] ?: emptyMap()
+                                    testResults[strategy] = currentMap + (status.lastSite to result)
+                                }
+                            }
+                            committedStats[strategy] = stats[strategy] ?: Triple(0, 0, 0)
+                        }
+                        if (lastReportedStrategy.isNotEmpty()) {
+                            committedStats[lastReportedStrategy] = stats[lastReportedStrategy] ?: Triple(0, 0, 0)
+                        }
                         currentlyTesting.forEach { name ->
                             committedStats[name] = stats[name] ?: Triple(0, 0, 0)
                         }
@@ -484,6 +499,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val err = updateManager.updateError.value ?: "Download failed"
                 snackbarHostState.showSnackbar(getApplication<Application>().getString(R.string.error_download_failed, err))
             }
+        }
+    }
+
+    fun openInstallPermissionSettings() {
+        updateManager.openInstallPermissionSettings()
+    }
+
+    fun retryInstallApk() {
+        viewModelScope.launch {
+            updateManager.installDownloadedApk()
+        }
+    }
+
+    fun onResumeCheckUpdatePermissions() {
+        if (updateManager.updateState.value == UpdateState.INSTALL_PERMISSION_REQUIRED && updateManager.canRequestPackageInstalls()) {
+            updateManager.installDownloadedApk()
         }
     }
 

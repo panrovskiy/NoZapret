@@ -2,6 +2,9 @@ package com.example.nozapret.core
 
 import android.app.Application
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import com.example.nozapret.BuildConfig
@@ -30,6 +33,8 @@ enum class UpdateState {
     DOWNLOADING,
     VERIFYING,
     READY_TO_INSTALL,
+    INSTALL_PERMISSION_REQUIRED,
+    INSTALLER_LAUNCHED,
     INSTALLING,
     COMPLETED,
     FAILED,
@@ -331,16 +336,7 @@ class UpdateManager(private val application: Application) {
             _updateState.value = UpdateState.READY_TO_INSTALL
             AppLogger.i("UPDATE", "[UPDATE] Finalized APK ready: ${destFile.absolutePath}")
 
-            _updateState.value = UpdateState.INSTALLING
-            val installSuccess = installApk(destFile)
-            if (installSuccess) {
-                _updateState.value = UpdateState.COMPLETED
-                true
-            } else {
-                _updateState.value = UpdateState.FAILED
-                _updateError.value = "Unable to launch system package installer"
-                false
-            }
+            installDownloadedApk()
         } catch (e: Exception) {
             if (_updateState.value != UpdateState.CANCELLED) {
                 val err = e.message ?: e.javaClass.simpleName
@@ -355,6 +351,57 @@ class UpdateManager(private val application: Application) {
                 cleanupPartFile()
             }
         }
+    }
+
+    fun canRequestPackageInstalls(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            application.packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
+    }
+
+    fun openInstallPermissionSettings() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:${application.packageName}")
+                ).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                AppLogger.i("UPDATE", "[UPDATE] Opening unknown app sources settings")
+                application.startActivity(intent)
+            } catch (e: Exception) {
+                AppLogger.e("UPDATE", "[UPDATE][ERROR] Failed to open unknown app sources settings: ${e.message}", e)
+            }
+        }
+    }
+
+    fun installDownloadedApk(): Boolean {
+        val destFile = File(application.cacheDir, "update.apk")
+        if (!destFile.exists() || destFile.length() <= 0) {
+            AppLogger.e("UPDATE", "[UPDATE][ERROR] Cannot install: update.apk missing or empty")
+            _updateError.value = "Update file not found"
+            _updateState.value = UpdateState.FAILED
+            return false
+        }
+
+        if (!canRequestPackageInstalls()) {
+            AppLogger.w("UPDATE", "[UPDATE] Installation permission required (canRequestPackageInstalls = false)")
+            _updateState.value = UpdateState.INSTALL_PERMISSION_REQUIRED
+            return false
+        }
+
+        _updateState.value = UpdateState.INSTALLING
+        val installSuccess = installApk(destFile)
+        if (installSuccess) {
+            _updateState.value = UpdateState.INSTALLER_LAUNCHED
+        } else {
+            _updateState.value = UpdateState.FAILED
+            _updateError.value = "Unable to launch system package installer"
+        }
+        return installSuccess
     }
 
     private fun installApk(file: File): Boolean {

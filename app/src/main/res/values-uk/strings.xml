@@ -272,7 +272,26 @@
     <string name="update_downloading">Завантаження оновлення…</string>
     <string name="update_verifying">Перевірка пакета оновлення…</string>
     <string name="update_installing">Підготовка до встановлення…</string>
+    <string name="update_permission_required">Потрібен дозвіл на встановлення невідомих додатків. Будь ласка, дозвольте встановлення для NoZapret у Налаштуваннях.</string>
+    <string name="btn_open_settings">Відкрити налаштування</string>
+    <string name="update_installer_launched">Запущено інсталятор системи. Дотримуйтесь інструкцій для завершення встановлення.</string>
+    <string name="btn_install_now">Встановити оновлення</string>
     <string name="btn_retry">Повторити</string>
+
+    <!-- Custom Strategies -->
+    <string name="title_custom_strategies">Власні стратегії</string>
+    <string name="desc_custom_strategies">Створення та управління власними правилами обходу DPI.</string>
+    <string name="msg_no_custom_strategies">Власні стратегії ще не створені</string>
+    <string name="title_edit_custom_strategy">Редагувати стратегію</string>
+    <string name="title_create_custom_strategy">Створити стратегію</string>
+    <string name="label_strategy_name">Назва стратегії</string>
+    <string name="label_strategy_description">Опис (опціонально)</string>
+    <string name="label_fake_sni_override">Fake SNI (опціонально)</string>
+    <string name="error_name_required">Назва стратегії є обов\'язковою</string>
+    <string name="error_name_exists">Стратегія з такою назвою вже існує</string>
+    <string name="btn_duplicate">Дублювати</string>
+    <string name="btn_delete">Видалити</string>
+    <string name="btn_edit">Редагувати</string>
     <string name="msg_latest_version">У вас встановлена остання версія</string>
     <string name="error_update_check">Помилка перевірки оновлень: %1$s</string>
     <string name="error_download_failed">Помилка завантаження: %1$s</string>

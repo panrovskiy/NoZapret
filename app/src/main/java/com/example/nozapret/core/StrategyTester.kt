@@ -39,8 +39,6 @@ class StrategyTester(private val application: Application) {
     private val proxy = ByeDpiProxy()
     private val dnsCache = ConcurrentHashMap<String, String>()
 
-    private external fun jniCleanup()
-
     private fun isPortAvailable(port: Int): Boolean {
         return try {
             Socket().use { s ->
@@ -60,12 +58,6 @@ class StrategyTester(private val application: Application) {
     ): Boolean = withContext(Dispatchers.IO) {
         if (strategyName == "None") {
             return@withContext runDirectTest(bypassedSites, onResult)
-        }
-
-        val strategy = Config.getStrategyByName(strategyName)
-        if (strategy == null && strategyName != "Custom") {
-            AppLogger.e("TEST", "[TEST] Strategy $strategyName not found")
-            return@withContext false
         }
 
         val sitesToTest = bypassedSites.filter { it.isNotBlank() && !it.contains("/") }

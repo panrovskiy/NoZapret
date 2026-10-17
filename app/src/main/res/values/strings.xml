@@ -272,7 +272,26 @@
     <string name="update_downloading">Downloading update…</string>
     <string name="update_verifying">Verifying update package…</string>
     <string name="update_installing">Preparing installation…</string>
+    <string name="update_permission_required">Permission required to install unknown apps. Please allow NoZapret to install applications in Settings.</string>
+    <string name="btn_open_settings">Open Settings</string>
+    <string name="update_installer_launched">Installer launched. Follow system prompts to complete installation.</string>
+    <string name="btn_install_now">Install Update</string>
     <string name="btn_retry">Retry</string>
+
+    <!-- Custom Strategies -->
+    <string name="title_custom_strategies">Custom Strategies</string>
+    <string name="desc_custom_strategies">Create and manage your own custom DPI bypass rules.</string>
+    <string name="msg_no_custom_strategies">No custom strategies created yet</string>
+    <string name="title_edit_custom_strategy">Edit Custom Strategy</string>
+    <string name="title_create_custom_strategy">Create Custom Strategy</string>
+    <string name="label_strategy_name">Strategy Name</string>
+    <string name="label_strategy_description">Description (Optional)</string>
+    <string name="label_fake_sni_override">Fake SNI Override (Optional)</string>
+    <string name="error_name_required">Strategy name is required</string>
+    <string name="error_name_exists">A strategy with this name already exists</string>
+    <string name="btn_duplicate">Duplicate</string>
+    <string name="btn_delete">Delete</string>
+    <string name="btn_edit">Edit</string>
     <string name="msg_latest_version">You are using the latest version</string>
     <string name="error_update_check">Failed to check for updates: %1$s</string>
     <string name="error_download_failed">Download failed: %1$s</string>

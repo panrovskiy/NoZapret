@@ -272,7 +272,26 @@
     <string name="update_downloading">Güncelleme indiriliyor…</string>
     <string name="update_verifying">Güncelleme paketi doğrulanıyor…</string>
     <string name="update_installing">Yükleme hazırlanıyor…</string>
+    <string name="update_permission_required">Bilinmeyen uygulamaları yüklemek için izin gerekiyor. Lütfen Ayarlar\'da NoZapret için yükleme izni verin.</string>
+    <string name="btn_open_settings">Ayarları Aç</string>
+    <string name="update_installer_launched">Sistem yükleyicisi başlatıldı. Yüklemeyi tamamlamak için ekrandaki talimatları izleyin.</string>
+    <string name="btn_install_now">Güncellemeyi Yükle</string>
     <string name="btn_retry">Tekrar Dene</string>
+
+    <!-- Custom Strategies -->
+    <string name="title_custom_strategies">Özel Stratejiler</string>
+    <string name="desc_custom_strategies">Kendi özel DPI atlatma kurallarınızı oluşturun ve yönetin.</string>
+    <string name="msg_no_custom_strategies">Henüz özel bir strateji oluşturulmadı</string>
+    <string name="title_edit_custom_strategy">Özel Stratejiyi Düzenle</string>
+    <string name="title_create_custom_strategy">Özel Strateji Oluştur</string>
+    <string name="label_strategy_name">Strateji Adı</string>
+    <string name="label_strategy_description">Açıklama (İsteğe Bağlı)</string>
+    <string name="label_fake_sni_override">Sahte SNI (İsteğe Bağlı)</string>
+    <string name="error_name_required">Strateji adı gereklidir</string>
+    <string name="error_name_exists">Bu isimde bir strateji zaten var</string>
+    <string name="btn_duplicate">Çoğalt</string>
+    <string name="btn_delete">Sil</string>
+    <string name="btn_edit">Düzenle</string>
     <string name="msg_latest_version">En son sürümü kullanıyorsunuz</string>
     <string name="error_update_check">Güncellemeler kontrol edilemedi: %1$s</string>
     <string name="error_download_failed">İndirme başarısız: %1$s</string>

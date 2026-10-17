@@ -17,6 +17,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.appcompat.app.AppCompatActivity
 import com.example.nozapret.core.UpdateState
+import com.example.nozapret.ui.components.CustomStrategyEditorDialog
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -276,6 +277,7 @@ fun MainScreen(viewModel: MainViewModel) {
         val observer = LifecycleEventObserver { _, event: Lifecycle.Event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.isIgnoringBattery = pm.isIgnoringBatteryOptimizations(context.packageName)
+                viewModel.onResumeCheckUpdatePermissions()
                 context.sendBroadcast(
                     Intent(DpiVpnService.ACTION_QUERY_STATUS).apply {
                         setPackage(context.packageName)
@@ -480,6 +482,17 @@ fun MainScreen(viewModel: MainViewModel) {
             }
         }
     ) { innerPadding ->
+        var showCustomStrategyEditorForCreate by remember { mutableStateOf(false) }
+
+        if (showCustomStrategyEditorForCreate) {
+            CustomStrategyEditorDialog(
+                strategyToEdit = null,
+                existingStrategies = viewModel.customStrategies,
+                onSave = { viewModel.addCustomStrategy(it) },
+                onDismiss = { showCustomStrategyEditorForCreate = false }
+            )
+        }
+
         if (showNoSitesWarning) {
             AlertDialog(
                 onDismissRequest = { showNoSitesWarning = false },
@@ -540,7 +553,9 @@ fun MainScreen(viewModel: MainViewModel) {
                             isConnecting = viewModel.isConnecting,
                             isDisconnecting = viewModel.isDisconnecting,
                             isError = viewModel.isError,
-                            dnsServer = viewModel.dnsServer
+                            dnsServer = viewModel.dnsServer,
+                            customStrategies = viewModel.customStrategies,
+                            onCreateCustomStrategy = { showCustomStrategyEditorForCreate = true }
                         )
 
                         1 -> {
@@ -849,6 +864,8 @@ fun MainScreen(viewModel: MainViewModel) {
                 bytesFormatted = bytesFormatted,
                 updateError = updateError,
                 onDownload = { viewModel.downloadAndInstallUpdate() },
+                onOpenSettings = { viewModel.openInstallPermissionSettings() },
+                onRetryInstall = { viewModel.retryInstallApk() },
                 onCancel = { viewModel.cancelUpdateDownload() },
                 onDismiss = {
                     viewModel.cancelUpdateDownload()
@@ -867,6 +884,8 @@ fun UpdateDialog(
     bytesFormatted: String,
     updateError: String?,
     onDownload: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onRetryInstall: () -> Unit,
     onCancel: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -880,7 +899,37 @@ fun UpdateDialog(
         modifier = Modifier.fillMaxWidth(0.95f),
         properties = DialogProperties(usePlatformDefaultWidth = false),
         confirmButton = {
-            if (!isDownloading) {
+            if (updateState == UpdateState.INSTALL_PERMISSION_REQUIRED) {
+                Button(
+                    onClick = onOpenSettings,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(16.dp)
+                ) {
+                    Icon(Icons.Rounded.Settings, null)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        stringResource(R.string.btn_open_settings),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp
+                    )
+                }
+            } else if (updateState == UpdateState.READY_TO_INSTALL || updateState == UpdateState.INSTALLER_LAUNCHED) {
+                Button(
+                    onClick = onRetryInstall,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(16.dp)
+                ) {
+                    Icon(Icons.Rounded.SystemUpdate, null)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        stringResource(R.string.btn_install_now),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp
+                    )
+                }
+            } else if (!isDownloading) {
                 Button(
                     onClick = onDownload,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -993,6 +1042,48 @@ fun UpdateDialog(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 lineHeight = 20.sp
+                            )
+                        }
+                    }
+                }
+
+                if (updateState == UpdateState.INSTALL_PERMISSION_REQUIRED) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Rounded.Security, null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                            Text(
+                                text = stringResource(R.string.update_permission_required),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                }
+
+                if (updateState == UpdateState.INSTALLER_LAUNCHED) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Rounded.SystemUpdate, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text(
+                                text = stringResource(R.string.update_installer_launched),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
                     }

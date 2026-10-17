@@ -272,7 +272,26 @@
     <string name="update_downloading">Загрузка обновления…</string>
     <string name="update_verifying">Проверка пакета обновления…</string>
     <string name="update_installing">Подготовка к установке…</string>
+    <string name="update_permission_required">Требуется разрешение на установку неизвестных приложений. Пожалуйста, разрешите установку для NoZapret в Настройках.</string>
+    <string name="btn_open_settings">Открыть настройки</string>
+    <string name="update_installer_launched">Запущен установщик системы. Следуйте инструкциям для завершения установки.</string>
+    <string name="btn_install_now">Установить обновление</string>
     <string name="btn_retry">Повторить</string>
+
+    <!-- Custom Strategies -->
+    <string name="title_custom_strategies">Пользовательские стратегии</string>
+    <string name="desc_custom_strategies">Создание и управление собственными правилами обхода DPI.</string>
+    <string name="msg_no_custom_strategies">Пользовательские стратегии еще не созданы</string>
+    <string name="title_edit_custom_strategy">Редактировать стратегию</string>
+    <string name="title_create_custom_strategy">Создать стратегию</string>
+    <string name="label_strategy_name">Название стратегии</string>
+    <string name="label_strategy_description">Описание (опционально)</string>
+    <string name="label_fake_sni_override">Fake SNI (опционально)</string>
+    <string name="error_name_required">Название стратегии обязательно</string>
+    <string name="error_name_exists">Стратегия с таким названием уже существует</string>
+    <string name="btn_duplicate">Дублировать</string>
+    <string name="btn_delete">Удалить</string>
+    <string name="btn_edit">Редактировать</string>
     <string name="msg_latest_version">У вас установлена последняя версия</string>
     <string name="error_update_check">Ошибка проверки обновлений: %1$s</string>
     <string name="error_download_failed">Ошибка загрузки: %1$s</string>

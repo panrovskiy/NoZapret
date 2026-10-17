@@ -272,7 +272,26 @@
     <string name="update_downloading">Жаңарту жүктелуде…</string>
     <string name="update_verifying">Жаңарту пакетін тексеру…</string>
     <string name="update_installing">Орнатуға дайындалу…</string>
+    <string name="update_permission_required">Белгісіз қолданбаларды орнату рұқсаты қажет. Параметрлерде NoZapret үшін орнатуға рұқсат беріңіз.</string>
+    <string name="btn_open_settings">Параметрлерді ашу</string>
+    <string name="update_installer_launched">Жүйелік орнатқыш іске қосылды. Орнатуды аяқтау үшін нұсқауларды орындаңыз.</string>
+    <string name="btn_install_now">Жаңартуды орнату</string>
     <string name="btn_retry">Қайталау</string>
+
+    <!-- Custom Strategies -->
+    <string name="title_custom_strategies">Пайдаланушы стратегиялары</string>
+    <string name="desc_custom_strategies">Жеке DPI айналып өту ережелерін жасаңыз және басқарыңыз.</string>
+    <string name="msg_no_custom_strategies">Пайдаланушы стратегиялары әлі жасалмаған</string>
+    <string name="title_edit_custom_strategy">Стратегияны өңдеу</string>
+    <string name="title_create_custom_strategy">Стратегия жасау</string>
+    <string name="label_strategy_name">Стратегия атауы</string>
+    <string name="label_strategy_description">Сипаттамасы (міндетті емес)</string>
+    <string name="label_fake_sni_override">Fake SNI (міндетті емес)</string>
+    <string name="error_name_required">Стратегия атауы қажет</string>
+    <string name="error_name_exists">Бұл атаумен стратегия бұрыннан бар</string>
+    <string name="btn_duplicate">Дубликаттау</string>
+    <string name="btn_delete">Жою</string>
+    <string name="btn_edit">Өңдеу</string>
     <string name="msg_latest_version">Сізде соңғы нұсқа орнатылған</string>
     <string name="error_update_check">Жаңартуларды тексеру қатесі: %1$s</string>
     <string name="error_download_failed">Жүктеу қатесі: %1$s</string>
