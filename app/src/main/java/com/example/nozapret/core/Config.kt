@@ -117,7 +117,7 @@ object Config {
                 "--mod-http", "h,d",
                 "--udp-fake", "3",
                 "--wait-send",
-                "--auto", "t,s,c",
+                "--auto", "t,r,s,c",
                 "--drop-sack",
                 "--block-quic"
             )
@@ -155,10 +155,10 @@ object Config {
             "YouTube Light (Battery)" -> arrayOf(
                 "--tlsrec", "1+s",
                 "--split", "1",
-                "--auto", "t",
+                "--auto", "t,r,s,c",
                 "--block-quic"
             )
-            "YouTube TLS Split" -> parseCustomArgs("--tlsrec 1+s --split 1 --wait-send --block-quic")
+            "YouTube TLS Split" -> parseCustomArgs("--tlsrec 1+s --split 1 --wait-send --auto t,r,s,c --block-quic")
             "RU Discord (Alt)" -> arrayOf(
                 "--disorder", "1",
                 "--split", "1",
