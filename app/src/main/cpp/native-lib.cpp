@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <condition_variable>
 #include <thread>
 #include <atomic>
 #include <memory>
@@ -33,6 +34,7 @@ static std::atomic<JavaVM*> g_jvm{nullptr};
 static std::atomic<bool> g_proxy_running{false};
 static std::atomic<bool> g_tunnel_running{false};
 static std::mutex g_proxy_mutex;
+static std::condition_variable g_proxy_cv;
 static std::mutex g_tunnel_mutex;
 
 static std::mutex g_vpn_service_mutex;
@@ -211,13 +213,12 @@ Java_com_example_nozapret_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, [[maybe_un
 
     server_fd = -1;
     g_proxy_running.store(false);
+    g_proxy_cv.notify_all();
     return result;
 }
 
 JNIEXPORT void JNICALL
 Java_com_example_nozapret_core_ByeDpiProxy_jniStopProxy([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
-    // We don't necessarily need to hold the lock here as byedpi_stop is thread-safe (just sets a flag)
-    // but we can if we want to ensure no overlap with init/cleanup.
     log_info(LOG_TAG, "jniStopProxy: Calling byedpi_stop");
     byedpi_stop();
 }
@@ -236,12 +237,19 @@ Java_com_example_nozapret_core_ByeDpiProxy_jniForceClose([[maybe_unused]] JNIEnv
         server_fd = -1;
     }
 
-    // Wait for the running thread to finish and release the mutex
-    std::lock_guard<std::mutex> lock(g_proxy_mutex);
+    std::unique_lock<std::mutex> lock(g_proxy_mutex);
+    if (g_proxy_running.load()) {
+        log_info(LOG_TAG, "jniForceClose: Waiting for byedpi_main thread to exit...");
+        g_proxy_cv.wait_for(lock, std::chrono::milliseconds(2000), []{
+            return !g_proxy_running.load();
+        });
+    }
 
     if (g_proxy_running.load()) {
-        log_warn(LOG_TAG, "jniForceClose: Proxy still marked as running after wait, resetting manually");
+        log_warn(LOG_TAG, "jniForceClose: Proxy still marked as running after wait, resetting state manually");
         g_proxy_running.store(false);
+    } else {
+        log_info(LOG_TAG, "jniForceClose: Proxy thread exited cleanly");
     }
     return 0;
 }

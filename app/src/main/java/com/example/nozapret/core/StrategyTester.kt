@@ -303,6 +303,7 @@ class StrategyTester(private val application: Application) {
                     cipherSuite = session.cipherSuite
                 )
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 MainViewModel.TlsTestResult(false, error = e.message ?: "TLS Handshake failed")
             } finally {
                 try { sslSocket?.close() } catch (_: Exception) {}
@@ -337,6 +338,7 @@ class StrategyTester(private val application: Application) {
                     Pair(response.isSuccessful || response.code < 500, if (!response.isSuccessful) "HTTP ${response.code}" else null)
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Pair(false, e.message)
             }
         }

@@ -117,6 +117,7 @@ class TestingService : Service() {
                     )
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Log.e(TAG, "Error during batch test", e)
             } finally {
                 withContext(NonCancellable) {
@@ -155,6 +156,7 @@ class TestingService : Service() {
                     }
                 )
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Log.e(TAG, "Error during test task", e)
             } finally {
                 withContext(NonCancellable) {
@@ -255,7 +257,7 @@ class TestingService : Service() {
     override fun onDestroy() {
         Log.d(TAG, "[CLEANUP] TestingService onDestroy")
         currentTestJob?.cancel()
-        serviceJob.cancel()
+        serviceJob.cancelChildren()
         isRunning = false
         _statusFlow.value = _statusFlow.value.copy(isRunning = false)
         super.onDestroy()

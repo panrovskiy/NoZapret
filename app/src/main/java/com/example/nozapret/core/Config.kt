@@ -229,7 +229,7 @@ object Config {
             "Strategy 7" -> parseCustomArgs("--oob 1 --split 2 --wait-send")
             "Strategy 8" -> parseCustomArgs("--tlsrec 1+s --split 2 --udp-fake 10 --wait-send")
             "Strategy 9" -> parseCustomArgs("--tlsrec 1+s --disorder 1 --oob 1 --split 2 --wait-send --auto t,r,s,c")
-            else -> emptyArray()
+            else -> if (customArgs.isNotBlank()) parseCustomArgs(customArgs) else emptyArray()
         }
 
         val activeFakeSni = fakeSni?.trim()
