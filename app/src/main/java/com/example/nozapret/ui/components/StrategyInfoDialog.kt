@@ -32,6 +32,8 @@ import com.example.nozapret.ui.getLocalizedStrategyName
 fun StrategyInfoDialog(
     strategyName: String,
     customArgs: String,
+    enableQuic: Boolean = true,
+    effectiveDns: String = "1.1.1.1",
     testStat: Triple<Int, Int, Int>? = null,
     testResults: Map<String, MainViewModel.TlsTestResult>? = null,
     isTesting: Boolean = false,
@@ -43,7 +45,7 @@ fun StrategyInfoDialog(
     val context = LocalContext.current
     val strategy = Config.getStrategyByName(strategyName)
     val resolvedArgs = try {
-        Config.getStrategyArgs(strategyName, customArgs, fakeSni).joinToString(" ")
+        Config.getStrategyArgs(strategyName, customArgs, fakeSni, enableQuic).joinToString(" ")
     } catch (_: Exception) {
         null
     }
@@ -70,6 +72,15 @@ fun StrategyInfoDialog(
 
                 // Preset/Category Section
                 InfoSection(label = stringResource(R.string.label_preset), value = strategy?.category ?: "Custom")
+
+                // Effective DNS Section
+                InfoSection(label = stringResource(R.string.label_dns_server), value = effectiveDns)
+
+                // QUIC Support Section
+                InfoSection(
+                    label = stringResource(R.string.label_quic_support),
+                    value = if (enableQuic) stringResource(R.string.status_enabled) else stringResource(R.string.status_disabled)
+                )
 
                 // Fake SNI Section
                 val supportsSni = Config.supportsFakeSni(strategyName)

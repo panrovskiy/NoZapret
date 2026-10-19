@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import com.example.nozapret.BuildConfig
 import com.example.nozapret.MainViewModel
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,7 @@ import java.net.ConnectException
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.Socket
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 enum class UpdateState {
@@ -281,11 +283,11 @@ class UpdateManager(private val application: Application) {
                         val formatted = if (totalBytes > 0) {
                             val pct = (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
                             _downloadProgress.value = pct
-                            val dlMb = String.format("%.1f", downloadedBytes / 1048576.0)
-                            val totMb = String.format("%.1f", totalBytes / 1048576.0)
+                            val dlMb = String.format(Locale.US, "%.1f", downloadedBytes / 1048576.0)
+                            val totMb = String.format(Locale.US, "%.1f", totalBytes / 1048576.0)
                             "$dlMb MB / $totMb MB"
                         } else {
-                            val dlMb = String.format("%.1f", downloadedBytes / 1048576.0)
+                            val dlMb = String.format(Locale.US, "%.1f", downloadedBytes / 1048576.0)
                             "$dlMb MB"
                         }
                         _downloadBytesFormatted.value = formatted
@@ -354,27 +356,21 @@ class UpdateManager(private val application: Application) {
     }
 
     fun canRequestPackageInstalls(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            application.packageManager.canRequestPackageInstalls()
-        } else {
-            true
-        }
+        return application.packageManager.canRequestPackageInstalls()
     }
 
     fun openInstallPermissionSettings() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    Uri.parse("package:${application.packageName}")
-                ).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                AppLogger.i("UPDATE", "[UPDATE] Opening unknown app sources settings")
-                application.startActivity(intent)
-            } catch (e: Exception) {
-                AppLogger.e("UPDATE", "[UPDATE][ERROR] Failed to open unknown app sources settings: ${e.message}", e)
+        try {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                "package:${application.packageName}".toUri()
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
+            AppLogger.i("UPDATE", "[UPDATE] Opening unknown app sources settings")
+            application.startActivity(intent)
+        } catch (e: Exception) {
+            AppLogger.e("UPDATE", "[UPDATE][ERROR] Failed to open unknown app sources settings: ${e.message}", e)
         }
     }
 

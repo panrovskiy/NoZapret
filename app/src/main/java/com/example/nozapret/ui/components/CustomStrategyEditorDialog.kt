@@ -30,6 +30,7 @@ fun CustomStrategyEditorDialog(
     var backend by remember { mutableStateOf(strategyToEdit?.backend ?: "ByeDPI") }
     var userArgs by remember { mutableStateOf(strategyToEdit?.userArgs ?: "") }
     var fakeSni by remember { mutableStateOf(strategyToEdit?.fakeSni ?: "") }
+    var customDns by remember { mutableStateOf(strategyToEdit?.customDns ?: "") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val isEditing = strategyToEdit != null
@@ -110,6 +111,18 @@ fun CustomStrategyEditorDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                OutlinedTextField(
+                    value = customDns,
+                    onValueChange = {
+                        customDns = it
+                        errorMessage = null
+                    },
+                    label = { Text(stringResource(R.string.label_custom_dns)) },
+                    placeholder = { Text(stringResource(R.string.placeholder_custom_dns)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
@@ -126,6 +139,15 @@ fun CustomStrategyEditorDialog(
                         return@Button
                     }
 
+                    val trimmedDns = customDns.trim()
+                    if (trimmedDns.isNotEmpty()) {
+                        val dnsValidation = Config.validateIpAddress(trimmedDns)
+                        if (dnsValidation.isFailure) {
+                            errorMessage = "Invalid Custom DNS IP address format"
+                            return@Button
+                        }
+                    }
+
                     val strategy = Config.CustomStrategy(
                         id = strategyToEdit?.id ?: UUID.randomUUID().toString(),
                         name = trimmedName,
@@ -133,6 +155,7 @@ fun CustomStrategyEditorDialog(
                         backend = backend,
                         userArgs = userArgs.trim(),
                         fakeSni = fakeSni.trim().ifEmpty { null },
+                        customDns = trimmedDns.ifEmpty { null },
                         category = "User Custom",
                         createdAt = strategyToEdit?.createdAt ?: System.currentTimeMillis(),
                         updatedAt = System.currentTimeMillis()

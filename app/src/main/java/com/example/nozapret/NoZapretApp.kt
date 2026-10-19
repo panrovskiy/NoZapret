@@ -8,9 +8,10 @@ class NoZapretApp : Application() {
         super.onCreate()
         AppLogger.init(this)
         
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            AppLogger.e("CRASH", "Uncaught exception in thread ${thread.name}", throwable)
-            // Default handler will show the crash dialog
+            AppLogger.fatal("CRASH", "Fatal uncaught exception on thread ${thread.name}", throwable)
+            defaultHandler?.uncaughtException(thread, throwable)
         }
     }
 }

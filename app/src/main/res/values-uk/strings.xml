@@ -46,6 +46,11 @@
     <string name="dns_quad9">Quad9 (9.9.9.9)</string>
     <string name="dns_adguard">AdGuard (94.140.14.14)</string>
     <string name="dns_custom">Свій варіант</string>
+    <string name="label_quic_support">Підтримка QUIC</string>
+    <string name="supporting_quic_support">Глобальне увімкнення або вимкнення протоколу QUIC для підтримуваних стратегій</string>
+    <string name="label_custom_dns">Кастомний DNS Сервер</string>
+    <string name="placeholder_custom_dns">1.1.1.1 або 8.8.8.8 (Порожньо = Успадкування глобального)</string>
+    <string name="title_dns_diagnostics">Діагностика DNS</string>
     <string name="label_auto_connect">Автозапуск при відкритті</string>
     <string name="supporting_auto_connect">Автоматично запускати обхід при відкритті додатка</string>
     <string name="label_enable_ipv6">Увімкнути IPv6</string>
@@ -358,6 +363,8 @@
     <string name="error_no_sites_testing">Сайти не вибрані для тестування</string>
     <string name="error_vpn_stop_failed">Не вдалося зупинити VPN для тесту</string>
     <string name="error_invalid_domain">Некоректний домен</string>
+    <string name="btn_export_logs">Експортувати логи</string>
+    <string name="error_no_logs">Логи не знайдені</string>
 
     <!-- New Strategy System Overhaul Strings -->
     <string name="label_filter_sort">Фільтр та Сортування</string>
@@ -391,6 +398,7 @@
     <string name="status_success">Успішно</string>
     <string name="status_failed">Помилка</string>
     <string name="status_disabled">Вимкнено</string>
+    <string name="status_enabled">Увімкнено</string>
 
     <string name="result_sites_format">Сайтів: %1$d / ОК: %2$d / Помилка: %3$d</string>
     <string name="label_ping_format">Пінг: %1$d мс</string>

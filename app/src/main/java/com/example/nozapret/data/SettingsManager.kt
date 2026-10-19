@@ -32,6 +32,7 @@ class SettingsManager(private val application: Application, private val scope: C
     var selectedLanguage by mutableStateOf("System")
     var autoConnect by mutableStateOf(false)
     var enableIpv6 by mutableStateOf(false)
+    var enableQuic by mutableStateOf(true)
     var customPrimaryColor by mutableIntStateOf(0xFF6750A4.toInt())
     var customThemeBase by mutableStateOf("System")
     var runMode by mutableStateOf("VPN")
@@ -58,6 +59,7 @@ class SettingsManager(private val application: Application, private val scope: C
             selectedLanguage = prefs[DataStoreManager.SELECTED_LANGUAGE] ?: "System"
             autoConnect = prefs[DataStoreManager.AUTO_CONNECT] ?: false
             enableIpv6 = prefs[DataStoreManager.ENABLE_IPV6] ?: false
+            enableQuic = prefs[DataStoreManager.ENABLE_QUIC] ?: true
             customPrimaryColor = prefs[DataStoreManager.CUSTOM_PRIMARY_COLOR] ?: 0xFF6750A4.toInt()
             customThemeBase = prefs[DataStoreManager.CUSTOM_THEME_BASE] ?: "System"
             runMode = prefs[DataStoreManager.RUN_MODE] ?: "VPN"
@@ -149,6 +151,7 @@ class SettingsManager(private val application: Application, private val scope: C
                                 backend = obj.optString("backend", "ByeDPI"),
                                 userArgs = obj.optString("userArgs", ""),
                                 fakeSni = if (obj.has("fakeSni") && obj.getString("fakeSni").isNotBlank()) obj.getString("fakeSni") else null,
+                                customDns = if (obj.has("customDns") && obj.getString("customDns").isNotBlank()) obj.getString("customDns") else null,
                                 category = obj.optString("category", "User Custom"),
                                 createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
                                 updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
@@ -168,6 +171,11 @@ class SettingsManager(private val application: Application, private val scope: C
     fun updateCustomArgs(value: String) {
         customArgs = value
         save(DataStoreManager.CUSTOM_ARGS, value)
+    }
+
+    fun updateEnableQuic(value: Boolean) {
+        enableQuic = value
+        save(DataStoreManager.ENABLE_QUIC, value)
     }
     
     fun updateDnsServer(value: String) {
@@ -467,6 +475,7 @@ class SettingsManager(private val application: Application, private val scope: C
                         put("backend", item.backend)
                         put("userArgs", item.userArgs)
                         put("fakeSni", item.fakeSni ?: "")
+                        put("customDns", item.customDns ?: "")
                         put("category", item.category)
                         put("createdAt", item.createdAt)
                         put("updatedAt", item.updatedAt)

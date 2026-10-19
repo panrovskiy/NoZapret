@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import androidx.core.net.toUri
 
 
 
@@ -73,6 +74,8 @@ fun SettingsTab(
     onPresetToggle: (String, Boolean) -> Unit,
     dnsServer: String,
     onDnsChange: (String) -> Unit,
+    enableQuic: Boolean = true,
+    onEnableQuicChange: (Boolean) -> Unit = {},
     customArgs: String,
     onCustomArgsChange: (String) -> Unit,
     excludeSelf: Boolean,
@@ -602,6 +605,13 @@ fun SettingsTab(
                                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                         modifier = Modifier.bouncingClickable { onExcludeSelfChange(!excludeSelf) }
                                     )
+                                    ListItem(
+                                        headlineContent = { Text(stringResource(R.string.label_quic_support)) },
+                                        supportingContent = { Text(stringResource(R.string.supporting_quic_support)) },
+                                        trailingContent = { Switch(checked = enableQuic, onCheckedChange = onEnableQuicChange) },
+                                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                        modifier = Modifier.bouncingClickable { onEnableQuicChange(!enableQuic) }
+                                    )
                                     OutlinedTextField(
                                         value = dnsServer,
                                         onValueChange = onDnsChange,
@@ -1122,7 +1132,7 @@ fun SettingsTab(
                                         trailingContent = { Icon(Icons.Rounded.Launch, null) },
                                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                         modifier = Modifier.bouncingClickable {
-                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/panrovskiy/NoZapret"))
+                                            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/panrovskiy/NoZapret".toUri())
                                             context.startActivity(intent)
                                         }
                                     )
@@ -1132,7 +1142,7 @@ fun SettingsTab(
                                         trailingContent = { Icon(Icons.Rounded.Launch, null) },
                                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                         modifier = Modifier.bouncingClickable {
-                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/hufrea/byedpi"))
+                                            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/hufrea/byedpi".toUri())
                                             context.startActivity(intent)
                                         }
                                     )

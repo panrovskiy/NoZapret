@@ -30,6 +30,7 @@ class DataStoreManager(context: Context) {
         val PINNED_STRATEGIES = stringSetPreferencesKey("pinned_strategies")
         val AUTO_CONNECT = booleanPreferencesKey("auto_connect")
         val ENABLE_IPV6 = booleanPreferencesKey("enable_ipv6")
+        val ENABLE_QUIC = booleanPreferencesKey("enable_quic")
         val RUN_MODE = stringPreferencesKey("run_mode") // VPN or Proxy
         val PRESET_OVERRIDES = stringPreferencesKey("preset_overrides") // JSON object map
         val FAKE_SNI_POOL = stringSetPreferencesKey("fake_sni_pool")

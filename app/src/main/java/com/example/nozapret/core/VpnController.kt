@@ -32,21 +32,22 @@ object VpnController {
     }
 
     suspend fun stopTestsAndWait(context: Context) = withContext(Dispatchers.Main) {
-        if (!TestingService.isRunning) return@withContext
-        
-        Log.d(TAG, "[CLEANUP] Waiting for tests to stop...")
-        stopTests(context)
-        
-        var wait = 0
-        while (TestingService.isRunning && wait < 50) {
-            delay(100.milliseconds)
-            wait++
+        if (TestingService.isRunning) {
+            Log.d(TAG, "[CLEANUP] Waiting for tests to stop...")
+            stopTests(context)
+            
+            var wait = 0
+            while (TestingService.isRunning && wait < 50) {
+                delay(100.milliseconds)
+                wait++
+            }
         }
         
         // Final port check
         val proxy = ByeDpiProxy()
         var nativeWait = 0
         while (proxy.isRunning() && nativeWait < 30) {
+            proxy.forceClose()
             delay(100.milliseconds)
             nativeWait++
         }

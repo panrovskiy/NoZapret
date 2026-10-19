@@ -11,9 +11,9 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun FadeEntrance(
+    modifier: Modifier = Modifier,
     index: Int = 0,
     delayUnit: Int = 50,
-    modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     var visible by remember { mutableStateOf(false) }

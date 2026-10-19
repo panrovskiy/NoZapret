@@ -7,15 +7,16 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.content.pm.ShortcutInfo
-import android.content.pm.ShortcutManager
-import android.graphics.drawable.Icon
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.appcompat.app.AppCompatActivity
+import com.example.nozapret.core.AppLogger
 import com.example.nozapret.core.UpdateState
 import com.example.nozapret.ui.components.CustomStrategyEditorDialog
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -86,40 +87,35 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class MainActivity : AppCompatActivity() {
     private fun setupShortcuts() {
-        val shortcutManager = getSystemService<ShortcutManager>() ?: return
-        
-        // Use consistent IDs that don't conflict with static manifest shortcuts
-        // But since we want to override or ensure they exist, we use unique ones here
-        // The previous crash was caused by using "stop_vpn" which was also in Manifest.
-        
-        val startShortcut = ShortcutInfo.Builder(this, "dynamic_start_vpn_id")
-            .setShortLabel(getString(R.string.btn_start))
-            .setLongLabel(getString(R.string.status_vpn_started))
-            .setIcon(Icon.createWithResource(this, R.mipmap.app_icon))
-            .setIntent(
-                Intent(this, MainActivity::class.java).apply {
-                    action = "com.example.nozapret.START_VPN"
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                },
-            )
-            .build()
-
-        val stopShortcut = ShortcutInfo.Builder(this, "dynamic_stop_vpn_id")
-            .setShortLabel(getString(R.string.btn_stop))
-            .setLongLabel(getString(R.string.status_vpn_stopped))
-            .setIcon(Icon.createWithResource(this, R.mipmap.app_icon))
-            .setIntent(
-                Intent(this, MainActivity::class.java).apply {
-                    action = "com.example.nozapret.STOP_VPN"
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                },
-            )
-            .build()
-
         try {
-            shortcutManager.dynamicShortcuts = listOf(startShortcut, stopShortcut)
+            val startShortcut = ShortcutInfoCompat.Builder(this, "dynamic_start_vpn_id")
+                .setShortLabel(getString(R.string.btn_start))
+                .setLongLabel(getString(R.string.status_vpn_started))
+                .setIcon(IconCompat.createWithResource(this, R.mipmap.app_icon))
+                .setIntent(
+                    Intent(this, MainActivity::class.java).apply {
+                        action = "com.example.nozapret.START_VPN"
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+                )
+                .build()
+
+            val stopShortcut = ShortcutInfoCompat.Builder(this, "dynamic_stop_vpn_id")
+                .setShortLabel(getString(R.string.btn_stop))
+                .setLongLabel(getString(R.string.status_vpn_stopped))
+                .setIcon(IconCompat.createWithResource(this, R.mipmap.app_icon))
+                .setIntent(
+                    Intent(this, MainActivity::class.java).apply {
+                        action = "com.example.nozapret.STOP_VPN"
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+                )
+                .build()
+
+            ShortcutManagerCompat.pushDynamicShortcut(this, startShortcut)
+            ShortcutManagerCompat.pushDynamicShortcut(this, stopShortcut)
         } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to set dynamic shortcuts", e)
+            AppLogger.e("MainActivity", "Failed to set dynamic shortcuts", e)
         }
     }
 
@@ -570,6 +566,8 @@ fun MainScreen(viewModel: MainViewModel) {
                                 onPresetToggle = viewModel::togglePreset,
                                 dnsServer = viewModel.dnsServer,
                                 onDnsChange = viewModel::updateDnsServer,
+                                enableQuic = viewModel.enableQuic,
+                                onEnableQuicChange = viewModel::updateEnableQuic,
                                 customArgs = viewModel.customArgs,
                                 onCustomArgsChange = viewModel::updateCustomArgs,
                                 excludeSelf = viewModel.excludeSelf,
@@ -620,7 +618,10 @@ fun MainScreen(viewModel: MainViewModel) {
                                     viewModel.quickTestStrategy = it
                                     viewModel.quickTestResult = null
                                 },
-                                onRunDiagnostics = viewModel::runDiagnostics,
+                                onRunDiagnostics = {
+                                    scope.launch { pagerState.animateScrollToPage(2) }
+                                    viewModel.runDiagnostics()
+                                },
                                 selectedLanguage = viewModel.selectedLanguage,
                                 onLanguageChange = viewModel::updateSelectedLanguage,
                                 autoConnect = viewModel.autoConnect,
@@ -655,10 +656,45 @@ fun MainScreen(viewModel: MainViewModel) {
                             )
                         }
 
-                        2 -> LogViewer(
-                            logLines = viewModel.logLines,
-                            onClearLogs = { viewModel.clearLogs() }
-                        )
+                        2 -> {
+                            val activeStrat = viewModel.vpnState.strategy.takeIf { !it.isNullOrBlank() } ?: viewModel.selectedStrategy
+                            LogViewer(
+                                logLines = viewModel.logLines,
+                                onClearLogs = { viewModel.clearLogs() },
+                                onExportDiagnostics = { viewModel.exportLogs(context) },
+                                selectedStrategy = activeStrat,
+                                effectiveDns = viewModel.getEffectiveDnsForStrategy(activeStrat),
+                                enableQuic = viewModel.enableQuic,
+                                vpnStateText = if (viewModel.isEnabled) "CONNECTED" else if (viewModel.isConnecting) "CONNECTING" else "IDLE",
+                                diagnosticsLog = viewModel.diagnosticsLog,
+                                isDiagnosing = viewModel.isDiagnosing,
+                                onRunDiagnostics = { viewModel.runDiagnostics() },
+                                onDiagAction = { action ->
+                                    when (action) {
+                                        MainViewModel.DiagAction.BATTERY_OPTIMIZATION -> {
+                                            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                            context.startActivity(intent)
+                                        }
+                                        MainViewModel.DiagAction.DISABLE_IPV6 -> {
+                                            viewModel.updateEnableIpv6(false)
+                                        }
+                                        MainViewModel.DiagAction.RESTART_VPN -> {
+                                            if (viewModel.isEnabled) {
+                                                onToggleVpn()
+                                                scope.launch {
+                                                    delay(300.milliseconds)
+                                                    onToggleVpn()
+                                                }
+                                            }
+                                        }
+                                        MainViewModel.DiagAction.STOP_VPN -> {
+                                            if (viewModel.isEnabled) onToggleVpn()
+                                        }
+                                        MainViewModel.DiagAction.NONE -> {}
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -671,6 +707,8 @@ fun MainScreen(viewModel: MainViewModel) {
             StrategyInfoDialog(
                 strategyName = name,
                 customArgs = viewModel.customArgs,
+                enableQuic = viewModel.enableQuic,
+                effectiveDns = viewModel.getEffectiveDnsForStrategy(name),
                 testStat = viewModel.stats[name] ?: viewModel.committedStats[name],
                 testResults = viewModel.testResults[name],
                 isTesting = viewModel.currentlyTesting.contains(name),
@@ -727,130 +765,6 @@ fun MainScreen(viewModel: MainViewModel) {
                     }
                 )
             }
-        }
-
-        if (viewModel.showDiagnosticsDialog) {
-            AlertDialog(
-                onDismissRequest = { if (!viewModel.isDiagnosing) viewModel.showDiagnosticsDialog = false },
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.AutoMirrored.Rounded.PlaylistAddCheck, null, tint = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.diag_title))
-                    }
-                },
-                text = {
-                    val listState = rememberLazyListState()
-                    LaunchedEffect(viewModel.diagnosticsLog.size) {
-                        if (viewModel.diagnosticsLog.isNotEmpty()) {
-                            listState.animateScrollToItem(viewModel.diagnosticsLog.size - 1)
-                        }
-                    }
-
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp)
-                    ) {
-                        items(viewModel.diagnosticsLog) { item ->
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.Top,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    val color = when (item.type) {
-                                        MainViewModel.DiagType.PASSED -> Color(0xFF4CAF50)
-                                        MainViewModel.DiagType.FAILED -> MaterialTheme.colorScheme.error
-                                        MainViewModel.DiagType.WARNING -> Color(0xFFFF9800)
-                                        MainViewModel.DiagType.INFO -> MaterialTheme.colorScheme.outline
-                                    }
-
-                                    val prefix = when (item.type) {
-                                        MainViewModel.DiagType.PASSED -> "[+]"
-                                        MainViewModel.DiagType.FAILED -> "[-]"
-                                        MainViewModel.DiagType.WARNING -> "[!]"
-                                        MainViewModel.DiagType.INFO -> if (item.isChecking) "[?]" else "[*]"
-                                    }
-
-                                    Text(
-                                        text = "$prefix ${item.message}",
-                                        color = color,
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            fontFamily = FontFamily.Monospace,
-                                            fontWeight = FontWeight.Bold
-                                        ),
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-
-                                if ((item.action != MainViewModel.DiagAction.NONE) && (item.solutionTextResId != null)) {
-                                    Button(
-                                        onClick = {
-                                            when (item.action) {
-                                                MainViewModel.DiagAction.BATTERY_OPTIMIZATION -> {
-                                                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                                                    context.startActivity(intent)
-                                                }
-                                                MainViewModel.DiagAction.DISABLE_IPV6 -> {
-                                                    // Typically involves opening APN settings or similar,
-                                                    // but we can at least guide them to the right settings page.
-                                                    val intent = Intent(Settings.ACTION_WIRELESS_SETTINGS)
-                                                    context.startActivity(intent)
-                                                }
-                                                MainViewModel.DiagAction.RESTART_VPN -> {
-                                                    onToggleVpn() // Stop
-                                                    scope.launch {
-                                                        delay(300.milliseconds)
-                                                        onToggleVpn() // Start
-                                                    }
-                                                }
-                                                MainViewModel.DiagAction.STOP_VPN -> {
-                                                    onToggleVpn()
-                                                }
-                                                MainViewModel.DiagAction.NONE -> {}
-                                            }
-                                        },
-                                        modifier = Modifier.padding(start = 28.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                        shape = MaterialTheme.shapes.small,
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Icon(Icons.Rounded.Build, null, modifier = Modifier.size(14.dp))
-                                            Text(
-                                                stringResource(item.solutionTextResId),
-                                                style = MaterialTheme.typography.labelMedium
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (viewModel.isDiagnosing) {
-                            item {
-                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = { viewModel.showDiagnosticsDialog = false },
-                        enabled = !viewModel.isDiagnosing
-                    ) {
-                        Text(stringResource(R.string.btn_dismiss))
-                    }
-                }
-            )
         }
 
         val updateState by viewModel.updateState.collectAsState()

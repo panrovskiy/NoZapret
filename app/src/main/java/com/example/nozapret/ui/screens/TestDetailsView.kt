@@ -84,12 +84,74 @@ fun TestDetailsView(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        val dnsResults = results.values.firstOrNull { it.dnsResults.isNotEmpty() }?.dnsResults ?: emptyList()
         val sortedSites = results.keys.sortedWith(compareByDescending<String> { results[it]?.success == true }.thenBy { it })
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (dnsResults.isNotEmpty()) {
+                item {
+                    Text(
+                        stringResource(R.string.title_dns_diagnostics),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        dnsResults.forEach { dns ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (dns.success)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                                    else
+                                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+                                ),
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        dns.name,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        val statusText = if (dns.success) "OK (${dns.pingMs} ms)" else "FAIL"
+                                        val statusColor = if (dns.success) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+                                        Text(
+                                            statusText,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = statusColor
+                                        )
+                                        Icon(
+                                            if (dns.success) Icons.Rounded.CheckCircle else Icons.Rounded.Cancel,
+                                            null,
+                                            tint = statusColor,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+
             items(sortedSites) { site ->
                 val result = results[site] ?: MainViewModel.TlsTestResult(false)
                 val success = result.success

@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="PluralsCandidate,UnusedResources">
     <string name="app_name">NoZapret</string>
     <string name="nav_home">Home</string>
     <string name="nav_settings">Settings</string>
@@ -46,6 +46,11 @@
     <string name="dns_quad9">Quad9 (9.9.9.9)</string>
     <string name="dns_adguard">AdGuard (94.140.14.14)</string>
     <string name="dns_custom">Custom</string>
+    <string name="label_quic_support">QUIC Support</string>
+    <string name="supporting_quic_support">Enable or disable QUIC protocol globally for supported strategies</string>
+    <string name="label_custom_dns">Custom DNS Server</string>
+    <string name="placeholder_custom_dns">1.1.1.1 or 8.8.8.8 (Empty = Inherit Global)</string>
+    <string name="title_dns_diagnostics">DNS Diagnostics</string>
     <string name="label_auto_connect">Connect on app start</string>
     <string name="supporting_auto_connect">Automatically start bypass when opening NoZapret</string>
     <string name="label_enable_ipv6">Enable IPv6</string>
@@ -393,6 +398,7 @@
     <string name="status_success">Success</string>
     <string name="status_failed">Failed</string>
     <string name="status_disabled">Disabled</string>
+    <string name="status_enabled">Enabled</string>
 
     <string name="result_sites_format">Sites: %1$d / OK: %2$d / Fail: %3$d</string>
     <string name="label_ping_format">Ping: %1$d ms</string>

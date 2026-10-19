@@ -42,7 +42,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     data class TlsTestResult(
         val success: Boolean, val ping: Long? = null, val protocol: String? = null,
         val cipherSuite: String? = null, val error: String? = null,
-        val httpSuccess: Boolean = false, val httpError: String? = null
+        val httpSuccess: Boolean = false, val httpError: String? = null,
+        val dnsResults: List<DnsTestResult> = emptyList()
     )
 
     private val settingsManager = SettingsManager(application, viewModelScope)
@@ -66,6 +67,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var selectedLanguage by settingsManager::selectedLanguage
     var autoConnect by settingsManager::autoConnect
     var enableIpv6 by settingsManager::enableIpv6
+    var enableQuic by settingsManager::enableQuic
     var customPrimaryColor by settingsManager::customPrimaryColor
     var customThemeBase by settingsManager::customThemeBase
     var runMode by settingsManager::runMode
@@ -84,7 +86,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var isCheckingUpdates by mutableStateOf(false)
     var updateInfo by mutableStateOf<UpdateInfo?>(null)
     var isDownloadingUpdate by mutableStateOf(false)
-    var updateDownloadProgress by mutableStateOf(0f)
+    var updateDownloadProgress by mutableFloatStateOf(0f)
     var showUpdateDialog by mutableStateOf(false)
 
     // Diagnostics State
@@ -129,6 +131,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun getFakeSniForStrategy(strategyName: String): String? = settingsManager.getFakeSniForStrategy(strategyName)
     fun setFakeSniForStrategy(strategyName: String, rawFakeSni: String?): Result<Unit> = settingsManager.setFakeSniForStrategy(strategyName, rawFakeSni)
     fun resetFakeSniForStrategy(strategyName: String) = settingsManager.resetFakeSniForStrategy(strategyName)
+
+    fun updateEnableQuic(enabled: Boolean) = settingsManager.updateEnableQuic(enabled)
+
+    fun getEffectiveDnsForStrategy(strategyName: String): String {
+        val customStrat = getCustomStrategyByName(strategyName)
+        if (customStrat != null && !customStrat.customDns.isNullOrBlank()) {
+            return customStrat.customDns.trim()
+        }
+        return dnsServer.trim().ifEmpty { "1.1.1.1" }
+    }
 
     fun addCustomStrategy(strategy: Config.CustomStrategy): Result<Unit> = settingsManager.addCustomStrategy(strategy)
     fun updateCustomStrategy(strategy: Config.CustomStrategy): Result<Unit> = settingsManager.updateCustomStrategy(strategy)
@@ -237,6 +249,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         vpnStartTime = start
     }
 
+    val vpnState get() = VpnController.stateFlow.value
+
     fun togglePreset(name: String, enabled: Boolean) = settingsManager.togglePreset(name, enabled)
     fun togglePinStrategy(name: String) = settingsManager.togglePinStrategy(name)
     fun updateSelectedStrategy(s: String) = settingsManager.updateSelectedStrategy(s)
@@ -308,9 +322,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun observeTestingService() {
         var lastReportedStrategy = ""
         viewModelScope.launch {
-            TestingService.statusFlow.collectLatest { status ->
+            TestingService.statusFlow.collect { status ->
                 val strategy = status.strategyName
-                if (strategy.isEmpty()) return@collectLatest
+                if (strategy.isEmpty()) return@collect
                 
                 withContext(Dispatchers.Main) {
                     if (status.isRunning) {
@@ -343,7 +357,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         if (lastReportedStrategy.isNotEmpty()) {
                             committedStats[lastReportedStrategy] = stats[lastReportedStrategy] ?: Triple(0, 0, 0)
                         }
-                        currentlyTesting.forEach { name ->
+                        currentlyTesting.toList().forEach { name ->
                             committedStats[name] = stats[name] ?: Triple(0, 0, 0)
                         }
                         currentlyTesting.clear()
@@ -395,10 +409,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         
         viewModelScope.launch {
             val success = VpnController.runWithVpnStopped(getApplication()) {
+                val effectiveDns = getEffectiveDnsForStrategy(strategyName)
                 val intent = Intent(getApplication(), TestingService::class.java).apply {
                     action = TestingService.ACTION_START_TEST
                     putExtra(TestingService.EXTRA_STRATEGY, strategyName)
                     putExtra(TestingService.EXTRA_CUSTOM_ARGS, customArgs)
+                    putExtra(TestingService.EXTRA_ENABLE_QUIC, enableQuic)
+                    putExtra(TestingService.EXTRA_DNS_SERVER, effectiveDns)
                     putStringArrayListExtra(TestingService.EXTRA_SITES, ArrayList(bypassedSites.filter { it.isNotBlank() && !it.contains("/") }))
                 }
                 getApplication<Application>().startForegroundService(intent)
@@ -447,7 +464,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun useAsCustom(name: String) {
-        val args = Config.getStrategyArgs(name, customArgs).joinToString(" ")
+        val args = Config.getStrategyArgs(name, customArgs, fakeSni = null, enableQuic = enableQuic).joinToString(" ")
         updateCustomArgs(args)
         updateSelectedStrategy("Custom")
         viewModelScope.launch {
@@ -474,6 +491,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     action = TestingService.ACTION_START_TEST_BATCH
                     putExtra(TestingService.EXTRA_STRATEGIES, ArrayList(strategies))
                     putExtra(TestingService.EXTRA_CUSTOM_ARGS, customArgs)
+                    putExtra(TestingService.EXTRA_ENABLE_QUIC, enableQuic)
+                    putExtra(TestingService.EXTRA_DNS_SERVER, dnsServer)
                     putStringArrayListExtra(TestingService.EXTRA_SITES, ArrayList(bypassedSites.filter { it.isNotBlank() && !it.contains("/") }))
                 }
                 getApplication<Application>().startForegroundService(intent)
@@ -659,17 +678,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun saveTestResults() {
+        val statsSnapshot = committedStats.toMap()
+        val resultsSnapshot = testResults.mapValues { it.value.toMap() }
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val root = JSONObject()
-                committedStats.forEach { (name, triple) ->
+                statsSnapshot.forEach { (name, triple) ->
                     val statObj = JSONObject().apply {
                         put("success", triple.first)
                         put("tested", triple.second)
                         put("total", triple.third)
 
-                        val stratResults = testResults[name]
-                        if (stratResults != null && stratResults.isNotEmpty()) {
+                        val stratResults = resultsSnapshot[name]
+                        if (!stratResults.isNullOrEmpty()) {
                             val resultsObj = JSONObject()
                             stratResults.forEach { (site, res) ->
                                 val resObj = JSONObject().apply {
@@ -740,27 +762,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun exportLogs(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val logFiles = AppLogger.getLogFiles(context)
-                if (logFiles.isEmpty()) {
+                val reportFile = AppLogger.createConsolidatedReport(context)
+                if (reportFile == null || !reportFile.exists()) {
                     withContext(Dispatchers.Main) {
                         snackbarHostState.showSnackbar(context.getString(R.string.error_no_logs))
                     }
                     return@launch
                 }
 
-                // Create a temporary zip file or just send the latest log
-                val latestLog = logFiles.first()
-                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", latestLog)
-                
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", reportFile)
                 val intent = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
                     putExtra(Intent.EXTRA_STREAM, uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
-                context.startActivity(Intent.createChooser(intent, context.getString(R.string.btn_export_logs)))
+                val chooser = Intent.createChooser(intent, context.getString(R.string.btn_export_logs)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(chooser)
             } catch (e: Exception) {
+                AppLogger.e("MainViewModel", "Failed to export logs", e)
                 withContext(Dispatchers.Main) {
-                    snackbarHostState.showSnackbar(context.getString(R.string.error_export_failed, e.message))
+                    snackbarHostState.showSnackbar("Export failed: ${e.message}")
                 }
             }
         }

@@ -13,7 +13,10 @@ import kotlinx.coroutines.sync.Semaphore
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.net.DatagramPacket
+import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -54,10 +57,12 @@ class StrategyTester(private val application: Application) {
         strategyName: String,
         bypassedSites: List<String>,
         customArgs: String,
+        enableQuic: Boolean = true,
+        effectiveDns: String = "1.1.1.1",
         onResult: (String, MainViewModel.TlsTestResult, Int, Int, Int) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         if (strategyName == "None") {
-            return@withContext runDirectTest(bypassedSites, onResult)
+            return@withContext runDirectTest(bypassedSites, effectiveDns, onResult)
         }
 
         val sitesToTest = bypassedSites.filter { it.isNotBlank() && !it.contains("/") }
@@ -89,7 +94,7 @@ class StrategyTester(private val application: Application) {
         val resolvedFakeSni = Config.resolveFakeSni(strategyName, strategyFakeSniMap, fakeSniPool, globalMode)
 
         val strategyArgs = try {
-            Config.getStrategyArgs(strategyName, customArgs, resolvedFakeSni)
+            Config.getStrategyArgs(strategyName, customArgs, resolvedFakeSni, enableQuic)
         } catch (e: Exception) {
             AppLogger.e("TEST", "[TEST] Failed to generate args for $strategyName: ${e.message}")
             return@withContext false
@@ -176,6 +181,7 @@ class StrategyTester(private val application: Application) {
                 .build()
 
             val checksStartTime = System.currentTimeMillis()
+            val dnsResults = performAllDnsDiagnostics(effectiveDns)
             val semaphore = Semaphore(6) // Bounded concurrency
 
             coroutineScope {
@@ -195,7 +201,8 @@ class StrategyTester(private val application: Application) {
                             if (isActive) {
                                 val currentTested = testedCount.incrementAndGet()
                                 if (result.success) successCount.incrementAndGet()
-                                onResult(site, result, successCount.get(), currentTested, total)
+                                val resultWithDns = result.copy(dnsResults = dnsResults)
+                                onResult(site, resultWithDns, successCount.get(), currentTested, total)
                             }
                         } finally {
                             semaphore.release()
@@ -232,6 +239,7 @@ class StrategyTester(private val application: Application) {
 
     private suspend fun runDirectTest(
         bypassedSites: List<String>,
+        effectiveDns: String = "1.1.1.1",
         onResult: (String, MainViewModel.TlsTestResult, Int, Int, Int) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         val sitesToTest = bypassedSites.filter { it.isNotBlank() && !it.contains("/") }
@@ -240,6 +248,7 @@ class StrategyTester(private val application: Application) {
         val total = sitesToTest.size
         val testedCount = AtomicInteger(0)
         val successCount = AtomicInteger(0)
+        val dnsResults = performAllDnsDiagnostics(effectiveDns)
         val semaphore = Semaphore(10) // More concurrency for direct tests
 
         coroutineScope {
@@ -248,11 +257,18 @@ class StrategyTester(private val application: Application) {
                     semaphore.acquire()
                     try {
                         if (!isActive) return@launch
-                        val result = performCombinedCheck(site, true)
+                        val result = try {
+                            performCombinedCheck(site, true)
+                        } catch (e: Exception) {
+                            if (e is CancellationException) throw e
+                            AppLogger.w("TEST", "Direct check failed for $site: ${e.message}")
+                            MainViewModel.TlsTestResult(false, error = "Direct check crashed: ${e.message}")
+                        }
                         if (isActive) {
                             val currentTested = testedCount.incrementAndGet()
                             if (result.success) successCount.incrementAndGet()
-                            onResult(site, result, successCount.get(), currentTested, total)
+                            val resultWithDns = result.copy(dnsResults = dnsResults)
+                            onResult(site, resultWithDns, successCount.get(), currentTested, total)
                         }
                     } finally {
                         semaphore.release()
@@ -343,4 +359,107 @@ class StrategyTester(private val application: Application) {
             }
         }
     }
+
+    suspend fun performAllDnsDiagnostics(effectiveDns: String): List<DnsTestResult> = coroutineScope {
+        val endpoints = mutableListOf(
+            "Quad9 Primary" to "9.9.9.9",
+            "Quad9 Backup" to "149.112.112.112",
+            "Cloudflare Primary" to "1.1.1.1",
+            "Cloudflare Backup" to "1.0.0.1",
+            "Google Primary" to "8.8.8.8",
+            "Google Backup" to "8.8.4.4"
+        )
+        val trimmedEffective = effectiveDns.trim()
+        if (trimmedEffective.isNotEmpty() && !endpoints.any { it.second == trimmedEffective }) {
+            endpoints.add("Effective DNS ($trimmedEffective)" to trimmedEffective)
+        }
+
+        val deferreds = endpoints.map { (name, ip) ->
+            async { performRawDnsQuery(name, ip) }
+        }
+        deferreds.awaitAll()
+    }
+
+    private suspend fun performRawDnsQuery(name: String, ip: String, timeoutMs: Int = 2500): DnsTestResult = withContext(Dispatchers.IO) {
+        var socket: DatagramSocket? = null
+        try {
+            val randomId = (System.currentTimeMillis().toInt() and 0xFFFF)
+            val domain = "wikipedia.org"
+            val queryBytes = buildDnsQueryBytes(randomId, domain)
+
+            socket = DatagramSocket()
+            socket.soTimeout = timeoutMs
+
+            val startNano = System.nanoTime()
+            val targetAddr = InetAddress.getByName(ip)
+            val sendPacket = DatagramPacket(queryBytes, queryBytes.size, targetAddr, 53)
+            socket.send(sendPacket)
+
+            val receiveBuf = ByteArray(512)
+            val receivePacket = DatagramPacket(receiveBuf, receiveBuf.size)
+            socket.receive(receivePacket)
+
+            val latencyMs = (System.nanoTime() - startNano) / 1_000_000
+
+            if (receivePacket.length >= 12) {
+                val respId = ((receiveBuf[0].toInt() and 0xFF) shl 8) or (receiveBuf[1].toInt() and 0xFF)
+                val flags = ((receiveBuf[2].toInt() and 0xFF) shl 8) or (receiveBuf[3].toInt() and 0xFF)
+                val isResponse = (flags and 0x8000) != 0
+                val rcode = flags and 0x000F
+
+                if (respId == randomId && isResponse && (rcode == 0 || rcode == 3)) {
+                    return@withContext DnsTestResult(
+                        name = name,
+                        ip = ip,
+                        success = true,
+                        pingMs = maxOf(1L, latencyMs)
+                    )
+                }
+            }
+
+            DnsTestResult(name = name, ip = ip, success = false, error = "Invalid DNS response")
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            DnsTestResult(name = name, ip = ip, success = false, error = e.message ?: "DNS Timeout")
+        } finally {
+            try { socket?.close() } catch (_: Exception) {}
+        }
+    }
+
+    private fun buildDnsQueryBytes(id: Int, domain: String): ByteArray {
+        val out = ByteArrayOutputStream()
+        out.write((id shr 8) and 0xFF)
+        out.write(id and 0xFF)
+        out.write(0x01)
+        out.write(0x00)
+        out.write(0x00)
+        out.write(0x01)
+        out.write(0x00)
+        out.write(0x00)
+        out.write(0x00)
+        out.write(0x00)
+        out.write(0x00)
+        out.write(0x00)
+
+        for (label in domain.split(".")) {
+            out.write(label.length)
+            out.write(label.toByteArray(Charsets.US_ASCII))
+        }
+        out.write(0x00)
+
+        out.write(0x00)
+        out.write(0x01)
+        out.write(0x00)
+        out.write(0x01)
+
+        return out.toByteArray()
+    }
 }
+
+data class DnsTestResult(
+    val name: String,
+    val ip: String,
+    val success: Boolean,
+    val pingMs: Long? = null,
+    val error: String? = null
+)

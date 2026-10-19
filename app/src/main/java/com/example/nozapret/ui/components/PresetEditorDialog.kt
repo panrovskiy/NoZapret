@@ -33,6 +33,7 @@ fun PresetEditorDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val defaultInvalidDomainMsg = stringResource(R.string.error_invalid_domain)
     var newDomainInput by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -101,7 +102,7 @@ fun PresetEditorDialog(
                                     newDomainInput = ""
                                     errorMessage = null
                                 } else {
-                                    errorMessage = res.exceptionOrNull()?.message ?: context.getString(R.string.error_invalid_domain)
+                                    errorMessage = res.exceptionOrNull()?.message ?: defaultInvalidDomainMsg
                                 }
                             }
                         },
@@ -227,7 +228,7 @@ fun PresetEditorDialog(
                     if (res.isSuccess) {
                         editingDomain = null
                     } else {
-                        Toast.makeText(context, res.exceptionOrNull()?.message ?: context.getString(R.string.error_invalid_domain), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, res.exceptionOrNull()?.message ?: defaultInvalidDomainMsg, Toast.LENGTH_SHORT).show()
                     }
                 }) {
                     Text(stringResource(R.string.btn_save))

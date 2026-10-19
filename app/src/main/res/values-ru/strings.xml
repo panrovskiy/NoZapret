@@ -46,6 +46,11 @@
     <string name="dns_quad9">Quad9 (9.9.9.9)</string>
     <string name="dns_adguard">AdGuard (94.140.14.14)</string>
     <string name="dns_custom">Свой вариант</string>
+    <string name="label_quic_support">Поддержка QUIC</string>
+    <string name="supporting_quic_support">Глобальное включение или отключение протокола QUIC для поддерживаемых стратегий</string>
+    <string name="label_custom_dns">Кастомный DNS Сервер</string>
+    <string name="placeholder_custom_dns">1.1.1.1 или 8.8.8.8 (Пусто = Наследование глобального)</string>
+    <string name="title_dns_diagnostics">Диагностика DNS</string>
     <string name="label_auto_connect">Автозапуск при открытии</string>
     <string name="supporting_auto_connect">Автоматически запускать обход при открытии приложения</string>
     <string name="label_enable_ipv6">Включить IPv6</string>
@@ -393,6 +398,7 @@
     <string name="status_success">Успешно</string>
     <string name="status_failed">Ошибка</string>
     <string name="status_disabled">Отключено</string>
+    <string name="status_enabled">Включено</string>
 
     <string name="result_sites_format">Сайтов: %1$d / ОК: %2$d / Ошибка: %3$d</string>
     <string name="label_ping_format">Пинг: %1$d мс</string>

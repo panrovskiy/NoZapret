@@ -283,9 +283,21 @@ fun StrategySelectionDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.title_select_strategy)) },
         text = {
-            val builtInNames = if (pinned.isNotEmpty()) pinned else Config.STRATEGIES.map { it.first }
+            val builtInNames = Config.STRATEGIES.map { it.first }
             val customNames = customStrategies.map { it.name }
-            val allStrategyNames = (builtInNames + customNames).distinct()
+            val totalNames = (builtInNames + customNames).distinct()
+
+            val allStrategyNames = remember(totalNames, pinned) {
+                totalNames.sortedWith { a, b ->
+                    val aPinned = pinned.contains(a)
+                    val bPinned = pinned.contains(b)
+                    if (aPinned != bPinned) {
+                        if (aPinned) -1 else 1
+                    } else {
+                        0
+                    }
+                }
+            }
 
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),

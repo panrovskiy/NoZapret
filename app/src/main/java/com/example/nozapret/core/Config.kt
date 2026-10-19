@@ -24,6 +24,7 @@ object Config {
         val backend: String = "ByeDPI",
         val userArgs: String = "",
         val fakeSni: String? = null,
+        val customDns: String? = null,
         val category: String = "User Custom",
         val createdAt: Long = System.currentTimeMillis(),
         val updatedAt: Long = System.currentTimeMillis()
@@ -106,7 +107,12 @@ object Config {
         return null
     }
 
-    fun getStrategyArgs(name: String, customArgs: String = "", fakeSni: String? = null): Array<String> {
+    fun getStrategyArgs(
+        name: String,
+        customArgs: String = "",
+        fakeSni: String? = null,
+        enableQuic: Boolean = true
+    ): Array<String> {
         val baseArgs = when (name) {
             "Auto (Recommended)" -> arrayOf(
                 "--tlsrec", "1+s",
@@ -232,15 +238,25 @@ object Config {
             else -> if (customArgs.isNotBlank()) parseCustomArgs(customArgs) else emptyArray()
         }
 
+        val argsList = baseArgs.toMutableList()
+
+        if (!enableQuic) {
+            if (!argsList.contains("--block-quic")) {
+                argsList.add("--block-quic")
+            }
+        } else {
+            argsList.removeAll { it == "--block-quic" }
+        }
+
         val activeFakeSni = fakeSni?.trim()
 
         if (activeFakeSni != null && supportsFakeSni(name)) {
             val resultList = mutableListOf<String>()
             var i = 0
-            while (i < baseArgs.size) {
-                val arg = baseArgs[i]
+            while (i < argsList.size) {
+                val arg = argsList[i]
                 if (arg == "--fake-sni" || arg == "-n") {
-                    if (i + 1 < baseArgs.size && !baseArgs[i + 1].startsWith("-")) {
+                    if (i + 1 < argsList.size && !argsList[i + 1].startsWith("-")) {
                         i++
                     }
                 } else {
@@ -255,7 +271,23 @@ object Config {
             return resultList.toTypedArray()
         }
 
-        return baseArgs
+        return argsList.toTypedArray()
+    }
+
+    fun validateIpAddress(ip: String): Result<String> {
+        val trimmed = ip.trim()
+        if (trimmed.isEmpty()) return Result.success("")
+        val ipv4Regex = Regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}\$")
+        val ipv6Regex = Regex("^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}\$")
+        if (ipv4Regex.matches(trimmed)) {
+            val parts = trimmed.split(".")
+            if (parts.all { it.toIntOrNull() in 0..255 }) {
+                return Result.success(trimmed)
+            }
+        } else if (ipv6Regex.matches(trimmed) || trimmed == "::1") {
+            return Result.success(trimmed)
+        }
+        return Result.failure(IllegalArgumentException("Invalid IPv4/IPv6 address format"))
     }
 
     fun validateStrategyArgs(args: Array<String>): Result<Unit> {

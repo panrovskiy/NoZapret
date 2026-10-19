@@ -46,6 +46,11 @@
     <string name="dns_quad9">Quad9 (9.9.9.9)</string>
     <string name="dns_adguard">AdGuard (94.140.14.14)</string>
     <string name="dns_custom">Өз нұсқам</string>
+    <string name="label_quic_support">QUIC қолдауы</string>
+    <string name="supporting_quic_support">Қолдау көрсетілетін стратегиялар үшін QUIC хаттамасын глобалды түрде қосу немесе өшіру</string>
+    <string name="label_custom_dns">Кастомдық DNS сервері</string>
+    <string name="placeholder_custom_dns">1.1.1.1 немесе 8.8.8.8 (Бос = Глобалды серверді мұралану)</string>
+    <string name="title_dns_diagnostics">DNS диагностикасы</string>
     <string name="label_auto_connect">Ашу кезінде автоқосылу</string>
     <string name="supporting_auto_connect">NoZapret-ті ашқан кезде айналып өтуді автоматты түрде іске қосу</string>
     <string name="label_enable_ipv6">IPv6 қосу</string>
@@ -358,6 +363,8 @@
     <string name="error_no_sites_testing">Тест үшін сайттар таңдалмады</string>
     <string name="error_vpn_stop_failed">Тест үшін VPN тоқтату мүмкін болмады</string>
     <string name="error_invalid_domain">Қате домен</string>
+    <string name="btn_export_logs">Логоларды экспорттау</string>
+    <string name="error_no_logs">Логолар табылмады</string>
 
     <!-- New Strategy System Overhaul Strings -->
     <string name="label_filter_sort">Сүзгі және Сұрыптау</string>
@@ -391,6 +398,7 @@
     <string name="status_success">Сәтті</string>
     <string name="status_failed">Қате</string>
     <string name="status_disabled">Өшірілген</string>
+    <string name="status_enabled">Қосылған</string>
 
     <string name="result_sites_format">Сайттар: %1$d / OK: %2$d / Қате: %3$d</string>
     <string name="label_ping_format">Пинг: %1$d мс</string>

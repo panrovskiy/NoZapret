@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.InetSocketAddress
@@ -214,7 +215,27 @@ class DpiVpnService : VpnService() {
         val portStr = prefs[DataStoreManager.PROXY_PORT] ?: Config.DEFAULT_PROXY_PORT
         val port = try { portStr.toInt() } catch(_: Exception) { 1080 }
 
-        val dnsServer = prefs[DataStoreManager.DNS_SERVER] ?: "1.1.1.1"
+        val enableQuic = prefs[DataStoreManager.ENABLE_QUIC] ?: true
+        val globalDns = prefs[DataStoreManager.DNS_SERVER] ?: "1.1.1.1"
+
+        // Resolve Custom Strategy DNS Override if present
+        val customStrategiesJson = prefs[DataStoreManager.CUSTOM_STRATEGIES_JSON]
+        var customDnsOverride: String? = null
+        if (!customStrategiesJson.isNullOrBlank()) {
+            try {
+                val arr = JSONArray(customStrategiesJson)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val name = if (obj.has("name")) obj.getString("name") else ""
+                    if (name == lastStrategy && obj.has("customDns") && obj.getString("customDns").isNotBlank()) {
+                        customDnsOverride = obj.getString("customDns").trim()
+                        break
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        val effectiveDns = customDnsOverride ?: globalDns
+
         val mapJsonStr = prefs[DataStoreManager.STRATEGY_FAKE_SNI_MAP]
         val strategyFakeSniMap = mutableMapOf<String, String>()
         if (!mapJsonStr.isNullOrBlank()) {
@@ -232,9 +253,9 @@ class DpiVpnService : VpnService() {
         val fakeSniPool = prefs[DataStoreManager.FAKE_SNI_POOL]?.toList() ?: listOf("www.google.com", "yandex.ru")
 
         val resolvedFakeSni = Config.resolveFakeSni(lastStrategy!!, strategyFakeSniMap, fakeSniPool, globalMode)
-        val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!, resolvedFakeSni)
+        val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!, resolvedFakeSni, enableQuic)
 
-        AppLogger.i("YT", "[YT][NETWORK] connection started. Strategy: $lastStrategy, Mode: $runMode, Global: $lastGlobal, Resolved Fake SNI: $resolvedFakeSni")
+        AppLogger.i("YT", "[YT][NETWORK] connection started. Strategy: $lastStrategy, Mode: $runMode, Global: $lastGlobal, Resolved Fake SNI: $resolvedFakeSni, Effective DNS: $effectiveDns, QUIC Enabled: $enableQuic")
         AppLogger.i("FAKE_SNI", "[FAKE_SNI] mode: globalMode=$globalMode, resolved domain: $resolvedFakeSni")
 
         try {
@@ -245,7 +266,7 @@ class DpiVpnService : VpnService() {
                     .setMtu(mtu)
                     .addAddress("10.1.1.1", 24)
                     .addRoute("0.0.0.0", 0)
-                    .addDnsServer(dnsServer)
+                    .addDnsServer(effectiveDns)
 
                 if (enableIpv6) {
                     builder.addAddress("fd00::1", 128)
@@ -325,7 +346,7 @@ class DpiVpnService : VpnService() {
                     updateNotification(notificationText)
 
                     if (runMode == "VPN") {
-                        val configPath = createTunnelConfig(enableIpv6, host, port, dnsServer)
+                        val configPath = createTunnelConfig(enableIpv6, host, port, effectiveDns)
                         Log.d("DpiVpnService", "Starting tunnel with config: $configPath")
                         
                         startHealthCheck()

@@ -225,16 +225,16 @@ Java_com_example_nozapret_core_ByeDpiProxy_jniStopProxy([[maybe_unused]] JNIEnv 
 
 JNIEXPORT jint JNICALL
 Java_com_example_nozapret_core_ByeDpiProxy_jniForceClose([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
-    log_info(LOG_TAG, "jniForceClose: Calling byedpi_stop and closing server_fd");
+    log_info(LOG_TAG, "jniForceClose: Calling byedpi_stop and shutting down server_fd");
     byedpi_stop();
 
-    // Close the server socket if it's active to unblock any accept() calls
+    // Shutdown the server socket if active to unblock accept() calls.
+    // DO NOT call close(fd) here: start_event_loop in byedpi/proxy.c will close srvfd when exiting.
+    // Calling close(fd) here causes a double-close race condition where Java sockets get prematurely closed.
     int fd = server_fd;
     if (fd >= 0) {
-        log_info(LOG_TAG, "jniForceClose: Closing server_fd " + std::to_string(fd));
+        log_info(LOG_TAG, "jniForceClose: Shutting down server_fd " + std::to_string(fd));
         shutdown(fd, SHUT_RDWR);
-        close(fd);
-        server_fd = -1;
     }
 
     std::unique_lock<std::mutex> lock(g_proxy_mutex);

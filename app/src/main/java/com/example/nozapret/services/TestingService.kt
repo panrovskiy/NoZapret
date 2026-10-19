@@ -35,6 +35,8 @@ class TestingService : Service() {
         const val EXTRA_STRATEGIES = "strategies"
         const val EXTRA_CUSTOM_ARGS = "custom_args"
         const val EXTRA_SITES = "sites"
+        const val EXTRA_ENABLE_QUIC = "enable_quic"
+        const val EXTRA_DNS_SERVER = "dns_server"
 
         data class TestStatus(
             val strategyName: String = "",
@@ -65,16 +67,20 @@ class TestingService : Service() {
             ACTION_START_TEST -> {
                 val strategy = intent.getStringExtra(EXTRA_STRATEGY) ?: return START_NOT_STICKY
                 val customArgs = intent.getStringExtra(EXTRA_CUSTOM_ARGS) ?: ""
+                val enableQuic = intent.getBooleanExtra(EXTRA_ENABLE_QUIC, true)
+                val dnsServer = intent.getStringExtra(EXTRA_DNS_SERVER) ?: "1.1.1.1"
                 val sites = intent.getStringArrayListExtra(EXTRA_SITES) ?: arrayListOf()
                 
-                handleStartTest(strategy, customArgs, sites)
+                handleStartTest(strategy, customArgs, enableQuic, dnsServer, sites)
             }
             ACTION_START_TEST_BATCH -> {
                 val strategies = intent.getStringArrayListExtra(EXTRA_STRATEGIES) ?: return START_NOT_STICKY
                 val customArgs = intent.getStringExtra(EXTRA_CUSTOM_ARGS) ?: ""
+                val enableQuic = intent.getBooleanExtra(EXTRA_ENABLE_QUIC, true)
+                val dnsServer = intent.getStringExtra(EXTRA_DNS_SERVER) ?: "1.1.1.1"
                 val sites = intent.getStringArrayListExtra(EXTRA_SITES) ?: arrayListOf()
                 
-                handleStartBatch(strategies, customArgs, sites)
+                handleStartBatch(strategies, customArgs, enableQuic, dnsServer, sites)
             }
             ACTION_STOP_TEST -> {
                 handleStopTest()
@@ -83,36 +89,42 @@ class TestingService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun handleStartBatch(strategies: List<String>, customArgs: String, sites: List<String>) {
+    private fun handleStartBatch(strategies: List<String>, customArgs: String, enableQuic: Boolean, dnsServer: String, sites: List<String>) {
         if (isRunning && _statusFlow.value.isRunning) {
             Log.d(TAG, "[TEST] Already testing, skipping batch start")
             return
         }
 
-        currentTestJob?.cancel()
+        val previousJob = currentTestJob
+        currentTestJob = null
+        previousJob?.cancel()
+
         isRunning = true
-        
+
         val notification = createNotification(getString(R.string.testing_starting_hint))
         startForegroundServiceCompat(notification)
 
-        currentTestJob = serviceScope.launch {
+        var newJob: Job? = null
+        newJob = serviceScope.launch {
             try {
                 strategies.forEach { strategy ->
                     if (!isActive) return@forEach
                     _statusFlow.value = TestStatus(strategyName = strategy, total = sites.size, isRunning = true)
                     updateNotification(strategy, 0, 0, sites.size)
-                    
+
                     strategyTester.testStrategy(
-                        strategy, sites, customArgs,
+                        strategy, sites, customArgs, enableQuic, dnsServer,
                         onResult = { site, result, s, t, total ->
-                            _statusFlow.value = _statusFlow.value.copy(
-                                lastSite = site, 
-                                lastResult = result,
-                                success = s, 
-                                tested = t, 
-                                total = total
-                            )
-                            updateNotification(strategy, s, t, total)
+                            if (isActive) {
+                                _statusFlow.value = _statusFlow.value.copy(
+                                    lastSite = site,
+                                    lastResult = result,
+                                    success = s,
+                                    tested = t,
+                                    total = total
+                                )
+                                updateNotification(strategy, s, t, total)
+                            }
                         }
                     )
                 }
@@ -121,48 +133,15 @@ class TestingService : Service() {
                 Log.e(TAG, "Error during batch test", e)
             } finally {
                 withContext(NonCancellable) {
-                    isRunning = false
-                    _statusFlow.value = _statusFlow.value.copy(isRunning = false)
-                    stopForeground(STOP_FOREGROUND_DETACH)
-                    stopSelf()
-                }
-            }
-        }
-    }
-
-    private fun handleStartTest(strategy: String, customArgs: String, sites: List<String>) {
-        if (isRunning && _statusFlow.value.strategyName == strategy && _statusFlow.value.isRunning) return
-
-        currentTestJob?.cancel()
-        isRunning = true
-        _statusFlow.value = TestStatus(strategyName = strategy, total = sites.size, isRunning = true)
-        
-        val notification = createNotification(getString(R.string.testing_starting_hint))
-        startForegroundServiceCompat(notification)
-
-        currentTestJob = serviceScope.launch {
-            try {
-                strategyTester.testStrategy(
-                    strategy, sites, customArgs,
-                    onResult = { site, result, s, t, total ->
-                        _statusFlow.value = _statusFlow.value.copy(
-                            lastSite = site, 
-                            lastResult = result,
-                            success = s, 
-                            tested = t, 
-                            total = total
-                        )
-                        updateNotification(strategy, s, t, total)
-                    }
-                )
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                Log.e(TAG, "Error during test task", e)
-            } finally {
-                withContext(NonCancellable) {
-                    val finalStatus = _statusFlow.value
-                    if (finalStatus.strategyName == strategy) {
-                        showFinishedNotification(strategy, finalStatus.success, finalStatus.total)
+                    if (currentTestJob === newJob) {
+                        val finalStatus = _statusFlow.value
+                        if (finalStatus.strategyName.isNotEmpty()) {
+                            try {
+                                showFinishedNotification(finalStatus.strategyName, finalStatus.success, finalStatus.total)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to show completion notification", e)
+                            }
+                        }
                         isRunning = false
                         _statusFlow.value = finalStatus.copy(isRunning = false)
                         stopForeground(STOP_FOREGROUND_DETACH)
@@ -171,6 +150,61 @@ class TestingService : Service() {
                 }
             }
         }
+        currentTestJob = newJob
+    }
+
+    private fun handleStartTest(strategy: String, customArgs: String, enableQuic: Boolean, dnsServer: String, sites: List<String>) {
+        if (isRunning && _statusFlow.value.strategyName == strategy && _statusFlow.value.isRunning) return
+
+        val previousJob = currentTestJob
+        currentTestJob = null
+        previousJob?.cancel()
+
+        isRunning = true
+        _statusFlow.value = TestStatus(strategyName = strategy, total = sites.size, isRunning = true)
+
+        val notification = createNotification(getString(R.string.testing_starting_hint))
+        startForegroundServiceCompat(notification)
+
+        var newJob: Job? = null
+        newJob = serviceScope.launch {
+            try {
+                strategyTester.testStrategy(
+                    strategy, sites, customArgs, enableQuic, dnsServer,
+                    onResult = { site, result, s, t, total ->
+                        if (isActive) {
+                            _statusFlow.value = _statusFlow.value.copy(
+                                lastSite = site,
+                                lastResult = result,
+                                success = s,
+                                tested = t,
+                                total = total
+                            )
+                            updateNotification(strategy, s, t, total)
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Log.e(TAG, "Error during test task", e)
+            } finally {
+                withContext(NonCancellable) {
+                    if (currentTestJob === newJob) {
+                        val finalStatus = _statusFlow.value
+                        try {
+                            showFinishedNotification(strategy, finalStatus.success, finalStatus.total)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to show completion notification", e)
+                        }
+                        isRunning = false
+                        _statusFlow.value = finalStatus.copy(isRunning = false)
+                        stopForeground(STOP_FOREGROUND_DETACH)
+                        stopSelf()
+                    }
+                }
+            }
+        }
+        currentTestJob = newJob
     }
 
     private fun startForegroundServiceCompat(notification: Notification) {
@@ -187,7 +221,9 @@ class TestingService : Service() {
 
     private fun handleStopTest() {
         Log.d(TAG, "[CLEANUP] Stop test requested")
-        currentTestJob?.cancel()
+        val jobToCancel = currentTestJob
+        currentTestJob = null
+        jobToCancel?.cancel()
         isRunning = false
         _statusFlow.value = _statusFlow.value.copy(isRunning = false)
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -256,7 +292,9 @@ class TestingService : Service() {
 
     override fun onDestroy() {
         Log.d(TAG, "[CLEANUP] TestingService onDestroy")
-        currentTestJob?.cancel()
+        val jobToCancel = currentTestJob
+        currentTestJob = null
+        jobToCancel?.cancel()
         serviceJob.cancelChildren()
         isRunning = false
         _statusFlow.value = _statusFlow.value.copy(isRunning = false)

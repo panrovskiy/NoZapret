@@ -46,6 +46,11 @@
     <string name="dns_quad9">Quad9 (9.9.9.9)</string>
     <string name="dns_adguard">AdGuard (94.140.14.14)</string>
     <string name="dns_custom">Özel</string>
+    <string name="label_quic_support">QUIC Desteği</string>
+    <string name="supporting_quic_support">Desteklenen stratejiler için QUIC protokolünü küresel olarak etkinleştirin veya devre dışı bırakın</string>
+    <string name="label_custom_dns">Özel DNS Sunucusu</string>
+    <string name="placeholder_custom_dns">1.1.1.1 veya 8.8.8.8 (Boş = Küresel ayarı devral)</string>
+    <string name="title_dns_diagnostics">DNS Teşhisi</string>
     <string name="label_auto_connect">Açılışta bağlan</string>
     <string name="supporting_auto_connect">NoZapret açıldığında otomatik olarak atlatmayı başlat</string>
     <string name="label_enable_ipv6">IPv6\'yı Etkinleştir</string>
@@ -393,6 +398,7 @@
     <string name="status_success">Başarılı</string>
     <string name="status_failed">Başarısız</string>
     <string name="status_disabled">Devre Dışı</string>
+    <string name="status_enabled">Etkin</string>
 
     <string name="result_sites_format">Siteler: %1$d / Başarılı: %2$d / Hata: %3$d</string>
     <string name="label_ping_format">Ping: %1$d ms</string>
