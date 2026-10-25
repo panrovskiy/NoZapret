@@ -100,13 +100,13 @@ fun LogViewer(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Diagnostics", fontWeight = FontWeight.Bold) },
+                    text = { Text(stringResource(R.string.tab_diagnostics), fontWeight = FontWeight.Bold) },
                     icon = { Icon(Icons.Rounded.Assessment, contentDescription = null) }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("App Logs", fontWeight = FontWeight.Bold) },
+                    text = { Text(stringResource(R.string.tab_app_logs), fontWeight = FontWeight.Bold) },
                     icon = { Icon(Icons.Rounded.Terminal, contentDescription = null) }
                 )
             }
@@ -124,18 +124,18 @@ fun LogViewer(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                         ) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("System & Device Info", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.diag_system_device_info), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 HorizontalDivider()
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("App Version", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.diag_app_version), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                                 }
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Android Version", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.diag_android_version), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text("${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                                 }
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Device Model", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.diag_device_model), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text("${Build.MANUFACTURER} ${Build.MODEL}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                                 }
                             }
@@ -148,18 +148,18 @@ fun LogViewer(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                         ) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Engine & Network Status", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.diag_engine_network_status), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 HorizontalDivider()
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("VPN Service State", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.diag_vpn_service_state), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(vpnStateText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                 }
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Selected Strategy", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.diag_selected_strategy), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(getLocalizedStrategyName(selectedStrategy), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                                 }
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("QUIC Support", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.label_quic_support), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(
                                         if (enableQuic) stringResource(R.string.status_enabled) else stringResource(R.string.status_disabled),
                                         style = MaterialTheme.typography.bodyMedium,
@@ -168,7 +168,7 @@ fun LogViewer(
                                     )
                                 }
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Effective DNS", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.diag_effective_dns), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(effectiveDns, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                                 }
                             }
@@ -186,7 +186,7 @@ fun LogViewer(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("System Diagnostics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.diag_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                     Button(
                                         onClick = { onRunDiagnostics?.invoke() },
                                         enabled = !isDiagnosing,
@@ -196,14 +196,14 @@ fun LogViewer(
                                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                                             Spacer(modifier = Modifier.width(6.dp))
                                         }
-                                        Text(if (isDiagnosing) "Checking…" else stringResource(R.string.btn_run_diagnostics))
+                                        Text(if (isDiagnosing) stringResource(R.string.status_testing) else stringResource(R.string.btn_run_diagnostics))
                                     }
                                 }
                                 HorizontalDivider()
 
                                 if (diagnosticsLog.isEmpty()) {
                                     Text(
-                                        "Tap 'Run Diagnostics' to test system network, native engine, VPN permissions, and DNS resolution.",
+                                        stringResource(R.string.diag_prompt_run),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -261,7 +261,7 @@ fun LogViewer(
                         ) {
                             Icon(Icons.Rounded.Download, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Export Diagnostics Report", fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.btn_export_diagnostics), fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -275,7 +275,7 @@ fun LogViewer(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text("Filter logs…") },
+                        placeholder = { Text(stringResource(R.string.placeholder_filter_logs)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f).padding(end = 8.dp),
                         shape = MaterialTheme.shapes.medium

@@ -365,6 +365,19 @@
     <string name="error_invalid_domain">Некорректный домен</string>
     <string name="btn_export_logs">Экспорт логов</string>
     <string name="error_no_logs">Логи не найдены</string>
+    <string name="tab_diagnostics">Диагностика</string>
+    <string name="tab_app_logs">Логи приложения</string>
+    <string name="diag_system_device_info">Информация о системе и устройстве</string>
+    <string name="diag_app_version">Версия приложения</string>
+    <string name="diag_android_version">Версия Android</string>
+    <string name="diag_device_model">Модель устройства</string>
+    <string name="diag_engine_network_status">Статус движка и сети</string>
+    <string name="diag_vpn_service_state">Состояние сервиса VPN</string>
+    <string name="diag_selected_strategy">Выбранная стратегия</string>
+    <string name="diag_effective_dns">Эффективный DNS</string>
+    <string name="btn_export_diagnostics">Экспортировать отчет диагностики</string>
+    <string name="diag_prompt_run">Нажмите \'Запустить диагностику\' для проверки сети, движка, разрешений VPN и DNS.</string>
+    <string name="placeholder_filter_logs">Фильтр логов…</string>
 
     <!-- New Strategy System Overhaul Strings -->
     <string name="label_filter_sort">Фильтр и Сортировка</string>

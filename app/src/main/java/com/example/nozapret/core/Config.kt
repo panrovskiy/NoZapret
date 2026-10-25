@@ -1,5 +1,7 @@
 package com.example.nozapret.core
 
+import java.net.URI
+
 object Config {
     const val DEFAULT_PROXY_HOST = "127.0.0.1"
     const val DEFAULT_PROXY_PORT = "1080"
@@ -118,7 +120,7 @@ object Config {
                 "--tlsrec", "1+s",
                 "--disorder", "1",
                 "--split", "2",
-                "--fake-sni", "www.google.com",
+                "--fake-sni", "google.com",
                 "--fake-tls-mod", "orig",
                 "--mod-http", "h,d",
                 "--udp-fake", "3",
@@ -131,7 +133,7 @@ object Config {
                 "--tlsrec", "1+s",
                 "--disorder", "1",
                 "--split", "2",
-                "--fake-sni", "www.google.com",
+                "--fake-sni", "google.com",
                 "--fake-tls-mod", "orig",
                 "--udp-fake", "5",
                 "--drop-sack",
@@ -142,7 +144,7 @@ object Config {
                 "--tlsrec", "1+s",
                 "--disorder", "1",
                 "--split", "2",
-                "--fake-sni", "www.google.com",
+                "--fake-sni", "google.com",
                 "--fake-tls-mod", "orig",
                 "--mod-http", "h,d",
                 "--udp-fake", "10",
@@ -272,6 +274,65 @@ object Config {
         }
 
         return argsList.toTypedArray()
+    }
+
+    enum class DnsTransportType {
+        PLAIN, DOT, DOH, DOQ
+    }
+
+    data class DnsEndpoint(
+        val rawInput: String,
+        val transport: DnsTransportType,
+        val hostOrIp: String,
+        val port: Int,
+        val dohPath: String = "/dns-query"
+    )
+
+    fun parseDnsEndpoint(raw: String): Result<DnsEndpoint> {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return Result.failure(IllegalArgumentException("DNS server cannot be empty"))
+
+        return try {
+            when {
+                trimmed.startsWith("https://", ignoreCase = true) -> {
+                    val uri = URI(trimmed)
+                    val host = uri.host ?: return Result.failure(IllegalArgumentException("Invalid DoH host"))
+                    val port = if (uri.port > 0) uri.port else 443
+                    val path = if (uri.rawPath.isNullOrBlank()) "/dns-query" else uri.rawPath
+                    Result.success(DnsEndpoint(trimmed, DnsTransportType.DOH, host, port, path))
+                }
+                trimmed.startsWith("tls://", ignoreCase = true) || trimmed.startsWith("dot://", ignoreCase = true) -> {
+                    val clean = trimmed.removePrefix("tls://").removePrefix("TLS://").removePrefix("dot://").removePrefix("DOT://")
+                    val parts = clean.split(":")
+                    val host = parts[0].trim()
+                    val port = if (parts.size > 1) parts[1].toIntOrNull() ?: 853 else 853
+                    Result.success(DnsEndpoint(trimmed, DnsTransportType.DOT, host, port))
+                }
+                trimmed.startsWith("quic://", ignoreCase = true) || trimmed.startsWith("doq://", ignoreCase = true) -> {
+                    val clean = trimmed.removePrefix("quic://").removePrefix("QUIC://").removePrefix("doq://").removePrefix("DOQ://")
+                    val parts = clean.split(":")
+                    val host = parts[0].trim()
+                    val port = if (parts.size > 1) parts[1].toIntOrNull() ?: 853 else 853
+                    Result.success(DnsEndpoint(trimmed, DnsTransportType.DOQ, host, port))
+                }
+                else -> {
+                    val ipRes = validateIpAddress(trimmed)
+                    if (ipRes.isSuccess) {
+                        Result.success(DnsEndpoint(trimmed, DnsTransportType.PLAIN, trimmed, 53))
+                    } else {
+                        val domainRes = validateDomain(trimmed)
+                        if (domainRes.isSuccess) {
+                            val host = domainRes.getOrThrow()
+                            Result.success(DnsEndpoint(trimmed, DnsTransportType.DOT, host, 853))
+                        } else {
+                            Result.failure(IllegalArgumentException("Invalid IP address, hostname, or DNS URL format"))
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(IllegalArgumentException("Failed to parse DNS endpoint: ${e.message}"))
+        }
     }
 
     fun validateIpAddress(ip: String): Result<String> {
@@ -415,6 +476,9 @@ object Config {
             "googleapis.com", "googleusercontent.com", "youtubei.googleapis.com",
             "yt3.ggpht.com", "yt4.ggpht.com", "i.ytimg.com", "i9.ytimg.com",
             "nhacmp3.com.vn", "video.google.com"
+        ),
+        "RU Services" to listOf(
+            "sferum.ru", "max.ru", "vk.com", "yandex.ru", "rutube.ru", "ok.ru"
         )
     )
 }

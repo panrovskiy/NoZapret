@@ -10,8 +10,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Semaphore
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -380,49 +382,152 @@ class StrategyTester(private val application: Application) {
         deferreds.awaitAll()
     }
 
-    private suspend fun performRawDnsQuery(name: String, ip: String, timeoutMs: Int = 2500): DnsTestResult = withContext(Dispatchers.IO) {
-        var socket: DatagramSocket? = null
-        try {
-            val randomId = (System.currentTimeMillis().toInt() and 0xFFFF)
-            val domain = "wikipedia.org"
-            val queryBytes = buildDnsQueryBytes(randomId, domain)
+    private suspend fun performRawDnsQuery(name: String, endpointStr: String, timeoutMs: Int = 3000): DnsTestResult = withContext(Dispatchers.IO) {
+        val endpointRes = Config.parseDnsEndpoint(endpointStr)
+        if (endpointRes.isFailure) {
+            return@withContext DnsTestResult(name = name, ip = endpointStr, success = false, error = endpointRes.exceptionOrNull()?.message ?: "Invalid endpoint")
+        }
+        val endpoint = endpointRes.getOrThrow()
 
-            socket = DatagramSocket()
-            socket.soTimeout = timeoutMs
+        val randomId = (System.currentTimeMillis().toInt() and 0xFFFF)
+        val domain = "wikipedia.org"
+        val queryBytes = buildDnsQueryBytes(randomId, domain)
 
-            val startNano = System.nanoTime()
-            val targetAddr = InetAddress.getByName(ip)
-            val sendPacket = DatagramPacket(queryBytes, queryBytes.size, targetAddr, 53)
-            socket.send(sendPacket)
+        when (endpoint.transport) {
+            Config.DnsTransportType.DOH -> {
+                try {
+                    val startNano = System.nanoTime()
+                    val dohUrl = if (endpoint.rawInput.startsWith("http")) endpoint.rawInput else "https://${endpoint.hostOrIp}${endpoint.dohPath}"
+                    val mediaType = "application/dns-message".toMediaTypeOrNull()
+                    val requestBody = queryBytes.toRequestBody(mediaType)
+                    val request = Request.Builder()
+                        .url(dohUrl)
+                        .post(requestBody)
+                        .header("Accept", "application/dns-message")
+                        .build()
 
-            val receiveBuf = ByteArray(512)
-            val receivePacket = DatagramPacket(receiveBuf, receiveBuf.size)
-            socket.receive(receivePacket)
+                    val client = okHttpClient.newBuilder()
+                        .connectTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
+                        .readTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
+                        .build()
 
-            val latencyMs = (System.nanoTime() - startNano) / 1_000_000
-
-            if (receivePacket.length >= 12) {
-                val respId = ((receiveBuf[0].toInt() and 0xFF) shl 8) or (receiveBuf[1].toInt() and 0xFF)
-                val flags = ((receiveBuf[2].toInt() and 0xFF) shl 8) or (receiveBuf[3].toInt() and 0xFF)
-                val isResponse = (flags and 0x8000) != 0
-                val rcode = flags and 0x000F
-
-                if (respId == randomId && isResponse && (rcode == 0 || rcode == 3)) {
-                    return@withContext DnsTestResult(
-                        name = name,
-                        ip = ip,
-                        success = true,
-                        pingMs = maxOf(1L, latencyMs)
-                    )
+                    client.newCall(request).execute().use { response ->
+                        val latencyMs = (System.nanoTime() - startNano) / 1_000_000
+                        if (response.isSuccessful) {
+                            val bodyBytes = response.body.bytes()
+                            if (bodyBytes.size >= 12) {
+                                return@withContext DnsTestResult(
+                                    name = name,
+                                    ip = endpoint.hostOrIp,
+                                    success = true,
+                                    pingMs = maxOf(1L, latencyMs),
+                                    transport = "DoH"
+                                )
+                            }
+                        }
+                        DnsTestResult(name = name, ip = endpoint.hostOrIp, success = false, error = "DoH HTTP ${response.code}", transport = "DoH")
+                    }
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    DnsTestResult(name = name, ip = endpoint.hostOrIp, success = false, error = e.message ?: "DoH Failed", transport = "DoH")
                 }
             }
+            Config.DnsTransportType.DOT, Config.DnsTransportType.DOQ -> {
+                var rawSocket: Socket? = null
+                var sslSocket: SSLSocket? = null
+                try {
+                    val startNano = System.nanoTime()
+                    val resolvedIp = InetAddress.getByName(endpoint.hostOrIp).hostAddress!!
+                    rawSocket = Socket()
+                    rawSocket.connect(InetSocketAddress(resolvedIp, endpoint.port), timeoutMs)
+                    rawSocket.soTimeout = timeoutMs
 
-            DnsTestResult(name = name, ip = ip, success = false, error = "Invalid DNS response")
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            DnsTestResult(name = name, ip = ip, success = false, error = e.message ?: "DNS Timeout")
-        } finally {
-            try { socket?.close() } catch (_: Exception) {}
+                    val sslSocketFactory = SSLSocketFactory.getDefault() as SSLSocketFactory
+                    sslSocket = sslSocketFactory.createSocket(rawSocket, endpoint.hostOrIp, endpoint.port, true) as SSLSocket
+                    sslSocket.startHandshake()
+
+                    // Send TCP length-prefixed DNS query
+                    val out = sslSocket.outputStream
+                    out.write((queryBytes.size shr 8) and 0xFF)
+                    out.write(queryBytes.size and 0xFF)
+                    out.write(queryBytes)
+                    out.flush()
+
+                    val input = sslSocket.inputStream
+                    val lenHigh = input.read()
+                    val lenLow = input.read()
+                    val respLen = (lenHigh shl 8) or lenLow
+                    val latencyMs = (System.nanoTime() - startNano) / 1_000_000
+
+                    if (respLen >= 12) {
+                        val respBuf = ByteArray(respLen)
+                        var read = 0
+                        while (read < respLen) {
+                            val r = input.read(respBuf, read, respLen - read)
+                            if (r <= 0) break
+                            read += r
+                        }
+                        if (read >= 12) {
+                            return@withContext DnsTestResult(
+                                name = name,
+                                ip = endpoint.hostOrIp,
+                                success = true,
+                                pingMs = maxOf(1L, latencyMs),
+                                transport = "DoT"
+                            )
+                        }
+                    }
+                    DnsTestResult(name = name, ip = endpoint.hostOrIp, success = false, error = "DoT Handshake/Query Failed", transport = "DoT")
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    DnsTestResult(name = name, ip = endpoint.hostOrIp, success = false, error = e.message ?: "DoT Timeout", transport = "DoT")
+                } finally {
+                    try { sslSocket?.close() } catch (_: Exception) {}
+                    try { rawSocket?.close() } catch (_: Exception) {}
+                }
+            }
+            Config.DnsTransportType.PLAIN -> {
+                var socket: DatagramSocket? = null
+                try {
+                    socket = DatagramSocket()
+                    socket.soTimeout = timeoutMs
+
+                    val startNano = System.nanoTime()
+                    val targetAddr = InetAddress.getByName(endpoint.hostOrIp)
+                    val sendPacket = DatagramPacket(queryBytes, queryBytes.size, targetAddr, endpoint.port)
+                    socket.send(sendPacket)
+
+                    val receiveBuf = ByteArray(512)
+                    val receivePacket = DatagramPacket(receiveBuf, receiveBuf.size)
+                    socket.receive(receivePacket)
+
+                    val latencyMs = (System.nanoTime() - startNano) / 1_000_000
+
+                    if (receivePacket.length >= 12) {
+                        val respId = ((receiveBuf[0].toInt() and 0xFF) shl 8) or (receiveBuf[1].toInt() and 0xFF)
+                        val flags = ((receiveBuf[2].toInt() and 0xFF) shl 8) or (receiveBuf[3].toInt() and 0xFF)
+                        val isResponse = (flags and 0x8000) != 0
+                        val rcode = flags and 0x000F
+
+                        if (respId == randomId && isResponse && (rcode == 0 || rcode == 3)) {
+                            return@withContext DnsTestResult(
+                                name = name,
+                                ip = endpoint.hostOrIp,
+                                success = true,
+                                pingMs = maxOf(1L, latencyMs),
+                                transport = "Plain"
+                            )
+                        }
+                    }
+
+                    DnsTestResult(name = name, ip = endpoint.hostOrIp, success = false, error = "Invalid DNS response", transport = "Plain")
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    DnsTestResult(name = name, ip = endpoint.hostOrIp, success = false, error = e.message ?: "DNS Timeout", transport = "Plain")
+                } finally {
+                    try { socket?.close() } catch (_: Exception) {}
+                }
+            }
         }
     }
 
@@ -461,5 +566,6 @@ data class DnsTestResult(
     val ip: String,
     val success: Boolean,
     val pingMs: Long? = null,
-    val error: String? = null
+    val error: String? = null,
+    val transport: String? = null
 )

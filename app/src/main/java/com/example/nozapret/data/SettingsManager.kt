@@ -42,7 +42,7 @@ class SettingsManager(private val application: Application, private val scope: C
     val customStrategies = mutableStateListOf<Config.CustomStrategy>()
     val strategyFakeSniMap = mutableStateMapOf<String, String>()
 
-    private val defaultFakeSniList = listOf("www.google.com", "yandex.ru", "apple.com", "wikipedia.org")
+    private val defaultFakeSniList = listOf("google.com", "yandex.ru", "apple.com", "wikipedia.org")
 
     init {
         scope.launch {

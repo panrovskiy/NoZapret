@@ -365,6 +365,19 @@
     <string name="error_invalid_domain">Invalid domain</string>
     <string name="btn_export_logs">Export Logs</string>
     <string name="error_no_logs">No logs found</string>
+    <string name="tab_diagnostics">Diagnostics</string>
+    <string name="tab_app_logs">App Logs</string>
+    <string name="diag_system_device_info">System &amp; Device Info</string>
+    <string name="diag_app_version">App Version</string>
+    <string name="diag_android_version">Android Version</string>
+    <string name="diag_device_model">Device Model</string>
+    <string name="diag_engine_network_status">Engine &amp; Network Status</string>
+    <string name="diag_vpn_service_state">VPN Service State</string>
+    <string name="diag_selected_strategy">Selected Strategy</string>
+    <string name="diag_effective_dns">Effective DNS</string>
+    <string name="btn_export_diagnostics">Export Diagnostics Report</string>
+    <string name="diag_prompt_run">Tap \'Run Diagnostics\' to test system network, native engine, VPN permissions, and DNS resolution.</string>
+    <string name="placeholder_filter_logs">Filter logs…</string>
 
     <!-- New Strategy System Overhaul Strings -->
     <string name="label_filter_sort">Filter &amp; Sort</string>

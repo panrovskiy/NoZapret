@@ -365,6 +365,19 @@
     <string name="error_invalid_domain">Қате домен</string>
     <string name="btn_export_logs">Логоларды экспорттау</string>
     <string name="error_no_logs">Логолар табылмады</string>
+    <string name="tab_diagnostics">Диагностика</string>
+    <string name="tab_app_logs">Қолданба логолары</string>
+    <string name="diag_system_device_info">Жүйе мен құрылғы ақпараты</string>
+    <string name="diag_app_version">Қолданба нұсқасы</string>
+    <string name="diag_android_version">Android нұсқасы</string>
+    <string name="diag_device_model">Құрылғы моделі</string>
+    <string name="diag_engine_network_status">Қозғалтқыш пен желі күйі</string>
+    <string name="diag_vpn_service_state">VPN қызметінің күйі</string>
+    <string name="diag_selected_strategy">Таңдалған стратегия</string>
+    <string name="diag_effective_dns">Тиімді DNS</string>
+    <string name="btn_export_diagnostics">Диагностика есебін экспорттау</string>
+    <string name="diag_prompt_run">Желіні, қозғалтқышты, VPN рұқсаттарын және DNS тексеру үшін \'Диагностиканы іске қосу\' түймесін басыңыз.</string>
+    <string name="placeholder_filter_logs">Логоларды сүзгілеу…</string>
 
     <!-- New Strategy System Overhaul Strings -->
     <string name="label_filter_sort">Сүзгі және Сұрыптау</string>

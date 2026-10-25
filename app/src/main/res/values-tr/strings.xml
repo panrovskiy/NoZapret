@@ -365,6 +365,19 @@
     <string name="error_invalid_domain">Geçersiz alan adı</string>
     <string name="btn_export_logs">Günlükleri Dışa Aktar</string>
     <string name="error_no_logs">Günlük bulunamadı</string>
+    <string name="tab_diagnostics">Teşhis</string>
+    <string name="tab_app_logs">Uygulama Günlükleri</string>
+    <string name="diag_system_device_info">Sistem ve Cihaz Bilgisi</string>
+    <string name="diag_app_version">Uygulama Sürümü</string>
+    <string name="diag_android_version">Android Sürümü</string>
+    <string name="diag_device_model">Cihaz Modeli</string>
+    <string name="diag_engine_network_status">Motor ve Ağ Durumu</string>
+    <string name="diag_vpn_service_state">VPN Hizmet Durumu</string>
+    <string name="diag_selected_strategy">Seçilen Strateji</string>
+    <string name="diag_effective_dns">Etkili DNS</string>
+    <string name="btn_export_diagnostics">Teşhis Raporunu Dışa Aktar</string>
+    <string name="diag_prompt_run">Sistem ağını, yerel motoru, VPN izinlerini ve DNS çözümlemesini test etmek için \'Teşhisi Çalıştır\'a dokunun.</string>
+    <string name="placeholder_filter_logs">Günlükleri filtrele…</string>
 
     <!-- New Strategy System Overhaul Strings -->
     <string name="label_filter_sort">Filtrele ve Sırala</string>

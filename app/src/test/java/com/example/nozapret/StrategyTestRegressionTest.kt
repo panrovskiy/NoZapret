@@ -322,4 +322,49 @@ class StrategyTestRegressionTest {
         assertNull(failRes.pingMs)
         assertEquals("DNS Timeout", failRes.error)
     }
+
+    @Test
+    fun testFakeSniDefaultIsGoogleDotCom() {
+        val resolved = Config.resolveFakeSni("Auto (Recommended)", emptyMap(), emptyList(), false)
+        assertEquals("google.com", resolved)
+    }
+
+    @Test
+    fun testSferumAndMaxInPresets() {
+        val ruServices = Config.PRESETS.find { it.first == "RU Services" }
+        assertNotNull(ruServices)
+        assertTrue(ruServices!!.second.contains("sferum.ru"))
+        assertTrue(ruServices.second.contains("max.ru"))
+    }
+
+    @Test
+    fun testDnsEndpointParsing() {
+        val plainRes = Config.parseDnsEndpoint("1.1.1.1").getOrThrow()
+        assertEquals(Config.DnsTransportType.PLAIN, plainRes.transport)
+        assertEquals("1.1.1.1", plainRes.hostOrIp)
+
+        val dotHostnameRes = Config.parseDnsEndpoint("dns.comss.one").getOrThrow()
+        assertEquals(Config.DnsTransportType.DOT, dotHostnameRes.transport)
+        assertEquals("dns.comss.one", dotHostnameRes.hostOrIp)
+
+        val dotUriRes = Config.parseDnsEndpoint("tls://dns.comss.one").getOrThrow()
+        assertEquals(Config.DnsTransportType.DOT, dotUriRes.transport)
+        assertEquals("dns.comss.one", dotUriRes.hostOrIp)
+
+        val dohUrlRes = Config.parseDnsEndpoint("https://dns.comss.one/dns-query").getOrThrow()
+        assertEquals(Config.DnsTransportType.DOH, dohUrlRes.transport)
+        assertEquals("dns.comss.one", dohUrlRes.hostOrIp)
+        assertEquals("/dns-query", dohUrlRes.dohPath)
+    }
+
+    @Test
+    fun testDiscordStrategiesArguments() {
+        val discordUdpArgs = Config.getStrategyArgs("Discord/UDP Fix")
+        assertTrue(discordUdpArgs.contains("--disorder"))
+        assertTrue(discordUdpArgs.contains("--udp-fake"))
+
+        val ruDiscordAltArgs = Config.getStrategyArgs("RU Discord (Alt)")
+        assertTrue(ruDiscordAltArgs.contains("google.com"))
+        assertFalse(ruDiscordAltArgs.contains("www.google.com"))
+    }
 }

@@ -28,6 +28,7 @@ import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
@@ -258,6 +259,20 @@ class DpiVpnService : VpnService() {
         AppLogger.i("YT", "[YT][NETWORK] connection started. Strategy: $lastStrategy, Mode: $runMode, Global: $lastGlobal, Resolved Fake SNI: $resolvedFakeSni, Effective DNS: $effectiveDns, QUIC Enabled: $enableQuic")
         AppLogger.i("FAKE_SNI", "[FAKE_SNI] mode: globalMode=$globalMode, resolved domain: $resolvedFakeSni")
 
+        val resolvedDnsIp = try {
+            val endpoint = Config.parseDnsEndpoint(effectiveDns).getOrNull()
+            val hostOrIp = endpoint?.hostOrIp ?: effectiveDns
+            val ipRes = Config.validateIpAddress(hostOrIp)
+            if (ipRes.isSuccess && !ipRes.getOrNull().isNullOrBlank()) {
+                ipRes.getOrNull()!!
+            } else {
+                InetAddress.getByName(hostOrIp).hostAddress ?: "1.1.1.1"
+            }
+        } catch (e: Exception) {
+            AppLogger.w("VPN", "Failed to resolve DNS IP for $effectiveDns: ${e.message}", e)
+            "1.1.1.1"
+        }
+
         try {
             var fd = -1
             if (runMode == "VPN") {
@@ -266,7 +281,7 @@ class DpiVpnService : VpnService() {
                     .setMtu(mtu)
                     .addAddress("10.1.1.1", 24)
                     .addRoute("0.0.0.0", 0)
-                    .addDnsServer(effectiveDns)
+                    .addDnsServer(resolvedDnsIp)
 
                 if (enableIpv6) {
                     builder.addAddress("fd00::1", 128)
@@ -346,7 +361,7 @@ class DpiVpnService : VpnService() {
                     updateNotification(notificationText)
 
                     if (runMode == "VPN") {
-                        val configPath = createTunnelConfig(enableIpv6, host, port, effectiveDns)
+                        val configPath = createTunnelConfig(enableIpv6, host, port, resolvedDnsIp)
                         Log.d("DpiVpnService", "Starting tunnel with config: $configPath")
                         
                         startHealthCheck()

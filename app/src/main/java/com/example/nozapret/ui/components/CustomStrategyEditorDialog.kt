@@ -107,7 +107,7 @@ fun CustomStrategyEditorDialog(
                     value = fakeSni,
                     onValueChange = { fakeSni = it },
                     label = { Text(stringResource(R.string.label_fake_sni_override)) },
-                    placeholder = { Text("www.google.com") },
+                    placeholder = { Text("google.com") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
