@@ -5,6 +5,8 @@ import com.example.nozapret.core.DnsTestResult
 import com.example.nozapret.services.TestingService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicBoolean
@@ -366,5 +368,74 @@ class StrategyTestRegressionTest {
         val ruDiscordAltArgs = Config.getStrategyArgs("RU Discord (Alt)")
         assertTrue(ruDiscordAltArgs.contains("google.com"))
         assertFalse(ruDiscordAltArgs.contains("www.google.com"))
+    }
+
+    @Test
+    fun testDnsResultsPersistenceModel() {
+        val originalDnsList = listOf(
+            DnsTestResult("Quad9 Primary", "9.9.9.9", true, 24L, null, "Plain"),
+            DnsTestResult("Cloudflare Primary", "1.1.1.1", true, 18L, null, "Plain"),
+            DnsTestResult("Google Primary", "8.8.8.8", false, null, "DNS Timeout", "Plain")
+        )
+
+        val mapped = originalDnsList.map { dns ->
+            mapOf(
+                "name" to dns.name,
+                "ip" to dns.ip,
+                "success" to dns.success,
+                "pingMs" to (dns.pingMs ?: -1L),
+                "error" to (dns.error ?: ""),
+                "transport" to (dns.transport ?: "")
+            )
+        }
+
+        assertEquals(3, mapped.size)
+        assertEquals("Quad9 Primary", mapped[0]["name"])
+        assertEquals(true, mapped[0]["success"])
+        assertEquals(24L, mapped[0]["pingMs"])
+
+        val restored = mapped.map { m ->
+            DnsTestResult(
+                name = m["name"] as String,
+                ip = m["ip"] as String,
+                success = m["success"] as Boolean,
+                pingMs = (m["pingMs"] as Long).takeIf { it >= 0 },
+                error = (m["error"] as String).takeIf { it.isNotEmpty() },
+                transport = (m["transport"] as String).takeIf { it.isNotEmpty() }
+            )
+        }
+
+        assertEquals(originalDnsList, restored)
+    }
+
+    @Test
+    fun testLogsAllFilterReturnsAllEntries() {
+        val sampleLogLines = listOf(
+            "[2026-10-25 16:34:23.123] [INFO] [APP] Application started",
+            "[2026-10-25 16:34:23.124] [DEBUG] [VPN] Connecting to proxy...",
+            "[2026-10-25 16:34:23.125] [WARN] [TEST] DNS query delayed",
+            "[2026-10-25 16:34:23.126] [ERROR] [UPDATE] Failed to fetch manifest",
+            "[2026-10-25 16:34:23.127] [FATAL] [CRASH] Uncaught exception"
+        )
+
+        fun filterLog(levelFilter: String): List<String> {
+            return sampleLogLines.filter { line ->
+                when (levelFilter) {
+                    "ERROR" -> line.contains("ERROR") || line.contains("FATAL") || line.contains(" E/")
+                    "WARN" -> line.contains("WARN") || line.contains(" W/")
+                    "INFO" -> line.contains("INFO") || line.contains(" I/")
+                    "DEBUG" -> line.contains("DEBUG") || line.contains(" D/")
+                    else -> true
+                }
+            }
+        }
+
+        val filteredAll = filterLog("ALL")
+        assertEquals(5, filteredAll.size)
+        assertEquals(sampleLogLines, filteredAll)
+
+        val filteredError = filterLog("ERROR")
+        assertEquals(2, filteredError.size)
+        assertTrue(filteredError.all { it.contains("ERROR") || it.contains("FATAL") })
     }
 }

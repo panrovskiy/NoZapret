@@ -30,6 +30,9 @@ import java.io.File
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.time.Duration.Companion.milliseconds
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -194,10 +197,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun startLogCollection() {
         if (logJob?.isActive == true) return
         logJob = viewModelScope.launch(Dispatchers.IO) {
-            val tags = "proxy:D MainViewModel:D ByeDpiProxy:D DpiVpnService:D TestingService:D StrategyTester:D NoZapretNative:D"
             try {
-                // Use -T 200 to get recent history
-                val process = ProcessBuilder("logcat", "-v", "time", "-T", "200", "*:S", "proxy:D", "MainViewModel:D", "ByeDpiProxy:D", "DpiVpnService:D", "TestingService:D", "StrategyTester:D", "NoZapretNative:D")
+                val initialAppLogs = AppLogger.getRecentLogs().map { entry ->
+                    val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date(entry.timestamp))
+                    "[$timeStr] [${entry.level}] [${entry.tag}] ${entry.message}"
+                }
+                withContext(Dispatchers.Main) {
+                    logLines.clear()
+                    logLines.addAll(initialAppLogs)
+                }
+
+                val process = ProcessBuilder("logcat", "-v", "time", "-T", "100")
                     .redirectErrorStream(true)
                     .start()
                 
@@ -210,7 +220,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (line.isBlank()) continue
                     buffer.add(line)
                     val now = System.currentTimeMillis()
-                    if ((now - lastUpdate > 1000) || (buffer.size > 100)) {
+                    if ((now - lastUpdate > 1000) || (buffer.size > 50)) {
                         val batch = buffer.toList()
                         buffer.clear()
                         lastUpdate = now
@@ -693,7 +703,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         val stratResults = resultsSnapshot[name]
                         if (!stratResults.isNullOrEmpty()) {
                             val resultsObj = JSONObject()
+                            var stratDnsResults: List<DnsTestResult> = emptyList()
+
                             stratResults.forEach { (site, res) ->
+                                if (res.dnsResults.isNotEmpty()) {
+                                    stratDnsResults = res.dnsResults
+                                }
                                 val resObj = JSONObject().apply {
                                     put("success", res.success)
                                     res.ping?.let { put("ping", it) }
@@ -702,10 +717,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     res.error?.let { put("error", it) }
                                     put("httpSuccess", res.httpSuccess)
                                     res.httpError?.let { put("httpError", it) }
+
+                                    if (res.dnsResults.isNotEmpty()) {
+                                        val dnsArr = JSONArray()
+                                        res.dnsResults.forEach { dns ->
+                                            val dnsObj = JSONObject().apply {
+                                                put("name", dns.name)
+                                                put("ip", dns.ip)
+                                                put("success", dns.success)
+                                                dns.pingMs?.let { put("pingMs", it) }
+                                                dns.error?.let { put("error", it) }
+                                                dns.transport?.let { put("transport", it) }
+                                            }
+                                            dnsArr.put(dnsObj)
+                                        }
+                                        put("dnsResults", dnsArr)
+                                    }
                                 }
                                 resultsObj.put(site, resObj)
                             }
                             put("results", resultsObj)
+
+                            if (stratDnsResults.isNotEmpty()) {
+                                val dnsArr = JSONArray()
+                                stratDnsResults.forEach { dns ->
+                                    val dnsObj = JSONObject().apply {
+                                        put("name", dns.name)
+                                        put("ip", dns.ip)
+                                        put("success", dns.success)
+                                        dns.pingMs?.let { put("pingMs", it) }
+                                        dns.error?.let { put("error", it) }
+                                        dns.transport?.let { put("transport", it) }
+                                    }
+                                    dnsArr.put(dnsObj)
+                                }
+                                put("dnsResults", dnsArr)
+                            }
                         }
                     }
                     root.put(name, statObj)
@@ -730,11 +777,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     committedStats[name] = Triple(success, tested, total)
                     stats[name] = Triple(success, tested, total)
 
+                    val topDnsList = mutableListOf<DnsTestResult>()
+                    if (stat.has("dnsResults")) {
+                        val dnsArr = stat.getJSONArray("dnsResults")
+                        for (i in 0 until dnsArr.length()) {
+                            val dObj = dnsArr.getJSONObject(i)
+                            topDnsList.add(
+                                DnsTestResult(
+                                    name = dObj.getString("name"),
+                                    ip = dObj.getString("ip"),
+                                    success = dObj.getBoolean("success"),
+                                    pingMs = if (dObj.has("pingMs")) dObj.getLong("pingMs") else null,
+                                    error = if (dObj.has("error")) dObj.getString("error") else null,
+                                    transport = if (dObj.has("transport")) dObj.getString("transport") else null
+                                )
+                            )
+                        }
+                    }
+
                     if (stat.has("results")) {
                         val resultsObj = stat.getJSONObject("results")
                         val resultMap = mutableMapOf<String, TlsTestResult>()
                         resultsObj.keys().forEach { site ->
                             val r = resultsObj.getJSONObject(site)
+                            val siteDnsList = mutableListOf<DnsTestResult>()
+                            if (r.has("dnsResults")) {
+                                val dnsArr = r.getJSONArray("dnsResults")
+                                for (i in 0 until dnsArr.length()) {
+                                    val dObj = dnsArr.getJSONObject(i)
+                                    siteDnsList.add(
+                                        DnsTestResult(
+                                            name = dObj.getString("name"),
+                                            ip = dObj.getString("ip"),
+                                            success = dObj.getBoolean("success"),
+                                            pingMs = if (dObj.has("pingMs")) dObj.getLong("pingMs") else null,
+                                            error = if (dObj.has("error")) dObj.getString("error") else null,
+                                            transport = if (dObj.has("transport")) dObj.getString("transport") else null
+                                        )
+                                    )
+                                }
+                            }
+                            val finalDnsList = if (siteDnsList.isNotEmpty()) siteDnsList else topDnsList
                             val res = TlsTestResult(
                                 success = r.getBoolean("success"),
                                 ping = if (r.has("ping")) r.getLong("ping") else null,
@@ -742,7 +825,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 cipherSuite = if (r.has("cipherSuite")) r.getString("cipherSuite") else null,
                                 error = if (r.has("error")) r.getString("error") else null,
                                 httpSuccess = if (r.has("httpSuccess")) r.getBoolean("httpSuccess") else false,
-                                httpError = if (r.has("httpError")) r.getString("httpError") else null
+                                httpError = if (r.has("httpError")) r.getString("httpError") else null,
+                                dnsResults = finalDnsList
                             )
                             resultMap[site] = res
                         }
