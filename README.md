@@ -17,4 +17,4 @@ If you experience issues:
 3. Use the **Site Tester** to verify which strategy works best for your specific ISP.
 4. Check the **Log Viewer** for native engine logs.
 
-**IF** it didn't help, make a discussion in `[Issues](https://github.com/panrovskiy/NoZapret/issues)` tab.
+**IF** it didn't help, make a discussion in [Issues](https://github.com/panrovskiy/NoZapret/issues) tab.
