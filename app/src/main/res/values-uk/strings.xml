@@ -270,6 +270,15 @@
 
     <!-- Diagnostics -->
     <string name="btn_run_diagnostics">Діагностика</string>
+    <string name="diag_solution_battery">Оптимізувати батарею</string>
+    <string name="diag_solution_disable_ipv6">Налаштувати IPv6</string>
+    <string name="diag_solution_fix_dns">Налаштувати DNS</string>
+    <string name="diag_solution_fix_quic">Налаштувати QUIC</string>
+    <string name="diag_solution_fix_custom_strategy">Змінити стратегію</string>
+    <string name="strategy_discord_tls_split">Discord TLS Split</string>
+    <string name="strategy_discord_tls_split_desc">Просунута стратегія Discord з фрагментацією TLS, disorder та WebRTC UDP desync.</string>
+    <string name="strategy_discord_light">Discord Light</string>
+    <string name="strategy_discord_light_desc">Легковажний обхід Discord через TLS split та швидкий UDP desync для мобільних мереж.</string>
     <string name="btn_check_updates">Перевірити оновлення</string>
     <string name="update_dialog_title">Доступне оновлення</string>
     <string name="update_dialog_version">Версія %1$s доступна для завантаження</string>

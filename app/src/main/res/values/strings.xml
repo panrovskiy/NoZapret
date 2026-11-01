@@ -270,6 +270,15 @@
 
     <!-- Diagnostics -->
     <string name="btn_run_diagnostics">Run Diagnostics</string>
+    <string name="diag_solution_battery">Optimize Battery</string>
+    <string name="diag_solution_disable_ipv6">Configure IPv6</string>
+    <string name="diag_solution_fix_dns">Fix DNS Settings</string>
+    <string name="diag_solution_fix_quic">Fix QUIC Settings</string>
+    <string name="diag_solution_fix_custom_strategy">Edit Custom Strategy</string>
+    <string name="strategy_discord_tls_split">Discord TLS Split</string>
+    <string name="strategy_discord_tls_split_desc">Advanced Discord strategy combining TLS record splitting, disorder desync, and WebRTC UDP desync.</string>
+    <string name="strategy_discord_light">Discord Light</string>
+    <string name="strategy_discord_light_desc">Lightweight Discord bypass using TLS record splitting and low-overhead UDP desync for mobile networks.</string>
     <string name="btn_check_updates">Check for Updates</string>
     <string name="update_dialog_title">Update Available</string>
     <string name="update_dialog_version">Version %1$s is available</string>

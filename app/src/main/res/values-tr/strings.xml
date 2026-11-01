@@ -270,6 +270,15 @@
 
     <!-- Diagnostics -->
     <string name="btn_run_diagnostics">Teşhis Çalıştır</string>
+    <string name="diag_solution_battery">Pili Optimize Et</string>
+    <string name="diag_solution_disable_ipv6">IPv6 Yapılandır</string>
+    <string name="diag_solution_fix_dns">DNS Ayarlarını Düzelt</string>
+    <string name="diag_solution_fix_quic">QUIC Ayarlarını Düzelt</string>
+    <string name="diag_solution_fix_custom_strategy">Özel Stratejiyi Düzenle</string>
+    <string name="strategy_discord_tls_split">Discord TLS Split</string>
+    <string name="strategy_discord_tls_split_desc">TLS parçalama, disorder ve WebRTC UDP desync birleştiren gelişmiş Discord stratejisi.</string>
+    <string name="strategy_discord_light">Discord Light</string>
+    <string name="strategy_discord_light_desc">Mobil ağlar için TLS split ve hızlı UDP desync kullanan hafif Discord erişimi.</string>
     <string name="btn_check_updates">Güncellemeleri Kontrol Et</string>
     <string name="update_dialog_title">Güncelleme Mevcut</string>
     <string name="update_dialog_version">Sürüm %1$s mevcut</string>

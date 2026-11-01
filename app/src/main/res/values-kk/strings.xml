@@ -270,6 +270,15 @@
 
     <!-- Diagnostics -->
     <string name="btn_run_diagnostics">Диагностика</string>
+    <string name="diag_solution_battery">Батареяны оңтайландыру</string>
+    <string name="diag_solution_disable_ipv6">IPv6 баптау</string>
+    <string name="diag_solution_fix_dns">DNS баптау</string>
+    <string name="diag_solution_fix_quic">QUIC баптау</string>
+    <string name="diag_solution_fix_custom_strategy">Стратегияны өзгерту</string>
+    <string name="strategy_discord_tls_split">Discord TLS Split</string>
+    <string name="strategy_discord_tls_split_desc">TLS фрагментациясы, disorder және WebRTC UDP desync біріктірілген кеңейтілген Discord стратегиясы.</string>
+    <string name="strategy_discord_light">Discord Light</string>
+    <string name="strategy_discord_light_desc">Мобильді желілерге арналған TLS split және жылдам UDP desync қолданатын жеңіл Discord айналып өтуі.</string>
     <string name="btn_check_updates">Жаңартуларды тексеру</string>
     <string name="update_dialog_title">Жаңарту қолжетімді</string>
     <string name="update_dialog_version">%1$s нұсқасын жүктеп алуға болады</string>

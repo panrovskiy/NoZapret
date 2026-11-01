@@ -1149,8 +1149,6 @@ fun SettingsTab(
                                 }
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(100.dp))
                     }
                 } else {
                     // Tests Tab

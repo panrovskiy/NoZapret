@@ -714,6 +714,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 isTesting = viewModel.currentlyTesting.contains(name),
                 fakeSni = viewModel.getFakeSniForStrategy(name),
                 fakeSniPool = viewModel.fakeSniPool,
+                customStrategies = viewModel.customStrategies,
                 onSetFakeSni = { stratName, sni -> viewModel.setFakeSniForStrategy(stratName, sni) },
                 onDismiss = { strategyForArgsInfo = null }
             )

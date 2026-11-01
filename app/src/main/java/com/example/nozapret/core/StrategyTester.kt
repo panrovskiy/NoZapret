@@ -14,6 +14,7 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -91,12 +92,35 @@ class StrategyTester(private val application: Application) {
         }
 
         val globalMode = prefs[DataStoreManager.GLOBAL_MODE] ?: false
-        val fakeSniPool = prefs[DataStoreManager.FAKE_SNI_POOL]?.toList() ?: listOf("www.google.com", "yandex.ru")
+        val fakeSniPool = prefs[DataStoreManager.FAKE_SNI_POOL]?.toList() ?: listOf("google.com", "yandex.ru")
 
         val resolvedFakeSni = Config.resolveFakeSni(strategyName, strategyFakeSniMap, fakeSniPool, globalMode)
 
+        val customStrategiesJson = prefs[DataStoreManager.CUSTOM_STRATEGIES_JSON]
+        val parsedCustomStrats = mutableListOf<Config.CustomStrategy>()
+        if (!customStrategiesJson.isNullOrBlank()) {
+            try {
+                val arr = JSONArray(customStrategiesJson)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    parsedCustomStrats.add(
+                        Config.CustomStrategy(
+                            id = if (obj.has("id")) obj.getString("id") else "",
+                            name = if (obj.has("name")) obj.getString("name") else "",
+                            description = if (obj.has("description")) obj.getString("description") else "",
+                            backend = if (obj.has("backend")) obj.getString("backend") else "ByeDPI",
+                            userArgs = if (obj.has("userArgs")) obj.getString("userArgs") else "",
+                            fakeSni = if (obj.has("fakeSni")) obj.getString("fakeSni") else null,
+                            customDns = if (obj.has("customDns")) obj.getString("customDns") else null,
+                            category = if (obj.has("category")) obj.getString("category") else "User Custom"
+                        )
+                    )
+                }
+            } catch (_: Exception) {}
+        }
+
         val strategyArgs = try {
-            Config.getStrategyArgs(strategyName, customArgs, resolvedFakeSni, enableQuic)
+            Config.getStrategyArgs(strategyName, customArgs, resolvedFakeSni, enableQuic, parsedCustomStrats)
         } catch (e: Exception) {
             AppLogger.e("TEST", "[TEST] Failed to generate args for $strategyName: ${e.message}")
             return@withContext false

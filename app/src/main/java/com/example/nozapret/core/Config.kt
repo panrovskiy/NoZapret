@@ -47,6 +47,8 @@ object Config {
         Strategy("ru_discord_alt2", "RU Discord (Alt 2)", "Advanced Discord strategy with randomized UDP fakes and OOB splitting.", "Discord"),
         Strategy("discord_intense", "Discord UDP (Intense)", "Aggressive Discord strategy with multiple fake packets and multi-stage disorder.", "Discord"),
         Strategy("discord_mobile", "Discord Mobile (Optimized)", "Lightweight Discord bypass optimized for mobile networks.", "Discord"),
+        Strategy("discord_tls_split", "Discord TLS Split", "Advanced Discord strategy combining TLS record splitting, disorder desync, and WebRTC UDP desync.", "Discord"),
+        Strategy("discord_light", "Discord Light", "Lightweight Discord bypass using TLS record splitting and low-overhead UDP desync for mobile networks.", "Discord"),
         Strategy("fake_discord_intense", "Simple Fake Discord Intense", "Simple fake variant of the Intense Discord strategy.", "Simple Fake"),
         Strategy("fake_discord_mobile", "Simple Fake Discord Mobile", "Simple fake variant of the Mobile Discord strategy.", "Simple Fake"),
         Strategy("modern_youtube_extreme", "Modern YouTube (Extreme)", "Aggressive YouTube bypass using multiple desync techniques.", "YouTube"),
@@ -113,8 +115,12 @@ object Config {
         name: String,
         customArgs: String = "",
         fakeSni: String? = null,
-        enableQuic: Boolean = true
+        enableQuic: Boolean = true,
+        customStrategies: List<CustomStrategy> = emptyList()
     ): Array<String> {
+        val customStrat = customStrategies.find { it.name == name || it.id == name }
+        val effectiveCustomArgs = customStrat?.userArgs ?: customArgs
+
         val baseArgs = when (name) {
             "Auto (Recommended)" -> arrayOf(
                 "--tlsrec", "1+s",
@@ -211,6 +217,20 @@ object Config {
                 "--wait-send",
                 "--auto", "s"
             )
+            "Discord TLS Split" -> arrayOf(
+                "--tlsrec", "1+s",
+                "--disorder", "1",
+                "--split", "1",
+                "--udp-fake", "5",
+                "--wait-send",
+                "--auto", "t,r,s,c"
+            )
+            "Discord Light" -> arrayOf(
+                "--tlsrec", "1+s",
+                "--split", "1",
+                "--udp-fake", "2",
+                "--auto", "s"
+            )
             "Simple Fake Discord Intense" -> arrayOf("--tlsrec", "1+s", "--fake-sni", "yandex.ru", "--udp-fake", "10")
             "Simple Fake Discord Mobile" -> arrayOf("--tlsrec", "1+s", "--fake-sni", "yandex.ru")
             "Modern YouTube (Extreme)" -> arrayOf(
@@ -227,7 +247,7 @@ object Config {
                 "--block-quic"
             )
             "Universal Web (Safe)" -> arrayOf("--split", "1", "--tlsrec", "1+s", "--wait-send")
-            "Custom" -> parseCustomArgs(customArgs)
+            "Custom" -> parseCustomArgs(effectiveCustomArgs)
             "Strategy 1" -> parseCustomArgs("--tlsrec 1+s --disorder 1 --split 2 --wait-send --auto t,s")
             "Strategy 2" -> parseCustomArgs("--tlsrec 1+s --split 2 --oob 1 --wait-send --auto t,r")
             "Strategy 3" -> parseCustomArgs("--disorder 1 --split 2 --wait-send --udp-fake 5")
@@ -237,7 +257,15 @@ object Config {
             "Strategy 7" -> parseCustomArgs("--oob 1 --split 2 --wait-send")
             "Strategy 8" -> parseCustomArgs("--tlsrec 1+s --split 2 --udp-fake 10 --wait-send")
             "Strategy 9" -> parseCustomArgs("--tlsrec 1+s --disorder 1 --oob 1 --split 2 --wait-send --auto t,r,s,c")
-            else -> if (customArgs.isNotBlank()) parseCustomArgs(customArgs) else emptyArray()
+            else -> {
+                if (customStrat != null) {
+                    parseCustomArgs(customStrat.userArgs)
+                } else if (effectiveCustomArgs.isNotBlank()) {
+                    parseCustomArgs(effectiveCustomArgs)
+                } else {
+                    emptyArray()
+                }
+            }
         }
 
         val argsList = baseArgs.toMutableList()
@@ -250,9 +278,10 @@ object Config {
             argsList.removeAll { it == "--block-quic" }
         }
 
-        val activeFakeSni = fakeSni?.trim()
+        val effectiveFakeSni = customStrat?.fakeSni ?: fakeSni
+        val activeFakeSni = effectiveFakeSni?.trim()
 
-        if (activeFakeSni != null && supportsFakeSni(name)) {
+        if (activeFakeSni != null && (supportsFakeSni(name) || customStrat != null)) {
             val resultList = mutableListOf<String>()
             var i = 0
             while (i < argsList.size) {

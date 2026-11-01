@@ -222,15 +222,25 @@ class DpiVpnService : VpnService() {
         // Resolve Custom Strategy DNS Override if present
         val customStrategiesJson = prefs[DataStoreManager.CUSTOM_STRATEGIES_JSON]
         var customDnsOverride: String? = null
+        val parsedCustomStrategies = mutableListOf<Config.CustomStrategy>()
         if (!customStrategiesJson.isNullOrBlank()) {
             try {
                 val arr = JSONArray(customStrategiesJson)
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
-                    val name = if (obj.has("name")) obj.getString("name") else ""
-                    if (name == lastStrategy && obj.has("customDns") && obj.getString("customDns").isNotBlank()) {
-                        customDnsOverride = obj.getString("customDns").trim()
-                        break
+                    val strat = Config.CustomStrategy(
+                        id = if (obj.has("id")) obj.getString("id") else "",
+                        name = if (obj.has("name")) obj.getString("name") else "",
+                        description = if (obj.has("description")) obj.getString("description") else "",
+                        backend = if (obj.has("backend")) obj.getString("backend") else "ByeDPI",
+                        userArgs = if (obj.has("userArgs")) obj.getString("userArgs") else "",
+                        fakeSni = if (obj.has("fakeSni")) obj.getString("fakeSni") else null,
+                        customDns = if (obj.has("customDns")) obj.getString("customDns") else null,
+                        category = if (obj.has("category")) obj.getString("category") else "User Custom"
+                    )
+                    parsedCustomStrategies.add(strat)
+                    if (strat.name == lastStrategy && !strat.customDns.isNullOrBlank()) {
+                        customDnsOverride = strat.customDns.trim()
                     }
                 }
             } catch (_: Exception) {}
@@ -251,10 +261,10 @@ class DpiVpnService : VpnService() {
             } catch (_: Exception) {}
         }
         val globalMode = prefs[DataStoreManager.GLOBAL_MODE] ?: false
-        val fakeSniPool = prefs[DataStoreManager.FAKE_SNI_POOL]?.toList() ?: listOf("www.google.com", "yandex.ru")
+        val fakeSniPool = prefs[DataStoreManager.FAKE_SNI_POOL]?.toList() ?: listOf("google.com", "yandex.ru")
 
         val resolvedFakeSni = Config.resolveFakeSni(lastStrategy!!, strategyFakeSniMap, fakeSniPool, globalMode)
-        val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!, resolvedFakeSni, enableQuic)
+        val strategyArgs = Config.getStrategyArgs(lastStrategy!!, lastArgs!!, resolvedFakeSni, enableQuic, parsedCustomStrategies)
 
         AppLogger.i("YT", "[YT][NETWORK] connection started. Strategy: $lastStrategy, Mode: $runMode, Global: $lastGlobal, Resolved Fake SNI: $resolvedFakeSni, Effective DNS: $effectiveDns, QUIC Enabled: $enableQuic")
         AppLogger.i("FAKE_SNI", "[FAKE_SNI] mode: globalMode=$globalMode, resolved domain: $resolvedFakeSni")

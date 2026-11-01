@@ -39,13 +39,23 @@ fun StrategyInfoDialog(
     isTesting: Boolean = false,
     fakeSni: String? = null,
     fakeSniPool: List<String> = emptyList(),
+    customStrategies: List<Config.CustomStrategy> = emptyList(),
     onSetFakeSni: ((String, String?) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val strategy = Config.getStrategyByName(strategyName)
+    val customStrat = customStrategies.find { it.name == strategyName || it.id == strategyName }
+    val strategy = Config.getStrategyByName(strategyName) ?: customStrat?.let {
+        Config.Strategy(it.id, it.name, it.description.ifBlank { "Custom strategy" }, it.category)
+    }
+
+    val effectiveUserArgs = customStrat?.userArgs ?: customArgs
+    val effectiveFakeSni = customStrat?.fakeSni ?: fakeSni
+    val effectiveCustomDns = customStrat?.customDns ?: effectiveDns
+
     val resolvedArgs = try {
-        Config.getStrategyArgs(strategyName, customArgs, fakeSni, enableQuic).joinToString(" ")
+        val args = Config.getStrategyArgs(strategyName, effectiveUserArgs, effectiveFakeSni, enableQuic, customStrategies)
+        if (args.isNotEmpty()) args.joinToString(" ") else null
     } catch (_: Exception) {
         null
     }
@@ -74,7 +84,7 @@ fun StrategyInfoDialog(
                 InfoSection(label = stringResource(R.string.label_preset), value = strategy?.category ?: "Custom")
 
                 // Effective DNS Section
-                InfoSection(label = stringResource(R.string.label_dns_server), value = effectiveDns)
+                InfoSection(label = stringResource(R.string.label_dns_server), value = effectiveCustomDns)
 
                 // QUIC Support Section
                 InfoSection(

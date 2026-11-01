@@ -371,6 +371,37 @@ class StrategyTestRegressionTest {
     }
 
     @Test
+    fun testCustomStrategyInfoArgumentsResolution() {
+        val customStrat = Config.CustomStrategy(
+            id = "custom_test_123",
+            name = "My Custom Strategy",
+            userArgs = "--split 2 --disorder 1 --udp-fake 5",
+            fakeSni = "myfakesni.com"
+        )
+        val customList = listOf(customStrat)
+
+        val args = Config.getStrategyArgs("My Custom Strategy", customStrategies = customList)
+        assertTrue(args.contains("--split"))
+        assertTrue(args.contains("2"))
+        assertTrue(args.contains("--disorder"))
+        assertTrue(args.contains("--fake-sni"))
+        assertTrue(args.contains("myfakesni.com"))
+    }
+
+    @Test
+    fun testNewDiscordStrategiesArguments() {
+        val discordTlsSplitArgs = Config.getStrategyArgs("Discord TLS Split")
+        assertTrue(discordTlsSplitArgs.contains("--tlsrec"))
+        assertTrue(discordTlsSplitArgs.contains("--split"))
+        assertTrue(discordTlsSplitArgs.contains("--udp-fake"))
+
+        val discordLightArgs = Config.getStrategyArgs("Discord Light")
+        assertTrue(discordLightArgs.contains("--tlsrec"))
+        assertTrue(discordLightArgs.contains("--split"))
+        assertTrue(discordLightArgs.contains("--udp-fake"))
+    }
+
+    @Test
     fun testDnsResultsPersistenceModel() {
         val originalDnsList = listOf(
             DnsTestResult("Quad9 Primary", "9.9.9.9", true, 24L, null, "Plain"),
