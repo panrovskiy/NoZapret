@@ -16,3 +16,5 @@ If you experience issues:
 2. Use the **Fix** buttons for any reported Warnings or Failures.
 3. Use the **Site Tester** to verify which strategy works best for your specific ISP.
 4. Check the **Log Viewer** for native engine logs.
+
+**IF** it didn't help, make a discussion is `Issues` tab.
