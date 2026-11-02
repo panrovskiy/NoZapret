@@ -116,7 +116,7 @@ fun LogViewer(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 100.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     item {
                         Card(
@@ -313,7 +313,7 @@ fun LogViewer(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 100.dp),
+                        contentPadding = PaddingValues(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         items(filteredLines) { line ->

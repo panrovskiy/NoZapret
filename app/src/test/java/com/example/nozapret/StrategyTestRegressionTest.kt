@@ -469,4 +469,19 @@ class StrategyTestRegressionTest {
         assertEquals(2, filteredError.size)
         assertTrue(filteredError.all { it.contains("ERROR") || it.contains("FATAL") })
     }
+
+    @Test
+    fun testTunnelConfigUdpTimeoutSetting() {
+        val configTemplate = """
+            misc:
+              task-stack-size: 163840
+              connect-timeout: 30000
+              tcp-read-write-timeout: 600000
+              udp-read-write-timeout: 300000
+              max-session-count: 16384
+        """.trimIndent()
+
+        assertTrue(configTemplate.contains("udp-read-write-timeout: 300000"))
+        assertFalse(configTemplate.contains("udp-read-write-timeout: 10000"))
+    }
 }

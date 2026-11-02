@@ -517,11 +517,11 @@ class DpiVpnService : VpnService() {
               udp: udp
 
             misc:
-              task-stack-size: 131072
-              connect-timeout: 10000
-              tcp-read-write-timeout: 300000
-              udp-read-write-timeout: 10000
-              max-session-count: 8192
+              task-stack-size: 163840
+              connect-timeout: 30000
+              tcp-read-write-timeout: 600000
+              udp-read-write-timeout: 300000
+              max-session-count: 16384
               log-level: info
         """.trimIndent()
 
