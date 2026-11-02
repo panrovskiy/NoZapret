@@ -46,6 +46,19 @@ object AppLogger {
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
     private val inMemoryLogs = Collections.synchronizedList(mutableListOf<LogEntry>())
+    private val listeners = Collections.synchronizedList(mutableListOf<(LogEntry) -> Unit>())
+
+    fun addListener(listener: (LogEntry) -> Unit) {
+        synchronized(listeners) {
+            if (!listeners.contains(listener)) listeners.add(listener)
+        }
+    }
+
+    fun removeListener(listener: (LogEntry) -> Unit) {
+        synchronized(listeners) {
+            listeners.remove(listener)
+        }
+    }
 
     fun init(context: Context) {
         val dir = File(context.filesDir, "logs")
@@ -140,6 +153,11 @@ object AppLogger {
             inMemoryLogs.add(entry)
             if (inMemoryLogs.size > MAX_IN_MEMORY_LOGS) {
                 inMemoryLogs.removeAt(0)
+            }
+        }
+        synchronized(listeners) {
+            listeners.forEach { listener ->
+                try { listener(entry) } catch (_: Exception) {}
             }
         }
     }

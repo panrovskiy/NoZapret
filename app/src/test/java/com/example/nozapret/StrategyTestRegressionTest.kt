@@ -484,4 +484,47 @@ class StrategyTestRegressionTest {
         assertTrue(configTemplate.contains("udp-read-write-timeout: 300000"))
         assertFalse(configTemplate.contains("udp-read-write-timeout: 10000"))
     }
+
+    @Test
+    fun testApplicationOnlyLogFiltering() {
+        val noZapretTags = setOf(
+            "AppLogger", "NoZapret", "NoZapretNative", "DpiVpnService",
+            "ByeDpiProxy", "HevSocks5Tunnel", "TestingService", "StrategyTester",
+            "VpnController", "UpdateManager", "MainViewModel", "NoZapretApp",
+            "YT", "FAKE_SNI", "VPN", "TEST", "APP", "UPDATE", "MAIN", "CRASH",
+            "CONFIG", "DNS", "PROXY", "TUNNEL", "byedpi"
+        )
+
+        fun isNoZapretLog(line: String): Boolean {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty()) return false
+            if (trimmed.startsWith("[") && trimmed.contains("] [")) return true
+
+            if (line.contains("ActivityManager:") || line.contains("SurfaceFlinger:") ||
+                line.contains("OpenGLRenderer:") || line.contains("GraphicsEnvironment:") ||
+                line.contains("ViewRootImpl:") || line.contains("InputMethodManager:")) {
+                return false
+            }
+
+            for (tag in noZapretTags) {
+                if (line.contains("$tag:") || line.contains("] $tag") || line.contains("[$tag]") || line.contains(" $tag ")) {
+                    return true
+                }
+            }
+            return false
+        }
+
+        val appLog = "[2026-11-02 08:35:23.123] [INFO] [APP] AppLogger initialized"
+        val vpnLog = "11-02 08:35:23.123 1234 5678 D DpiVpnService: Starting tunnel with config"
+        val ytLog = "11-02 08:35:23.123 1234 5678 I YT: Connection started"
+        val systemNoiseLog1 = "11-02 08:35:23.123 1234 5678 D OpenGLRenderer: eglCreateWindowSurface"
+        val systemNoiseLog2 = "11-02 08:35:23.123 1234 5678 I ActivityManager: Displayed com.example.nozapret/.MainActivity"
+
+        assertTrue(isNoZapretLog(appLog))
+        assertTrue(isNoZapretLog(vpnLog))
+        assertTrue(isNoZapretLog(ytLog))
+
+        assertFalse(isNoZapretLog(systemNoiseLog1))
+        assertFalse(isNoZapretLog(systemNoiseLog2))
+    }
 }

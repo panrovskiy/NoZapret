@@ -8,6 +8,7 @@ import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.Uri
 import android.net.VpnService
+import android.os.Process
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.material3.SnackbarHostState
@@ -188,10 +189,53 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 vpnStartTime = state.startTime
             }
         }
+        // Register AppLogger real-time listener for application logs
+        AppLogger.addListener { entry ->
+            val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date(entry.timestamp))
+            val formatted = "[$timeStr] [${entry.level}] [${entry.tag}] ${entry.message}"
+            viewModelScope.launch(Dispatchers.Main) {
+                if (!logLines.contains(formatted)) {
+                    logLines.add(formatted)
+                    if (logLines.size > 3000) logLines.removeAt(0)
+                }
+            }
+        }
+
         loadTestResults()
         startLogCollection()
         checkForUpdates(manual = false)
         observeTestingService()
+    }
+
+    private val noZapretTags = setOf(
+        "AppLogger", "NoZapret", "NoZapretNative", "DpiVpnService",
+        "ByeDpiProxy", "HevSocks5Tunnel", "TestingService", "StrategyTester",
+        "VpnController", "UpdateManager", "MainViewModel", "NoZapretApp",
+        "YT", "FAKE_SNI", "VPN", "TEST", "APP", "UPDATE", "MAIN", "CRASH",
+        "CONFIG", "DNS", "PROXY", "TUNNEL", "byedpi"
+    )
+
+    private fun isNoZapretLog(line: String): Boolean {
+        val trimmed = line.trim()
+        if (trimmed.isEmpty()) return false
+
+        // AppLogger structured format: [2026-11-02 ...] [INFO] [TAG] ...
+        if (trimmed.startsWith("[") && trimmed.contains("] [")) return true
+
+        // Filter system noise
+        if (line.contains("ActivityManager:") || line.contains("SurfaceFlinger:") ||
+            line.contains("OpenGLRenderer:") || line.contains("GraphicsEnvironment:") ||
+            line.contains("ViewRootImpl:") || line.contains("InputMethodManager:") ||
+            line.contains("EGL_emulation:") || line.contains("chatty:")) {
+            return false
+        }
+
+        for (tag in noZapretTags) {
+            if (line.contains("$tag:") || line.contains("] $tag") || line.contains("[$tag]") || line.contains(" $tag ")) {
+                return true
+            }
+        }
+        return false
     }
 
     private fun startLogCollection() {
@@ -207,7 +251,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     logLines.addAll(initialAppLogs)
                 }
 
-                val process = ProcessBuilder("logcat", "-v", "time", "-T", "100")
+                val pid = Process.myPid()
+                val process = ProcessBuilder("logcat", "-v", "time", "--pid=$pid", "-T", "100")
                     .redirectErrorStream(true)
                     .start()
                 
@@ -217,7 +262,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 while (isActive) {
                     val line = try { reader.readLine() } catch (_: Exception) { null } ?: break
-                    if (line.isBlank()) continue
+                    if (!isNoZapretLog(line)) continue
                     buffer.add(line)
                     val now = System.currentTimeMillis()
                     if ((now - lastUpdate > 1000) || (buffer.size > 50)) {
