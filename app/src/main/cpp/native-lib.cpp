@@ -122,14 +122,16 @@ Java_com_example_nozapret_services_DpiVpnService_jniCleanup(JNIEnv *env, [[maybe
 JNIEXPORT void JNICALL
 Java_com_example_nozapret_core_StrategyTester_jniCleanup([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
     std::lock_guard<std::mutex> lock(g_proxy_mutex);
-    log_info(LOG_TAG, "jniCleanup (StrategyTester): Resetting params");
+    log_info(LOG_TAG, "jniCleanup (StrategyTester): Clearing and resetting params");
+    clear_params(nullptr, nullptr);
     reset_params();
 }
 
 JNIEXPORT void JNICALL
 Java_com_example_nozapret_core_ByeDpiProxy_jniCleanup([[maybe_unused]] JNIEnv *env, [[maybe_unused]] jobject thiz) {
     std::lock_guard<std::mutex> lock(g_proxy_mutex);
-    log_info(LOG_TAG, "jniCleanup (ByeDpiProxy): Resetting params");
+    log_info(LOG_TAG, "jniCleanup (ByeDpiProxy): Clearing and resetting params");
+    clear_params(nullptr, nullptr);
     reset_params();
 }
 
@@ -195,6 +197,7 @@ Java_com_example_nozapret_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, [[maybe_un
     }
     argv.push_back(nullptr);
 
+    clear_params(nullptr, nullptr);
     reset_params();
     optind = 1;
 

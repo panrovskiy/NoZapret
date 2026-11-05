@@ -52,6 +52,7 @@ struct poolhd *init_pool(int count)
 
     if (pipe(pool->ctrl_fds) == 0) {
         fcntl(pool->ctrl_fds[0], F_SETFL, O_NONBLOCK);
+        fcntl(pool->ctrl_fds[1], F_SETFL, O_NONBLOCK);
         add_event(pool, on_ctrl, pool->ctrl_fds[0], POLLIN);
     } else {
         pool->ctrl_fds[0] = pool->ctrl_fds[1] = -1;

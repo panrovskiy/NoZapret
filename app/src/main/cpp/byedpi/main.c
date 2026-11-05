@@ -56,8 +56,8 @@ void reset_params(void)
     params.ipv6 = 1;
     params.resolve = 1;
     params.udp = 1;
-    params.max_open = 512;
-    params.bfsize = 16384;
+    params.max_open = 2048;
+    params.bfsize = 65536;
     params.baddr.in6.sin6_family = AF_INET6;
     params.laddr.in.sin_family = AF_INET;
     params.debug = 0;

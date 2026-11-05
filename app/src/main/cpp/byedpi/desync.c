@@ -201,52 +201,29 @@ static int set_md5sig(int sfd, unsigned short key_len)
 static ssize_t send_fake(struct eval *val, const char *buffer,
         long pos, const struct desync_params *opt, struct packet pkt)
 {
-    int fds[2];
-    if (pipe(fds) < 0) {
-        uniperror("pipe");
-        return -1;
-    }
-    ssize_t ret = -1;
     ssize_t ps = pkt.size - pkt.off;
-
     if (ps < 0) {
-        close(fds[0]);
-        close(fds[1]);
         return -1;
     }
 
-    while (1) {
-        char *p = pkt.data + pkt.off;
-        ssize_t send_len = (ssize_t)pos;
-        if (ps < send_len) send_len = ps;
+    char *p = pkt.data + pkt.off;
+    ssize_t send_len = (ssize_t)pos;
+    if (ps < send_len) send_len = ps;
 
-        if (setttl(val->fd, opt->ttl ? opt->ttl : DEFAULT_TTL) < 0) {
-            break;
-        }
-        val->restore_ttl = 1;
-        if (opt->md5sig && set_md5sig(val->fd, 5)) {
-            break;
-        }
-        val->restore_md5 = opt->md5sig;
-        
-        struct iovec vec = { .iov_base = p, .iov_len = (size_t)send_len };
-        
-        ssize_t len = vmsplice(fds[1], &vec, 1, SPLICE_F_GIFT);
-        if (len < 0) {
-            uniperror("vmsplice");
-            break;
-        }
-        len = splice(fds[0], 0, val->fd, 0, (size_t)len, 0);
-        if (len < 0) {
-            uniperror("splice");
-            break;
-        }
-        ret = len;
-        break;
+    if (setttl(val->fd, opt->ttl ? opt->ttl : DEFAULT_TTL) < 0) {
+        return -1;
     }
-    close(fds[0]);
-    close(fds[1]);
-    return ret;
+    val->restore_ttl = 1;
+    if (opt->md5sig && set_md5sig(val->fd, 5)) {
+        return -1;
+    }
+    val->restore_md5 = opt->md5sig;
+
+    ssize_t len = send(val->fd, p, (size_t)send_len, 0);
+    if (len < 0) {
+        uniperror("send fake");
+    }
+    return len;
 }
 #endif
 

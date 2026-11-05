@@ -32,7 +32,7 @@ class SettingsManager(private val application: Application, private val scope: C
     var selectedLanguage by mutableStateOf("System")
     var autoConnect by mutableStateOf(false)
     var enableIpv6 by mutableStateOf(false)
-    var enableQuic by mutableStateOf(true)
+    var enableQuic by mutableStateOf(false)
     var customPrimaryColor by mutableIntStateOf(0xFF6750A4.toInt())
     var customThemeBase by mutableStateOf("System")
     var runMode by mutableStateOf("VPN")
@@ -59,7 +59,7 @@ class SettingsManager(private val application: Application, private val scope: C
             selectedLanguage = prefs[DataStoreManager.SELECTED_LANGUAGE] ?: "System"
             autoConnect = prefs[DataStoreManager.AUTO_CONNECT] ?: false
             enableIpv6 = prefs[DataStoreManager.ENABLE_IPV6] ?: false
-            enableQuic = prefs[DataStoreManager.ENABLE_QUIC] ?: true
+            enableQuic = prefs[DataStoreManager.ENABLE_QUIC] ?: false
             customPrimaryColor = prefs[DataStoreManager.CUSTOM_PRIMARY_COLOR] ?: 0xFF6750A4.toInt()
             customThemeBase = prefs[DataStoreManager.CUSTOM_THEME_BASE] ?: "System"
             runMode = prefs[DataStoreManager.RUN_MODE] ?: "VPN"

@@ -491,7 +491,10 @@ bool neq_tls_sid(const char *req, size_t qn, const char *resp, size_t sn)
             || ANTOHS(resp, 0) != 0x1603) {
         return 0;
     }
-    uint8_t sid_len = req[43];
+    uint8_t sid_len = (uint8_t)req[43];
+    if (sid_len == 0) {
+        return 0;
+    }
     size_t skip = 44 + sid_len + 3;
     
     if (!find_tls_ext_offset(0x2b, resp, sn, skip)) {

@@ -200,7 +200,7 @@ void *hev_calloc (size_t nmemb, size_t size);
 /**
  * PBUF_POOL_SIZE: the number of buffers in the pbuf pool.
  */
-#define PBUF_POOL_SIZE                  32
+#define PBUF_POOL_SIZE                  256
 
 /*
    ---------------------------------
@@ -386,7 +386,10 @@ void *hev_calloc (size_t nmemb, size_t size);
  * when opening a connection. For the transmit size, this MSS sets
  * an upper limit on the MSS advertised by the remote host.
  */
-#define TCP_MSS                         8191
+#define TCP_MSS                         1440
+
+#define LWIP_WND_SCALE                  1
+#define TCP_RCV_SCALE                   4
 
 /**
  * TCP_WND: The size of a TCP window.  This must be at least
@@ -395,19 +398,19 @@ void *hev_calloc (size_t nmemb, size_t size);
  * with scaling applied. Maximum window value in the TCP header
  * will be TCP_WND >> TCP_RCV_SCALE
  */
-#define TCP_WND                         (8 * TCP_MSS)
+#define TCP_WND                         (32 * TCP_MSS)
 
 /**
  * TCP_SND_BUF: TCP sender buffer space (bytes).
  * To achieve good performance, this should be at least 2 * TCP_MSS.
  */
-#define TCP_SND_BUF                     (8 * TCP_MSS)
+#define TCP_SND_BUF                     (32 * TCP_MSS)
 
 /**
  * TCP_SND_QUEUELEN: TCP sender buffer space (pbufs). This must be at least
  * as much as (2 * TCP_SND_BUF/TCP_MSS) for things to work.
  */
-#define TCP_SND_QUEUELEN                ((128 * (TCP_SND_BUF) + (TCP_MSS - 1))/(TCP_MSS))
+#define TCP_SND_QUEUELEN                ((4 * (TCP_SND_BUF) + (TCP_MSS - 1))/(TCP_MSS))
 
 /*
    ----------------------------------

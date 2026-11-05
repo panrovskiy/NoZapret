@@ -473,6 +473,7 @@ int create_conn(struct poolhd *pool,
     #endif
     #endif
     int one = 1;
+    setsockopt(sfd, SOL_SOCKET, SO_KEEPALIVE, (char *)&one, sizeof(one));
     if (setsockopt(sfd, IPPROTO_TCP,
             TCP_NODELAY, (char *)&one, sizeof(one))) {
         uniperror("setsockopt TCP_NODELAY");
@@ -671,6 +672,7 @@ static int on_accept(struct poolhd *pool, struct eval *val, int et)
         }
         #endif
         int one = 1;
+        setsockopt(c, SOL_SOCKET, SO_KEEPALIVE, (char *)&one, sizeof(one));
         if (setsockopt(c, IPPROTO_TCP, TCP_NODELAY,
                 (char *)&one, sizeof(one))) {
             uniperror("setsockopt TCP_NODELAY");
@@ -699,17 +701,25 @@ int on_tunnel(struct poolhd *pool, struct eval *val, int etype)
     ssize_t n = 0;
     bool wait = false;
     struct eval *pair = val->pair;
-    
-    if (etype == (int)POLLTIMEOUT && !pair->buff && val->round_count) {
-        LOG(LOG_S, "timeout (%u) (fd=%d)\n", val->to_count, val->fd);
-        return on_timeout(pool, val);
+
+    if (etype & (int)(POLLIN | POLLOUT)) {
+        remove_timer(pool, val);
+        if (pair) remove_timer(pool, pair);
+    }
+
+    if (etype == (int)POLLTIMEOUT && (!pair || !pair->buff) && val->round_count) {
+        if (params.timeout > 0 && params.to_count_lim > 0) {
+            LOG(LOG_S, "timeout (%u) (fd=%d)\n", val->to_count, val->fd);
+            return on_timeout(pool, val);
+        }
+        return 0;
     }
     if ((etype & (int)POLLOUT) || etype == (int)POLLTIMEOUT) {
         LOG(LOG_S, "pollout (fd=%d)\n", val->fd);
         val = pair;
-        pair = val->pair;
+        if (val) pair = val->pair;
     }
-    if (val->buff) {
+    if (val && val->buff) {
         n = val->buff->lock - val->buff->offset;
         
         ssize_t sn = tcp_send_hook(pool, pair, val->buff, &val->buff->lock, &wait);
@@ -722,13 +732,16 @@ int on_tunnel(struct poolhd *pool, struct eval *val, int etype)
         }
         buff_push(pool, val->buff);
         val->buff = 0;
-        
+        remove_timer(pool, val);
+        if (pair) remove_timer(pool, pair);
+
         if (mod_etype(pool, val, POLLIN) ||
-                mod_etype(pool, pair, POLLIN)) {
+                (pair && mod_etype(pool, pair, POLLIN))) {
             uniperror("mod_etype");
             return -1;
         }
     }
+    if (!val) return -1;
     struct buffer *buff = buff_pop(pool, params.bfsize);
     if (!buff) {
         return -1;
@@ -748,7 +761,7 @@ int on_tunnel(struct poolhd *pool, struct eval *val, int etype)
             buff->offset = (unsigned int)sn;
             
             if (mod_etype(pool, val, 0) ||
-                    mod_etype(pool, pair, !wait ? (int)POLLOUT : 0)) {
+                    (pair && mod_etype(pool, pair, !wait ? (int)POLLOUT : 0))) {
                 uniperror("mod_etype");
                 return -1;
             }
@@ -757,6 +770,8 @@ int on_tunnel(struct poolhd *pool, struct eval *val, int etype)
     } while (n == (ssize_t )buff->size);
     buff_push(pool, val->buff);
     val->buff = 0;
+    remove_timer(pool, val);
+    if (pair) remove_timer(pool, pair);
     return 0;
 }
 
@@ -1047,20 +1062,21 @@ int on_ignore(struct poolhd *pool, struct eval *val, int etype)
 
 int start_event_loop(int srvfd)
 {
+    int srvfd_to_close = srvfd;
     server_fd = srvfd;
     
     struct poolhd *pool = init_pool(params.max_open * 2 + 1);
     if (!pool) {
-        if (server_fd == srvfd) server_fd = -1;
-        close(srvfd);
+        server_fd = -1;
+        if (srvfd_to_close >= 0) close(srvfd_to_close);
         return -1;
     }
     current_pool = pool;
     if (!add_event(pool, &on_accept, srvfd, POLLIN)) {
         current_pool = NULL;
         destroy_pool(pool);
-        if (server_fd == srvfd) server_fd = -1;
-        close(srvfd);
+        server_fd = -1;
+        if (srvfd_to_close >= 0) close(srvfd_to_close);
         return -1;
     }
     loop_event(pool);
@@ -1068,10 +1084,9 @@ int start_event_loop(int srvfd)
     LOG(LOG_S, "exit\n");
     current_pool = NULL;
     destroy_pool(pool);
-    // Explicitly close server_fd here if we are the ones who opened it
-    if (server_fd == srvfd) {
-        close(srvfd);
-        server_fd = -1;
+    server_fd = -1;
+    if (srvfd_to_close >= 0) {
+        close(srvfd_to_close);
     }
     return 0;
 }

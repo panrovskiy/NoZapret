@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -44,6 +45,7 @@ class DpiVpnService : VpnService() {
     private val tunnel = HevSocks5Tunnel()
     private var vpnWorkJob: Job? = null
     private var healthCheckJob: Job? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private val vpnLock = Mutex()
     private val isStopping = AtomicBoolean(false)
@@ -216,7 +218,7 @@ class DpiVpnService : VpnService() {
         val portStr = prefs[DataStoreManager.PROXY_PORT] ?: Config.DEFAULT_PROXY_PORT
         val port = try { portStr.toInt() } catch(_: Exception) { 1080 }
 
-        val enableQuic = prefs[DataStoreManager.ENABLE_QUIC] ?: true
+        val enableQuic = prefs[DataStoreManager.ENABLE_QUIC] ?: false
         val globalDns = prefs[DataStoreManager.DNS_SERVER] ?: "1.1.1.1"
 
         // Resolve Custom Strategy DNS Override if present
@@ -281,6 +283,13 @@ class DpiVpnService : VpnService() {
         } catch (e: Exception) {
             AppLogger.w("VPN", "Failed to resolve DNS IP for $effectiveDns: ${e.message}", e)
             "1.1.1.1"
+        }
+
+        val powerManager = getSystemService(POWER_SERVICE) as? PowerManager
+        if (powerManager != null && (wakeLock == null || wakeLock?.isHeld == false)) {
+            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "NoZapret::VpnWakeLock").apply {
+                acquire(24 * 60 * 60 * 1000L)
+            }
         }
 
         try {
@@ -481,7 +490,6 @@ class DpiVpnService : VpnService() {
                 try {
                     withContext(Dispatchers.IO) {
                         Socket().use { socket ->
-                            protect(socket)
                             socket.connect(InetSocketAddress(host, port), 500)
                         }
                     }
@@ -493,7 +501,7 @@ class DpiVpnService : VpnService() {
                     }
                 }
             }
-            delay(250.milliseconds)
+            delay(100.milliseconds)
         }
         return false
     }
@@ -521,6 +529,8 @@ class DpiVpnService : VpnService() {
               connect-timeout: 30000
               tcp-read-write-timeout: 600000
               udp-read-write-timeout: 300000
+              tcp-buffer-size: 262144
+              udp-recv-buffer-size: 524288
               max-session-count: 16384
               log-level: info
         """.trimIndent()
@@ -570,6 +580,13 @@ class DpiVpnService : VpnService() {
             Log.e("DpiVpnService", "Error closing vpnInterface: ${e.message}")
         }
         vpnInterface = null
+
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (_: Exception) {}
+        wakeLock = null
 
         isRunning = false
         isPaused = false
