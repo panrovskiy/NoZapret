@@ -1,15 +1,22 @@
 package com.example.nozapret.core
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import com.example.nozapret.BuildConfig
+import com.example.nozapret.MainActivity
 import com.example.nozapret.MainViewModel
+import com.example.nozapret.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -190,7 +197,13 @@ class UpdateManager(private val application: Application) {
                 val changelog = json.optString("body", "")
                 AppLogger.i("UPDATE", "[UPDATE] Update available! APK URL: $downloadUrl")
                 _updateState.value = UpdateState.UPDATE_AVAILABLE
-                return@withContext MainViewModel.UpdateInfo(latestVersion, downloadUrl, changelog)
+                val updateInfo = MainViewModel.UpdateInfo(latestVersion, downloadUrl, changelog)
+                try {
+                    showUpdateNotification(updateInfo)
+                } catch (e: Exception) {
+                    AppLogger.e("UPDATE", "[UPDATE] Failed to post update notification: ${e.message}")
+                }
+                return@withContext updateInfo
             } else {
                 AppLogger.i("UPDATE", "[UPDATE] Current version is up to date")
                 _updateState.value = UpdateState.IDLE
@@ -444,5 +457,42 @@ class UpdateManager(private val application: Application) {
             if (l < c) return false
         }
         return false
+    }
+
+    fun showUpdateNotification(info: MainViewModel.UpdateInfo) {
+        val notificationManager = application.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "updates_channel",
+                application.getString(R.string.channel_updates_name),
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = application.getString(R.string.channel_updates_desc)
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val intent = Intent(application, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("OPEN_UPDATE_DIALOG", true)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            application,
+            1001,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(application, "updates_channel")
+            .setContentTitle(application.getString(R.string.notification_update_available_title))
+            .setContentText(application.getString(R.string.notification_update_available_text, info.version))
+            .setSmallIcon(R.drawable.ic_stat_vpn)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+
+        notificationManager.notify(1001, notification)
     }
 }

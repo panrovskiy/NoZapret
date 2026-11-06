@@ -135,12 +135,10 @@ class TestingService : Service() {
                 withContext(NonCancellable) {
                     if (currentTestJob === newJob) {
                         val finalStatus = _statusFlow.value
-                        if (finalStatus.strategyName.isNotEmpty()) {
-                            try {
-                                showFinishedNotification(finalStatus.strategyName, finalStatus.success, finalStatus.total)
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Failed to show completion notification", e)
-                            }
+                        try {
+                            showBatchFinishedNotification(finalStatus.success, finalStatus.total)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to show completion notification", e)
                         }
                         isRunning = false
                         _statusFlow.value = finalStatus.copy(isRunning = false)
@@ -231,11 +229,18 @@ class TestingService : Service() {
     }
 
     private fun createNotificationChannel() {
+        val manager = getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             "testing_channel", "Strategy Testing", NotificationManager.IMPORTANCE_LOW
         )
-        val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
+
+        val completeChannel = NotificationChannel(
+            "testing_complete_channel", "Test Completion", NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Notification shown when strategy testing completes"
+        }
+        manager.createNotificationChannel(completeChannel)
     }
 
     private fun createNotification(content: String): android.app.Notification {
@@ -276,12 +281,39 @@ class TestingService : Service() {
     }
 
     private fun showFinishedNotification(strategy: String, success: Int, total: Int) {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(this, 1002, intent, PendingIntent.FLAG_IMMUTABLE)
+
         val content = getString(R.string.notification_testing_complete_text, success, total)
-        val notification = NotificationCompat.Builder(this, "testing_channel")
+        val notification = NotificationCompat.Builder(this, "testing_complete_channel")
             .setContentTitle(getString(R.string.notification_testing_complete_title, strategy))
             .setContentText(content)
             .setSmallIcon(R.drawable.ic_stat_vpn)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(3, notification)
+    }
+
+    private fun showBatchFinishedNotification(success: Int, total: Int) {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(this, 1003, intent, PendingIntent.FLAG_IMMUTABLE)
+
+        val content = getString(R.string.notification_batch_testing_complete_text, success, total)
+        val notification = NotificationCompat.Builder(this, "testing_complete_channel")
+            .setContentTitle(getString(R.string.notification_batch_testing_complete_title))
+            .setContentText(content)
+            .setSmallIcon(R.drawable.ic_stat_vpn)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
         
         val manager = getSystemService(NotificationManager::class.java)

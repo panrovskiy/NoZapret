@@ -459,4 +459,12 @@
     <string name="app_version">NoZapret нұсқасы</string>
     <string name="byedpi_version">ByeDPI қозғалтқышының нұсқасы</string>
     <string name="about_open_github">Жоба бетін ашу</string>
+
+    <!-- Update & Testing Notifications -->
+    <string name="channel_updates_name">Колданба жаңартулары</string>
+    <string name="channel_updates_desc">NoZapret жаңа нұсқалары туралы хабарландырулар</string>
+    <string name="notification_update_available_title">Жаңа жаңарту қолжетімді</string>
+    <string name="notification_update_available_text">%1$s нұсқасы қолжетімді. Ашу үшін басыңыз.</string>
+    <string name="notification_batch_testing_complete_title">Тексеру аяқталды</string>
+    <string name="notification_batch_testing_complete_text">Барлық стратегия тестілері орындалды. Сәтті: %1$d/%2$d.</string>
 </resources>

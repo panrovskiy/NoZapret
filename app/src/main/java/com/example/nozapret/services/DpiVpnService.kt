@@ -285,11 +285,17 @@ class DpiVpnService : VpnService() {
             "1.1.1.1"
         }
 
-        val powerManager = getSystemService(POWER_SERVICE) as? PowerManager
-        if (powerManager != null && (wakeLock == null || wakeLock?.isHeld == false)) {
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "NoZapret::VpnWakeLock").apply {
-                acquire(24 * 60 * 60 * 1000L)
+        try {
+            val powerManager = getSystemService(POWER_SERVICE) as? PowerManager
+            if (powerManager != null && (wakeLock == null || wakeLock?.isHeld == false)) {
+                if (checkSelfPermission(android.Manifest.permission.WAKE_LOCK) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "NoZapret::VpnWakeLock").apply {
+                        acquire(24 * 60 * 60 * 1000L)
+                    }
+                }
             }
+        } catch (e: Exception) {
+            Log.w("DpiVpnService", "Could not acquire WakeLock: ${e.message}")
         }
 
         try {

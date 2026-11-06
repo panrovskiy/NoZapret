@@ -25,6 +25,7 @@ import com.example.nozapret.services.DpiVpnService
 import com.example.nozapret.services.TestingService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -577,9 +578,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun checkForUpdates(manual: Boolean = true) {
         if (isCheckingUpdates) return
-        isCheckingUpdates = true
-        updateManager.resetState()
         viewModelScope.launch {
+            val dataStoreManager = DataStoreManager(getApplication())
+            if (!manual) {
+                val prefs = dataStoreManager.getAllSettings().first()
+                val lastCheckTime = prefs[DataStoreManager.LAST_UPDATE_CHECK_TIME] ?: 0L
+                val now = System.currentTimeMillis()
+                // Battery-saving interval: Check background updates at most once every 24 hours
+                if (now - lastCheckTime < 24 * 3600 * 1000L) {
+                    AppLogger.d("UPDATE", "[UPDATE] Skipping automatic update check (checked < 24h ago)")
+                    return@launch
+                }
+            }
+
+            isCheckingUpdates = true
+            updateManager.resetState()
+            dataStoreManager.saveSetting(DataStoreManager.LAST_UPDATE_CHECK_TIME, System.currentTimeMillis())
+
             val info = updateManager.checkForUpdates()
             if (info != null) {
                 updateInfo = info

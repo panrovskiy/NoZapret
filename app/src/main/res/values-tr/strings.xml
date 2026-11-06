@@ -459,4 +459,12 @@
     <string name="app_version">NoZapret Sürümü</string>
     <string name="byedpi_version">ByeDPI Motor Sürümü</string>
     <string name="about_open_github">Resmi Proje Sayfasını Aç</string>
+
+    <!-- Update & Testing Notifications -->
+    <string name="channel_updates_name">Uygulama Güncellemeleri</string>
+    <string name="channel_updates_desc">Yeni NoZapret sürümleri çıktığında bildirimler</string>
+    <string name="notification_update_available_title">Yeni Güncelleme Mevcut</string>
+    <string name="notification_update_available_text">Sürüm %1$s mevcut. Açmak için dokunun.</string>
+    <string name="notification_batch_testing_complete_title">Test Tamamlandı</string>
+    <string name="notification_batch_testing_complete_text">Tüm strateji testleri tamamlandı. Başarılı: %1$d/%2$d.</string>
 </resources>

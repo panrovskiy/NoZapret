@@ -459,4 +459,12 @@
     <string name="app_version">NoZapret Version</string>
     <string name="byedpi_version">ByeDPI Engine Version</string>
     <string name="about_open_github">Open Official Project Page</string>
+
+    <!-- Update & Testing Notifications -->
+    <string name="channel_updates_name">App Updates</string>
+    <string name="channel_updates_desc">Notifications when a new version of NoZapret is available</string>
+    <string name="notification_update_available_title">New Update Available</string>
+    <string name="notification_update_available_text">Version %1$s is available. Tap to open update details.</string>
+    <string name="notification_batch_testing_complete_title">Test Completed</string>
+    <string name="notification_batch_testing_complete_text">All strategy tests finished. %1$d/%2$d succeeded.</string>
 </resources>
