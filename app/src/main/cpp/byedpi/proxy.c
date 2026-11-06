@@ -702,24 +702,33 @@ int on_tunnel(struct poolhd *pool, struct eval *val, int etype)
     bool wait = false;
     struct eval *pair = val->pair;
 
+    if (!pair) return -1;
+
     if (etype & (int)(POLLIN | POLLOUT)) {
         remove_timer(pool, val);
-        if (pair) remove_timer(pool, pair);
+        remove_timer(pool, pair);
     }
 
-    if (etype == (int)POLLTIMEOUT && (!pair || !pair->buff) && val->round_count) {
-        if (params.timeout > 0 && params.to_count_lim > 0) {
-            LOG(LOG_S, "timeout (%u) (fd=%d)\n", val->to_count, val->fd);
-            return on_timeout(pool, val);
+    if (etype == (int)POLLTIMEOUT) {
+        if (!val->buff && !pair->buff) {
+            if (params.timeout > 0 && params.to_count_lim > 0 && val->round_count) {
+                LOG(LOG_S, "timeout (%u) (fd=%d)\n", val->to_count, val->fd);
+                return on_timeout(pool, val);
+            }
+            return 0;
         }
-        return 0;
+        if (!val->buff && pair->buff) {
+            val = pair;
+            pair = val->pair;
+        }
+    } else if (etype & (int)POLLOUT) {
+        if (!val->buff && pair->buff) {
+            val = pair;
+            pair = val->pair;
+        }
     }
-    if ((etype & (int)POLLOUT) || etype == (int)POLLTIMEOUT) {
-        LOG(LOG_S, "pollout (fd=%d)\n", val->fd);
-        val = pair;
-        if (val) pair = val->pair;
-    }
-    if (val && val->buff) {
+
+    if (val->buff) {
         n = val->buff->lock - val->buff->offset;
         
         ssize_t sn = tcp_send_hook(pool, pair, val->buff, &val->buff->lock, &wait);
@@ -728,20 +737,28 @@ int on_tunnel(struct poolhd *pool, struct eval *val, int etype)
         }
         if (sn < n || wait) {
             val->buff->offset += sn;
+            if (wait) {
+                set_timer(pool, val, params.await_int ? params.await_int : 10);
+            }
+            if (mod_etype(pool, val, 0) ||
+                    mod_etype(pool, pair, POLLOUT)) {
+                uniperror("mod_etype");
+                return -1;
+            }
             return 0;
         }
         buff_push(pool, val->buff);
         val->buff = 0;
         remove_timer(pool, val);
-        if (pair) remove_timer(pool, pair);
+        remove_timer(pool, pair);
 
         if (mod_etype(pool, val, POLLIN) ||
-                (pair && mod_etype(pool, pair, POLLIN))) {
+                mod_etype(pool, pair, POLLIN)) {
             uniperror("mod_etype");
             return -1;
         }
     }
-    if (!val) return -1;
+
     struct buffer *buff = buff_pop(pool, params.bfsize);
     if (!buff) {
         return -1;
@@ -759,9 +776,11 @@ int on_tunnel(struct poolhd *pool, struct eval *val, int etype)
         if (sn < n || wait) {
             buff->lock = (unsigned int)n;
             buff->offset = (unsigned int)sn;
-            
+            if (wait) {
+                set_timer(pool, val, params.await_int ? params.await_int : 10);
+            }
             if (mod_etype(pool, val, 0) ||
-                    (pair && mod_etype(pool, pair, !wait ? (int)POLLOUT : 0))) {
+                    mod_etype(pool, pair, POLLOUT)) {
                 uniperror("mod_etype");
                 return -1;
             }
@@ -771,7 +790,7 @@ int on_tunnel(struct poolhd *pool, struct eval *val, int etype)
     buff_push(pool, val->buff);
     val->buff = 0;
     remove_timer(pool, val);
-    if (pair) remove_timer(pool, pair);
+    remove_timer(pool, pair);
     return 0;
 }
 

@@ -293,10 +293,14 @@ Java_com_example_nozapret_core_HevSocks5Tunnel_TProxyStopService([[maybe_unused]
     hev_socks5_tunnel_quit();
 }
 
+extern "C" void hev_socks5_tunnel_stats(size_t *tx_packets, size_t *tx_bytes, size_t *rx_packets, size_t *rx_bytes);
+
 JNIEXPORT jlongArray JNICALL
 Java_com_example_nozapret_core_HevSocks5Tunnel_TProxyGetStats(JNIEnv *env, [[maybe_unused]] jobject thiz) {
+    size_t tx_p = 0, tx_b = 0, rx_p = 0, rx_b = 0;
+    hev_socks5_tunnel_stats(&tx_p, &tx_b, &rx_p, &rx_b);
     jlongArray result = env->NewLongArray(2);
-    jlong stats[2] = {0, 0};
+    jlong stats[2] = {static_cast<jlong>(rx_b), static_cast<jlong>(tx_b)};
     env->SetLongArrayRegion(result, 0, 2, stats);
     return result;
 }
