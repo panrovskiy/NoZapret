@@ -179,7 +179,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val sitesToTestCount: Int get() = bypassedSites.filter { !it.contains("/") }.size
 
     init {
-        // Consolidate initialization
+        // Consolidate essential VPN state listener
         viewModelScope.launch {
             VpnController.stateFlow.collectLatest { state ->
                 isEnabled = state.isRunning
@@ -190,22 +190,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 vpnStartTime = state.startTime
             }
         }
-        // Register AppLogger real-time listener for application logs
-        AppLogger.addListener { entry ->
-            val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date(entry.timestamp))
-            val formatted = "[$timeStr] [${entry.level}] [${entry.tag}] ${entry.message}"
-            viewModelScope.launch(Dispatchers.Main) {
-                if (!logLines.contains(formatted)) {
-                    logLines.add(formatted)
-                    if (logLines.size > 3000) logLines.removeAt(0)
+
+        // Defer non-critical background initialization to background thread for instant UI launch
+        viewModelScope.launch(Dispatchers.IO) {
+            // Register AppLogger real-time listener for application logs
+            AppLogger.addListener { entry ->
+                val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date(entry.timestamp))
+                val formatted = "[$timeStr] [${entry.level}] [${entry.tag}] ${entry.message}"
+                viewModelScope.launch(Dispatchers.Main) {
+                    if (!logLines.contains(formatted)) {
+                        logLines.add(formatted)
+                        if (logLines.size > 3000) logLines.removeAt(0)
+                    }
                 }
             }
-        }
 
-        loadTestResults()
-        startLogCollection()
-        checkForUpdates(manual = false)
-        observeTestingService()
+            loadTestResults()
+            startLogCollection()
+            checkForUpdates(manual = false)
+            observeTestingService()
+        }
     }
 
     private val noZapretTags = setOf(

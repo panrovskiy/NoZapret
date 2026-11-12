@@ -123,7 +123,10 @@ class MainActivity : AppCompatActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setupShortcuts()
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            setupShortcuts()
+        }
         handleIntent(intent)
         setContent {
             val viewModel: MainViewModel = viewModel()

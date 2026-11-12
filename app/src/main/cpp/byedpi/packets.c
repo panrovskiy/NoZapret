@@ -509,9 +509,9 @@ bool neq_tls_sid(const char *req, size_t qn, const char *resp, size_t sn)
 
 bool is_tls_shello(const char *buffer, size_t bsize)
 {
-    return (bsize > 5 &&
-        ANTOHS(buffer, 0) == 0x1603 &&
-        buffer[5] == 0x02);
+    if (bsize < 5) return 0;
+    uint16_t ver = ANTOHS(buffer, 0);
+    return (ver == 0x1603 || ver == 0x1403 || ver == 0x1503 || ver == 0x1703);
 }
 
 /*
